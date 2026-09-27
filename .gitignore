@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.log
+.env
+
+# Базы и бэкапы
+*.db
+*.sqlite*
+*.backup-*
+
+# Временные и отладочные скрипты
+app_copy.py
+app_remote.py
+system_full.html
+check_*.py
+count_*.py
+debug*.py
+deep_debug.py
+final_debug.py
+find_double.py
+find_extra.py
+find_non_template.py
+fix_*.py
+inline_tags.py
+list_*.py
+remove_extra.py
+verify*.py
+_deploy_all2.py
+_update_cur.py
+_v14.py
+
+# IDE и система
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
