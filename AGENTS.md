@@ -13,6 +13,24 @@
 
 Это правило НЕОБХОДИМО соблюдать всегда без исключений.
 
+### ГИТХАБ: ОБЯЗАТЕЛЬНО ВНОСИТЬ ИЗМЕНЕНИЯ В ПРОЕКТ И ДОКУМЕНТАЦИЮ
+**Любые дополнения и изменения кода, шаблонов и документации нужно коммитить и пушить на GitHub — иначе репозиторий отстаёт от работающей системы.**
+
+Репозитории:
+- **`Lan-discovery-ARM`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-ARM — код (`app.py`, `modules/`, `templates/`, `games/`, `static/`, `weather-monitor/`), документация `docs/`, `README.md`, `AGENTS.md`. Ветка `main`.
+- **`Lan-discovery-docs`** (публичный) — https://github.com/kotmartovskiy/Lan-discovery-docs — очищенная от рабочих IP/паролей копия `docs/`.
+
+Порядок действий:
+1. `git status` → `git add <изменённые файлы>` (мусор типа `check_*`, `debug*`, `verify*`, `__pycache__` отфильтровывается `.gitignore`).
+2. Коммит — сообщение по-русски с префиксом: `core:` `ui:` `docs:` `fix:` `tools:` `weather:` `chore:`.
+3. `git push origin main`.
+4. Если менялся `docs/` — обновить публичную версию:
+   ```
+   python tools/sanitize_docs.py        # выход 0 = утечек нет
+   cd <temp>/docs-public && git add -A && git commit -m "docs: ..." && git push
+   ```
+5. Если правки вносились на сервер (`/opt/lan-discovery/*`) — сначала подтянуть их в локальную копию (SFTP read → правка → commit), чтобы репозиторий соответствовал проду.
+
 ## Рабочее окружение
 - Orange Pi: IP `192.168.3.234` (LAN), SSH root/1234
 - Thinkpad T480: IP `192.168.3.236` (WiFi) / `192.168.3.239` (LAN)
