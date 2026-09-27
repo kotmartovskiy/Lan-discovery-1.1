@@ -1,0 +1,15 @@
+[Unit]
+Description=Emergency Restore Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/lan-discovery
+ExecStart=/usr/bin/python3 /opt/lan-discovery/restore_server.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
