@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Погода — Иваново</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Погода в Иваново</h1>
+            <p class="update-time" id="update-time">
+                Обновлено: {{ weather.timestamp if weather and weather.timestamp else '—' }}
+            </p>
+        </header>
+
+        <div class="grid">
+            <!-- Прогноз на сегодня -->
+            <div class="card card-main">
+                <h2>Прогноз на сегодня</h2>
+                <div class="weather-main">
+                    <div class="temp-block">
+                        <span class="temp">{{ wtemp }}°C</span>
+                        <span class="desc">{{ wdesc }}</span>
+                    </div>
+                    <div class="details">
+                        <div class="detail-item">
+                            <span class="label">Ветер</span>
+                            <span class="value">{{ wwind }} м/с</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Влажность</span>
+                            <span class="value">{{ whum }}%</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Давление</span>
+                            <span class="value">{{ wpress }} мм</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Осадки</span>
+                            <span class="value">{{ precip }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Солнце</span>
+                            <span class="value">{{ sunrise }} — {{ sunset }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if today_weather %}
+                <div class="hourly-chart">
+                    <h3>По часам</h3>
+                    <div class="chart-scroll">
+                        {% for entry in today_weather %}
+                        <div class="hour-block">
+                            <span class="hour">{{ entry.timestamp[11:16] }}</span>
+                            <span class="hour-temp">{{ "%.0f"|format(entry.temp)|default('—') }}°</span>
+                            <span class="hour-wind">{{ "%.0f"|format(entry.wind_speed)|default('—') }} м/с</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- УФ-индекс -->
+            <div class="card">
+                <h2>УФ-индекс</h2>
+                {% if uv_max is not none %}
+                <div class="uv-block">
+                    <span class="uv-value {{ uv_class }}">{{ uv_val }}</span>
+                    <span class="uv-desc">{{ uv_desc }}</span>
+                </div>
+                <div class="uv-scale">
+                    <div class="uv-bar">
+                        <div class="uv-fill" style="width: {{ uv_pct }}%"></div>
+                    </div>
+                    <div class="uv-labels">
+                        <span>0</span><span>3</span><span>6</span><span>8</span><span>11+</span>
+                    </div>
+                </div>
+                {% else %}
+                <p class="no-data">Нет данных</p>
+                {% endif %}
+            </div>
+
+            <!-- Качество воздуха -->
+            <div class="card">
+                <h2>Качество воздуха</h2>
+                {% if air and air.aqi is not none %}
+                <div class="aqi-block">
+                    <span class="aqi-value {{ aqi_class }}">AQI {{ air.aqi }}</span>
+                </div>
+                <div class="pollutants">
+                    <div class="pollutant">
+                        <span class="p-label">PM2.5</span>
+                        <span class="p-value">{{ "%.1f"|format(air.pm2_5) if air.pm2_5 is not none else '—' }} μg/m³</span>
+                    </div>
+                    <div class="pollutant">
+                        <span class="p-label">PM10</span>
+                        <span class="p-value">{{ "%.1f"|format(air.pm10) if air.pm10 is not none else '—' }} μg/m³</span>
+                    </div>
+                    <div class="pollutant">
+                        <span class="p-label">NO₂</span>
+                        <span class="p-value">{{ "%.1f"|format(air.no2) if air.no2 is not none else '—' }} μg/m³</span>
+                    </div>
+                    <div class="pollutant">
+                        <span class="p-label">SO₂</span>
+                        <span class="p-value">{{ "%.1f"|format(air.so2) if air.so2 is not none else '—' }} μg/m³</span>
+                    </div>
+                    <div class="pollutant">
+                        <span class="p-label">O₃</span>
+                        <span class="p-value">{{ "%.1f"|format(air.o3) if air.o3 is not none else '—' }} μg/m³</span>
+                    </div>
+                    <div class="pollutant">
+                        <span class="p-label">CO</span>
+                        <span class="p-value">{{ "%.0f"|format(air.co) if air.co is not none else '—' }} μg/m³</span>
+                    </div>
+                </div>
+                {% else %}
+                <p class="no-data">Нет данных</p>
+                {% endif %}
+            </div>
+
+            <!-- Радиационный фон -->
+            <div class="card">
+                <h2>Радиационный фон</h2>
+                {% if radiation and radiation.radiation_value is not none %}
+                <div class="radiation-block">
+                    <span class="rad-value">{{ "%.1f"|format(radiation.radiation_value) }}</span>
+                    <span class="rad-unit">{{ radiation.unit|default('μR/h') }}</span>
+                </div>
+                <p class="rad-source">Источник: {{ radiation.source|default('—') }}</p>
+                <div class="rad-info">
+                    <p>Норма: 8–12 μR/h</p>
+                </div>
+                {% else %}
+                <p class="no-data">Нет данных</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function refreshData() {
+            try {
+                const resp = await fetch('/api/today');
+                const d = await resp.json();
+
+                if (d.weather) {
+                    const t = document.querySelector('.temp');
+                    const desc = document.querySelector('.desc');
+                    if (t) t.textContent = (d.weather.temp != null ? d.weather.temp.toFixed(1) : '—') + '°C';
+                    if (desc) desc.textContent = d.weather.weather_desc || '—';
+                }
+                if (d.uv) {
+                    const uv = document.querySelector('.uv-value');
+                    const uvd = document.querySelector('.uv-desc');
+                    if (uv) uv.textContent = d.uv.uv_max != null ? d.uv.uv_max.toFixed(1) : '—';
+                    if (uvd) uvd.textContent = d.uv.uv_description || '—';
+                }
+                if (d.air) {
+                    const aqi = document.querySelector('.aqi-value');
+                    if (aqi) aqi.textContent = 'AQI ' + (d.air.aqi != null ? d.air.aqi : '—');
+                }
+                if (d.radiation) {
+                    const rv = document.querySelector('.rad-value');
+                    if (rv) rv.textContent = d.radiation.radiation_value != null ? d.radiation.radiation_value.toFixed(1) : '—';
+                }
+
+                document.getElementById('update-time').textContent = 'Обновлено: ' + new Date().toLocaleString('ru-RU');
+            } catch (e) {
+                console.error('Refresh failed:', e);
+            }
+        }
+
+        setInterval(refreshData, 5 * 60 * 1000);
+    </script>
+</body>
+</html>

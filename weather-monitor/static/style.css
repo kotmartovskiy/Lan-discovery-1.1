@@ -1,0 +1,302 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+header h1 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.update-time {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.card {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #334155;
+}
+
+.card-main {
+    grid-column: 1 / -1;
+}
+
+.card h2 {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.weather-main {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+}
+
+.temp-block {
+    display: flex;
+    flex-direction: column;
+}
+
+.temp {
+    font-size: 3.5rem;
+    font-weight: 700;
+    color: #f8fafc;
+    line-height: 1;
+}
+
+.desc {
+    font-size: 1.1rem;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+.details {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-item .label {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.detail-item .value {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #e2e8f0;
+}
+
+.hourly-chart {
+    margin-top: 20px;
+}
+
+.hourly-chart h3 {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.chart-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+}
+
+.hour-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 60px;
+    padding: 8px;
+    background: #0f172a;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.hour {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.hour-temp {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f8fafc;
+    margin: 4px 0;
+}
+
+.hour-wind {
+    font-size: 0.7rem;
+    color: #64748b;
+}
+
+.uv-block {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.uv-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    display: block;
+}
+
+.uv-низкий { color: #22c55e; }
+.uv-умеренный { color: #eab308; }
+.uv-высокий { color: #f97316; }
+.uv-очень-высокий { color: #ef4444; }
+.uv-экстремальный { color: #a855f7; }
+
+.uv-desc {
+    font-size: 1rem;
+    color: #94a3b8;
+}
+
+.uv-scale {
+    margin-top: 12px;
+}
+
+.uv-bar {
+    height: 6px;
+    background: linear-gradient(to right, #22c55e, #eab308, #f97316, #ef4444, #a855f7);
+    border-radius: 3px;
+    position: relative;
+}
+
+.uv-fill {
+    position: absolute;
+    top: -3px;
+    left: 0;
+    height: 12px;
+    width: 4px;
+    background: white;
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(0,0,0,0.5);
+}
+
+.uv-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+.aqi-block {
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.aqi-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    padding: 4px 16px;
+    border-radius: 8px;
+}
+
+.aqi-good { background: #166534; color: #bbf7d0; }
+.aqi-fair { background: #854d0e; color: #fef08a; }
+.aqi-poor { background: #991b1b; color: #fecaca; }
+
+.pollutants {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.pollutant {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 8px;
+    background: #0f172a;
+    border-radius: 6px;
+}
+
+.p-label {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.p-value {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #e2e8f0;
+}
+
+.radiation-block {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.rad-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #22c55e;
+}
+
+.rad-unit {
+    font-size: 1rem;
+    color: #94a3b8;
+    margin-left: 4px;
+}
+
+.rad-source {
+    font-size: 0.8rem;
+    color: #64748b;
+    text-align: center;
+}
+
+.rad-info {
+    margin-top: 8px;
+    padding: 8px;
+    background: #0f172a;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.rad-info p {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+@media (max-width: 600px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    .temp {
+        font-size: 2.5rem;
+    }
+
+    .weather-main {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .pollutants {
+        grid-template-columns: 1fr;
+    }
+}
