@@ -1,0 +1,427 @@
+{% extends "base_app.html" %}
+{% block content %}
+
+<style>
+.dlna-wrap { max-width: 960px; }
+.dlna-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.dlna-header h2 { margin: 0; font-size: 18px; color: #eee; flex: 1; }
+
+.dlna-btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s;
+}
+.dlna-btn:hover { background: #1d4ed8; }
+.dlna-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.dlna-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #888;
+}
+.dlna-toggle input[type="checkbox"] {
+    accent-color: #2563eb;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.dlna-device-card {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.dlna-device-card:hover { border-color: #2563eb; }
+.dlna-device-card.active { border-color: #2563eb; background: #111827; }
+
+.dlna-device-name {
+    font-size: 16px;
+    color: #fff;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+.dlna-device-info {
+    font-size: 12px;
+    color: #888;
+}
+.dlna-device-ip {
+    font-family: monospace;
+    color: #8ab4f8;
+}
+
+.dlna-empty {
+    color: #888;
+    text-align: center;
+    padding: 60px 20px;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.dlna-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: #888;
+    flex-wrap: wrap;
+}
+.dlna-breadcrumb span { cursor: pointer; color: #8ab4f8; }
+.dlna-breadcrumb span:hover { text-decoration: underline; }
+.dlna-breadcrumb .sep { color: #555; cursor: default; }
+.dlna-breadcrumb .sep:hover { text-decoration: none; }
+
+.dlna-content-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.dlna-content-header h3 {
+    margin: 0;
+    font-size: 15px;
+    color: #ccc;
+}
+.dlna-back-btn {
+    background: #222;
+    color: #ccc;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s;
+}
+.dlna-back-btn:hover { background: #333; }
+
+.dlna-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.dlna-item:hover { border-color: #2563eb; }
+
+.dlna-play-btn {
+    background: #22c55e;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+.dlna-play-btn:hover { background: #16a34a; }
+
+.dlna-item-icon {
+    font-size: 20px;
+    width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+}
+.dlna-item-name {
+    flex: 1;
+    font-size: 14px;
+    color: #eee;
+    word-break: break-word;
+}
+.dlna-item-meta {
+    font-size: 12px;
+    color: #888;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.dlna-loading {
+    color: #888;
+    text-align: center;
+    padding: 30px;
+    font-size: 13px;
+}
+.dlna-spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #444;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: dlna-spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+@keyframes dlna-spin { to { transform: rotate(360deg); } }
+
+.dlna-section-title {
+    font-size: 13px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 20px 0 10px;
+}
+</style>
+
+<div class="dlna-wrap">
+    <div class="dlna-header">
+        <h2>DLNA/UPnP устройства</h2>
+        <div class="dlna-toggle">
+            <input type="checkbox" id="dlna-autorefresh">
+            <label for="dlna-autorefresh">Авто-обновление</label>
+        </div>
+        <button class="dlna-btn" id="dlna-scan-btn" onclick="dlnaScan()">Сканировать</button>
+    </div>
+
+    <div id="dlna-devices"></div>
+    <div id="dlna-content"></div>
+</div>
+
+<script>
+var dlnaDevices = [];
+var dlnaCurrentDevice = null;
+var dlnaCurrentPath = '/';
+var dlnaPathParts = [];
+var dlnaPathIds = [];
+var dlnaAutoTimer = null;
+
+function dlnaScan() {
+    var btn = document.getElementById('dlna-scan-btn');
+    var devEl = document.getElementById('dlna-devices');
+    btn.disabled = true;
+    btn.textContent = 'Сканирование...';
+    devEl.innerHTML = '<div class="dlna-loading"><span class="dlna-spinner"></span> Поиск DLNA/UPnP устройств...</div>';
+    dlnaHideContent();
+
+    fetch('/api/dlna/scan')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            btn.disabled = false;
+            btn.textContent = 'Сканировать';
+            if (d.ok && d.devices && d.devices.length > 0) {
+                dlnaDevices = d.devices;
+                dlnaRenderDevices();
+            } else {
+                devEl.innerHTML = '<div class="dlna-empty">DLNA/UPnP устройства не найдены. Убедитесь, что устройства в той же сети.</div>';
+            }
+        })
+        .catch(function(e) {
+            btn.disabled = false;
+            btn.textContent = 'Сканировать';
+            devEl.innerHTML = '<div class="dlna-empty" style="color:#ff6666;">Ошибка сканирования: ' + e.message + '</div>';
+        });
+}
+
+function dlnaRenderDevices() {
+    var el = document.getElementById('dlna-devices');
+    var html = '';
+    for (var i = 0; i < dlnaDevices.length; i++) {
+        var dev = dlnaDevices[i];
+        var active = dlnaCurrentDevice && dlnaCurrentDevice.ip === dev.ip ? ' active' : '';
+        html += '<div class="dlna-device-card' + active + '" onclick="dlnaSelectDevice(' + i + ')">';
+        html += '<div class="dlna-device-name">' + dlnaEsc(dev.name) + '</div>';
+        html += '<div class="dlna-device-info">';
+        if (dev.manufacturer) html += dlnaEsc(dev.manufacturer);
+        if (dev.modelName) html += (dev.manufacturer ? ' · ' : '') + dlnaEsc(dev.modelName);
+        html += '<span class="dlna-device-ip"> · ' + dlnaEsc(dev.ip) + ':' + dlnaEsc(String(dev.port)) + '</span>';
+        html += ' · ' + dlnaEsc(dev.type);
+        html += '</div></div>';
+    }
+    el.innerHTML = html;
+}
+
+function dlnaSelectDevice(idx) {
+    dlnaCurrentDevice = dlnaDevices[idx];
+    dlnaCurrentPath = '/';
+    dlnaPathParts = [];
+    dlnaPathIds = ['0'];
+    dlnaRenderDevices();
+    dlnaLoadContent('0');
+}
+
+function dlnaHideContent() {
+    document.getElementById('dlna-content').innerHTML = '';
+    dlnaCurrentDevice = null;
+    dlnaCurrentPath = '/';
+    dlnaPathParts = [];
+    dlnaPathIds = [];
+}
+
+function dlnaLoadContent(objectId) {
+    if (!dlnaCurrentDevice) return;
+    var el = document.getElementById('dlna-content');
+    el.innerHTML = '<div class="dlna-loading"><span class="dlna-spinner"></span> Загрузка...</div>';
+
+    var oid = objectId || (dlnaPathIds.length > 0 ? dlnaPathIds[dlnaPathIds.length - 1] : '0');
+    var url = '/api/dlna/content?ip=' + encodeURIComponent(dlnaCurrentDevice.ip) + '&path=' + encodeURIComponent(dlnaCurrentPath) + '&id=' + encodeURIComponent(oid);
+
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.ok) {
+                dlnaRenderContent(d.items || []);
+            } else {
+                el.innerHTML = '<div class="dlna-empty" style="color:#ff6666;">Ошибка загрузки контента</div>';
+            }
+        })
+        .catch(function(e) {
+            el.innerHTML = '<div class="dlna-empty" style="color:#ff6666;">Ошибка: ' + e.message + '</div>';
+        });
+}
+
+function dlnaRenderContent(items) {
+    var el = document.getElementById('dlna-content');
+    var html = '';
+
+    html += '<div class="dlna-content-header">';
+    if (dlnaPathParts.length > 0) {
+        html += '<button class="dlna-back-btn" onclick="dlnaGoBack()">&#8592; Назад</button>';
+    }
+    html += '<h3>' + dlnaEsc(dlnaCurrentDevice.name) + '</h3>';
+    html += '</div>';
+
+    html += '<div class="dlna-breadcrumb">';
+    html += '<span onclick="dlnaNavigate(0)">/</span>';
+    for (var b = 0; b < dlnaPathParts.length; b++) {
+        html += '<span class="sep">/</span>';
+        if (b < dlnaPathParts.length - 1) {
+            html += '<span onclick="dlnaNavigate(' + (b + 1) + ')">' + dlnaEsc(dlnaPathParts[b]) + '</span>';
+        } else {
+            html += '<span style="color:#ccc; cursor:default;">' + dlnaEsc(dlnaPathParts[b]) + '</span>';
+        }
+    }
+    html += '</div>';
+
+    if (items.length === 0) {
+        html += '<div class="dlna-empty">Папка пуста</div>';
+    } else {
+        var folders = [];
+        var files = [];
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type === 'folder') folders.push(items[i]);
+            else files.push(items[i]);
+        }
+
+        if (folders.length > 0) {
+            html += '<div class="dlna-section-title">Папки (' + folders.length + ')</div>';
+            for (var f = 0; f < folders.length; f++) {
+                html += dlnaRenderItem(folders[f], true);
+            }
+        }
+        if (files.length > 0) {
+            html += '<div class="dlna-section-title">Файлы (' + files.length + ')</div>';
+            for (var k = 0; k < files.length; k++) {
+                html += dlnaRenderItem(files[k], false);
+            }
+        }
+    }
+
+    el.innerHTML = html;
+}
+
+function dlnaRenderItem(item, isFolder) {
+    var icon = '📁';
+    if (!isFolder) {
+        var t = (item.fileType || item.type || '').toLowerCase();
+        if (t === 'video') icon = '🎬';
+        else if (t === 'audio') icon = '🎵';
+        else if (t === 'image') icon = '📷';
+        else icon = '📄';
+    }
+
+    var click = isFolder
+        ? ' onclick="dlnaOpenFolder(\'' + dlnaEsc(item.name).replace(/'/g, "\\'") + '\', \'' + dlnaEsc(item.id || '0').replace(/'/g, "\\'") + '\')"'
+        : '';
+
+    var meta = '';
+    if (item.size) meta = item.size;
+    else if (item.duration) meta = item.duration;
+    else if (isFolder && item.children) meta = item.children + ' эл.';
+
+    var actions = '';
+    if (!isFolder && (item.fileType === 'video' || item.fileType === 'audio')) {
+        actions = '<button class="dlna-play-btn" onclick="event.stopPropagation();dlnaPlay(\'' + dlnaEsc(item.id || '').replace(/'/g, "\\'") + '\',\'' + dlnaEsc(item.name).replace(/'/g, "\\'") + '\',\'' + dlnaEsc(item.fileType) + '\')">▶ Воспроизвести</button>';
+    }
+
+    var html = '<div class="dlna-item"' + click + '>';
+    html += '<div class="dlna-item-icon">' + icon + '</div>';
+    html += '<div class="dlna-item-name">' + dlnaEsc(item.name) + '</div>';
+    if (actions) html += actions;
+    else if (meta) html += '<div class="dlna-item-meta">' + meta + '</div>';
+    html += '</div>';
+    return html;
+}
+
+function dlnaPlay(itemId, name, fileType) {
+    if (!dlnaCurrentDevice) return;
+    var url = '/api/dlna/file_url?ip=' + encodeURIComponent(dlnaCurrentDevice.ip) + '&id=' + encodeURIComponent(itemId);
+    fetch(url).then(function(r){return r.json()}).then(function(d){
+        if (d.ok && d.url) {
+            if (fileType === 'video') {
+                window.open('/apps/player?src=' + encodeURIComponent(d.url) + '&title=' + encodeURIComponent(name), '_blank');
+            } else {
+                window.open('/apps/player?src=' + encodeURIComponent(d.url) + '&title=' + encodeURIComponent(name), '_blank');
+            }
+        } else {
+            alert('Не удалось получить URL файла');
+        }
+    }).catch(function(){alert('Ошибка')});
+}
+
+function dlnaOpenFolder(name, itemId) {
+    dlnaPathParts.push(name);
+    dlnaPathIds.push(itemId || '0');
+    dlnaCurrentPath = '/' + dlnaPathParts.join('/');
+    dlnaLoadContent(itemId || '0');
+}
+
+function dlnaGoBack() {
+    if (dlnaPathParts.length === 0) return;
+    dlnaPathParts.pop();
+    dlnaPathIds.pop();
+    dlnaCurrentPath = dlnaPathParts.length === 0 ? '/' : '/' + dlnaPathParts.join('/');
+    dlnaLoadContent();
+}
+
+function dlnaNavigate(level) {
+    dlnaPathParts = dlnaPathParts.slice(0, level);
+    dlnaPathIds = dlnaPathIds.slice(0, level + 1);
+    dlnaCurrentPath = dlnaPathParts.length === 0 ? '/' : '/' + dlnaPathParts.join('/');
+    dlnaLoadContent();
+}
+
+function dlnaEsc(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(s));
+    return d.innerHTML;
+}
+
+document.getElementById('dlna-autorefresh').addEventListener('change', function() {
+    if (this.checked) {
+        dlnaAutoTimer = setInterval(dlnaScan, 30000);
+    } else {
+        if (dlnaAutoTimer) { clearInterval(dlnaAutoTimer); dlnaAutoTimer = null; }
+    }
+});
+
+dlnaScan();
+</script>
+
+{% endblock %}

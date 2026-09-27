@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title if title else 'App' }}</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    margin: 0;
+    padding: 16px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+}
+::-webkit-scrollbar { width: 0; height: 0; }
+
+.app-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.app-header h2 {
+    font-size: 18px;
+    color: #e6edf3;
+    flex: 1;
+    min-width: 0;
+}
+.app-btn {
+    padding: 8px 16px;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    background: #21262d;
+    color: #c9d1d9;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.app-btn:hover { background: #30363d; border-color: #484f58; }
+.app-btn.primary { background: #238636; border-color: #238636; color: #fff; }
+.app-btn.primary:hover { background: #2ea043; }
+.app-btn.danger { background: #da3633; border-color: #da3633; color: #fff; }
+.app-btn.danger:hover { background: #f85149; }
+.app-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+.card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e6edf3;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #21262d;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: #484f58;
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state p { font-size: 14px; line-height: 1.5; }
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.badge-green { background: rgba(35,134,54,0.3); color: #3fb950; }
+.badge-blue { background: rgba(56,132,244,0.2); color: #58a6ff; }
+.badge-yellow { background: rgba(187,128,9,0.2); color: #d29922; }
+.badge-red { background: rgba(218,54,51,0.2); color: #f85149; }
+.badge-gray { background: rgba(110,118,129,0.2); color: #8b949e; }
+
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { background: #238636; }
+.toast.error { background: #da3633; }
+.toast.info { background: #1f6feb; }
+
+.spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(88,166,255,0.3);
+    border-top-color: #58a6ff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #21262d; font-size: 13px; }
+th { color: #8b949e; font-weight: 600; background: #0d1117; position: sticky; top: 0; }
+td { color: #c9d1d9; }
+
+input[type="text"], input[type="number"], input[type="password"], input[type="search"], select, textarea {
+    background: #0d1117;
+    color: #c9d1d9;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: #58a6ff; }
+
+.mono { font-family: 'SF Mono', 'Fira Code', monospace; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.flex-1 { flex: 1; min-width: 0; }
+.mb-12 { margin-bottom: 12px; }
+.text-green { color: #3fb950; }
+.text-red { color: #f85149; }
+.text-yellow { color: #d29922; }
+.text-gray { color: #8b949e; }
+.text-blue { color: #58a6ff; }
+</style>
+</head>
+<body>
+<script>var USER_ROLE = "{{ current_user.role if current_user else 'guest' }}";</script>
+{% block content %}{% endblock %}
+</body>
+</html>

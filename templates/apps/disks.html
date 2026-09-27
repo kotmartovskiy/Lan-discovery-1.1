@@ -1,0 +1,222 @@
+{% extends "base_app.html" %}
+
+{% block content %}
+<style>
+  
+
+  .section {
+    background: #16213e;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .section-header {
+    font-size: 16px;
+    color: #8ab4f8;
+    margin-bottom: 12px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    background: #111;
+    color: #8ab4f8;
+    padding: 8px;
+    text-align: left;
+    border-bottom: 2px solid #333;
+  }
+
+  tbody td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #222;
+  }
+
+  .indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+
+  .indicator.mounted {
+    background: #22c55e;
+  }
+
+  .indicator.unmounted {
+    background: #6b7280;
+  }
+
+  .usage-bar {
+    height: 12px;
+    border-radius: 6px;
+    background: #222;
+    position: relative;
+    min-width: 100px;
+  }
+
+  .usage-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.3s;
+  }
+
+  .usage-low {
+    background: #22c55e;
+  }
+
+  .usage-medium {
+    background: #eab308;
+  }
+
+  .usage-high {
+    background: #ef4444;
+  }
+
+  .health-pre {
+    background: #111;
+    color: #ccc;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .refresh-btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  .refresh-btn:hover {
+    background: #1d4ed8;
+  }
+
+  .loading {
+    color: #666;
+    font-style: italic;
+  }
+</style>
+
+<div class="section">
+  <div class="section-header">📂 Информация о дисках (lsblk)</div>
+  <div id="lsblk-container"><span class="loading">Загрузка...</span></div>
+</div>
+
+<div class="section">
+  <div class="section-header">📊 Использование дисков (df -h)</div>
+  <div id="df-container"><span class="loading">Загрузка...</span></div>
+</div>
+
+<div class="section">
+  <div class="section-header">🏥 Состояние дисков (S.M.A.R.T.)</div>
+  <button class="refresh-btn" onclick="loadData()">🔄 Обновить</button>
+  <div id="smart-container"><span class="loading">Загрузка...</span></div>
+</div>
+
+<script>
+  function parseLsblk(text) {
+    const lines = text.trim().split('\n');
+    if (lines.length === 0) return '';
+    const header = lines[0];
+    const rows = lines.slice(1);
+    let html = '<table><thead><tr>';
+    const cols = header.split(/\s{2,}/);
+    cols.forEach(c => { html += '<th>' + c.trim() + '</th>'; });
+    html += '</tr></thead><tbody>';
+    rows.forEach(row => {
+      const cells = row.split(/\s{2,}/);
+      const name = cells[0] ? cells[0].trim() : '';
+      const mounted = row.includes('part') || row.includes('lvm') || (cells[3] && cells[3].trim() !== '');
+      const indicatorClass = mounted ? 'mounted' : 'unmounted';
+      html += '<tr>';
+      cells.forEach((cell, i) => {
+        if (i === 0) {
+          html += '<td><span class="indicator ' + indicatorClass + '"></span>' + cell.trim() + '</td>';
+        } else {
+          html += '<td>' + (cell ? cell.trim() : '') + '</td>';
+        }
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function parseDf(text) {
+    const lines = text.trim().split('\n');
+    if (lines.length === 0) return '';
+    const header = lines[0];
+    const rows = lines.slice(1);
+    let html = '<table><thead><tr>';
+    const cols = header.split(/\s{2,}/);
+    cols.forEach(c => { html += '<th>' + c.trim() + '</th>'; });
+    html += '<th>Прогресс</th></tr></thead><tbody>';
+    rows.forEach(row => {
+      const cells = row.split(/\s{2,}/);
+      html += '<tr>';
+      cells.forEach((cell, i) => {
+        const val = cell ? cell.trim() : '';
+        if (i === 4) {
+          const pct = parseInt(val) || 0;
+          let barClass = 'usage-low';
+          if (pct >= 90) barClass = 'usage-high';
+          else if (pct >= 70) barClass = 'usage-medium';
+          html += '<td>' + val + '</td>';
+        } else {
+          html += '<td>' + val + '</td>';
+        }
+      });
+      const pctStr = cells[4] ? cells[4].trim() : '0';
+      const pct = parseInt(pctStr) || 0;
+      let barClass = 'usage-low';
+      if (pct >= 90) barClass = 'usage-high';
+      else if (pct >= 70) barClass = 'usage-medium';
+      html += '<td><div class="usage-bar"><div class="usage-bar-fill ' + barClass + '" style="width:' + pct + '%"></div></div></td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function loadData() {
+    document.getElementById('lsblk-container').innerHTML = '<span class="loading">Загрузка...</span>';
+    document.getElementById('df-container').innerHTML = '<span class="loading">Загрузка...</span>';
+    document.getElementById('smart-container').innerHTML = '<span class="loading">Загрузка...</span>';
+
+    fetch('/api/disks')
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          document.getElementById('lsblk-container').innerHTML = parseLsblk(data.lsblk || '');
+          document.getElementById('df-container').innerHTML = parseDf(data.df || '');
+          const smartText = data.smart || 'Нет данных';
+          document.getElementById('smart-container').innerHTML = '<pre class="health-pre">' + smartText + '</pre>';
+        } else {
+          document.getElementById('lsblk-container').innerHTML = '<span class="loading">Ошибка загрузки данных</span>';
+          document.getElementById('df-container').innerHTML = '<span class="loading">Ошибка загрузки данных</span>';
+          document.getElementById('smart-container').innerHTML = '<span class="loading">Ошибка загрузки данных</span>';
+        }
+      })
+      .catch(err => {
+        document.getElementById('lsblk-container').innerHTML = '<span class="loading">Ошибка: ' + err.message + '</span>';
+        document.getElementById('df-container').innerHTML = '<span class="loading">Ошибка: ' + err.message + '</span>';
+        document.getElementById('smart-container').innerHTML = '<span class="loading">Ошибка: ' + err.message + '</span>';
+      });
+  }
+
+  loadData();
+</script>
+{% endblock %}

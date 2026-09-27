@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="info info-sticky">
+Всего: {{ total }} ·
+Онлайн: {{ online }} ·
+Сканирование каждые {{ interval }} сек. ·
+OFFLINE после {{ max_misses }} пропусков
+</div>
+
+<table>
+
+<tr>
+<th>Статус</th>
+<th>Тип</th>
+<th>Имя</th>
+{% if current_user.role != 'guest' %}
+<th>IP</th>
+<th>Hostname</th>
+<th>MAC</th>
+{% endif %}
+<th>Производитель</th>
+<th>Последнее обнаружение</th>
+<th>Пропуски</th>
+<th>Появлений</th>
+</tr>
+
+{% for d in devices %}
+
+<tr>
+
+<td>
+
+{% if d[1] %}
+
+<span class="online">
+● ONLINE
+</span>
+
+{% else %}
+
+<span class="offline">
+● OFFLINE
+</span>
+
+{% endif %}
+
+</td>
+
+<td>
+{% if d[11] == 'computer' %}💻{% elif d[11] == 'mobile' %}📱{% elif d[11] == 'iot' %}🏠{% elif d[11] == 'other' %}❓{% endif %}
+</td>
+
+<td>
+
+{% if current_user.role != 'guest' %}
+<a href="/device/{{ d[0] }}" class="device-link">
+{% endif %}
+{% if d[2] %}
+<strong>{{ d[2] }}</strong>
+{% else %}
+{{ d[3] or '-' }}
+{% endif %}
+{% if current_user.role != 'guest' %}
+</a>
+{% endif %}
+
+{% if d[10] and current_user.role != 'guest' %}
+<label class="new-badge" style="cursor:pointer; display:inline-flex; align-items:center; gap:4px; font-size:12px; color:#f59e0b; margin-top:4px;">
+<input type="checkbox" onchange="dismissNew('{{ d[0] }}', this)" style="cursor:pointer;">
+ <strong>NEW</strong>
+</label>
+{% endif %}
+
+</td>
+
+{% if current_user.role != 'guest' %}
+<td>
+<a href="/device/{{ d[0] }}" class="device-link">
+{{ d[0] }}
+</a>
+</td>
+
+<td>
+{{ d[3] or '-' }}
+</td>
+
+<td>
+{{ d[4] or '-' }}
+</td>
+{% endif %}
+
+<td>
+{{ d[5] or '-' }}
+</td>
+
+<td>
+{{ d[7] or '-' }}
+</td>
+
+<td>
+{{ d[8] }}
+</td>
+
+<td>
+{{ d[9] }}
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+{% endblock %}

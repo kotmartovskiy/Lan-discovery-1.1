@@ -1,0 +1,146 @@
+{% extends "base_app.html" %}
+{% block content %}
+<style>
+    
+    .container { display: flex; gap: 16px; height: calc(100vh - 120px); }
+    .left-panel { width: 30%; background: #111; border-radius: 8px; overflow-y: auto; padding: 8px; }
+    .right-panel { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .note-item { padding: 10px; border-radius: 6px; cursor: pointer; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+    .note-item:hover { background: #222; }
+    .note-item.active { background: #2563eb; color: #fff; }
+    .note-item .note-info { flex: 1; overflow: hidden; }
+    .note-item .note-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .note-item .note-date { font-size: 12px; opacity: 0.7; }
+    .title-input { width: 100%; background: #111; border: 1px solid #333; border-radius: 6px; color: #fff; padding: 10px; font-size: 16px; box-sizing: border-box; }
+    .content-textarea { flex: 1; width: 100%; background: #111; border: 1px solid #333; border-radius: 6px; color: #fff; padding: 12px; font-family: monospace; font-size: 14px; resize: none; box-sizing: border-box; }
+    .btn-save { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; align-self: flex-end; }
+    .btn-save:hover { background: #1d4ed8; }
+    .btn-new { background: #2ecc71; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; width: 100%; margin-bottom: 8px; }
+    .btn-new:hover { background: #27ae60; }
+    .btn-delete { background: none; border: none; color: #e74c3c; cursor: pointer; padding: 4px 8px; font-size: 16px; }
+    .btn-delete:hover { color: #c0392b; }
+    .empty-state { text-align: center; padding: 40px 20px; opacity: 0.5; }
+</style>
+
+<div class="container">
+    <div class="left-panel">
+        <button class="btn-new" onclick="createNote()">Новая заметка</button>
+        <div id="notesList"></div>
+    </div>
+    <div class="right-panel">
+        <input type="text" id="noteTitle" class="title-input" placeholder="Заголовок..." disabled>
+        <textarea id="noteContent" class="content-textarea" placeholder="Текст заметки..." disabled></textarea>
+        <button class="btn-save" id="btnSave" onclick="saveNote()" disabled>Сохранить</button>
+    </div>
+</div>
+
+<script>
+let notes = [];
+let activeId = null;
+
+async function loadNotes() {
+    try {
+        const r = await fetch('/api/notes');
+        const d = await r.json();
+        if (d.ok) {
+            notes = d.notes;
+            renderList();
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки:', e);
+    }
+}
+
+function renderList() {
+    const el = document.getElementById('notesList');
+    if (!notes.length) {
+        el.innerHTML = '<div class="empty-state">Нет заметок</div>';
+        return;
+    }
+    el.innerHTML = notes.map(n => `
+        <div class="note-item ${n.id === activeId ? 'active' : ''}" onclick="selectNote(${n.id})">
+            <div class="note-info">
+                <div class="note-title">${escHtml(n.title || 'Без заголовка')}</div>
+                <div class="note-date">${n.updated || n.created || ''}</div>
+            </div>
+            <button class="btn-delete" onclick="event.stopPropagation(); deleteNote(${n.id})" title="Удалить">&times;</button>
+        </div>
+    `).join('');
+}
+
+function selectNote(id) {
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+    activeId = id;
+    document.getElementById('noteTitle').value = note.title || '';
+    document.getElementById('noteContent').value = note.content || '';
+    document.getElementById('noteTitle').disabled = false;
+    document.getElementById('noteContent').disabled = false;
+    document.getElementById('btnSave').disabled = false;
+    renderList();
+}
+
+async function createNote() {
+    try {
+        const r = await fetch('/api/notes', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({title: '', content: ''})
+        });
+        const d = await r.json();
+        if (d.ok) {
+            await loadNotes();
+            selectNote(d.id);
+        }
+    } catch (e) {
+        console.error('Ошибка создания:', e);
+    }
+}
+
+async function saveNote() {
+    if (!activeId) return;
+    const title = document.getElementById('noteTitle').value;
+    const content = document.getElementById('noteContent').value;
+    try {
+        const r = await fetch('/api/notes/' + activeId, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({title, content})
+        });
+        const d = await r.json();
+        if (d.ok) await loadNotes();
+    } catch (e) {
+        console.error('Ошибка сохранения:', e);
+    }
+}
+
+async function deleteNote(id) {
+    if (!confirm('Удалить заметку?')) return;
+    try {
+        const r = await fetch('/api/notes/' + id, {method: 'DELETE'});
+        const d = await r.json();
+        if (d.ok) {
+            if (activeId === id) {
+                activeId = null;
+                document.getElementById('noteTitle').value = '';
+                document.getElementById('noteContent').value = '';
+                document.getElementById('noteTitle').disabled = true;
+                document.getElementById('noteContent').disabled = true;
+                document.getElementById('btnSave').disabled = true;
+            }
+            await loadNotes();
+        }
+    } catch (e) {
+        console.error('Ошибка удаления:', e);
+    }
+}
+
+function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+loadNotes();
+</script>
+{% endblock %}

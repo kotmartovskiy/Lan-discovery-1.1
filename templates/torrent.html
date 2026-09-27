@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if current_user.role == 'guest' %}
+<div class="card" style="text-align:center; padding:40px;">
+<div style="color:#888; font-size:14px;">Доступ запрещён</div>
+</div>
+{% else %}
+<div style="position:fixed; top:0; left:0; right:0; bottom:0; padding-top:140px;">
+<iframe id="transmission-frame" style="width:100%; height:100%; border:none;"></iframe>
+<script>document.getElementById("transmission-frame").src = "http://" + window.location.hostname + ":9091/transmission/web/";</script>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,631 @@
+{% extends "base_app.html" %}
+{% block content %}
+<style>
+  
+  :root {
+    --text: #c9d1d9;
+    --text2: #e6edf3;
+    --accent: #58a6ff;
+    --accent-hover: #79c0ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --gray: #8b949e;
+    --border: #30363d;
+    --card: #161b22;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .adapter-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .adapter-icon {
+    font-size: 32px;
+    line-height: 1;
+  }
+  .adapter-details h3 {
+    color: var(--text2);
+    font-size: 16px;
+    margin-bottom: 2px;
+  }
+  .adapter-details span {
+    font-family: 'Courier New', monospace;
+    color: #8ab4f8;
+    font-size: 13px;
+  }
+  .adapter-status {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .adapter-status.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .adapter-status.off { background: var(--red); }
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover { background: #16a34a; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-secondary { background: var(--gray); color: #fff; }
+  .btn-secondary:hover { background: #4b5563; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .toggle-switch {
+    position: relative;
+    width: 48px;
+    height: 26px;
+    cursor: pointer;
+  }
+  .toggle-switch input { display: none; }
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--red);
+    border-radius: 13px;
+    transition: 0.3s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: 0.3s;
+  }
+  .toggle-switch input:checked + .toggle-slider { background: var(--green); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(22px); }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 4px;
+    border: 1px solid var(--border);
+  }
+  .tab {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .tab:hover { background: rgba(255,255,255,0.05); }
+  .tab.active { background: var(--accent); color: #fff; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .device-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .device-card {
+    display: flex;
+    align-items: center;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    gap: 14px;
+    transition: border-color 0.2s;
+  }
+  .device-card:hover { border-color: var(--accent); }
+  .device-icon {
+    font-size: 28px;
+    width: 42px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .device-info { flex: 1; min-width: 0; }
+  .device-name {
+    color: var(--text2);
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .device-mac {
+    font-family: 'Courier New', monospace;
+    color: #8ab4f8;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .device-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .signal-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+  }
+  .signal-bar .bar {
+    width: 4px;
+    border-radius: 1px;
+    background: var(--gray);
+    transition: background 0.2s;
+  }
+  .signal-bar .bar.active.green { background: var(--green); }
+  .signal-bar .bar.active.yellow { background: var(--yellow); }
+  .signal-bar .bar.active.red { background: var(--red); }
+  .signal-bar .bar:nth-child(1) { height: 4px; }
+  .signal-bar .bar:nth-child(2) { height: 7px; }
+  .signal-bar .bar:nth-child(3) { height: 10px; }
+  .signal-bar .bar:nth-child(4) { height: 14px; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .badge-connected { background: rgba(34,197,94,0.2); color: var(--green); }
+  .badge-paired { background: rgba(59,130,246,0.2); color: var(--blue); }
+  .badge-available { background: rgba(107,114,128,0.2); color: var(--gray); }
+
+  .device-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--gray);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  .scan-indicator {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(37,99,235,0.15);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--accent);
+  }
+  .scan-indicator.active { display: flex; }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(37,99,235,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .section-header h4 {
+    color: var(--text2);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .count-badge {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+  .toast.info { background: var(--accent); }
+</style>
+
+<div class="header">
+  <div class="adapter-info">
+    <div class="adapter-icon">📶</div>
+    <div class="adapter-details">
+      <h3>
+        <span class="adapter-status off" id="statusDot"></span>
+        <span id="adapterName">Загрузка...</span>
+      </h3>
+      <span id="adapterMAC">--:--:--:--:--:--</span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <label class="toggle-switch" title="Питание">
+      <input type="checkbox" id="powerToggle" onchange="togglePower(this.checked)">
+      <span class="toggle-slider"></span>
+    </label>
+    <label class="toggle-switch" title="Обнаруживаемость">
+      <input type="checkbox" id="discoverableToggle" onchange="toggleDiscoverable(this.checked)">
+      <span class="toggle-slider"></span>
+    </label>
+    <button class="btn btn-primary btn-sm" onclick="refreshAll()">🔄 Обновить</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('paired')">📱 Устройства</button>
+  <button class="tab" onclick="switchTab('scan')">🔍 Поиск</button>
+  <button class="tab" onclick="switchTab('audio')">🔊 Аудио</button>
+</div>
+
+<div id="tab-paired" class="tab-content active">
+  <div class="section-header">
+    <h4>Сопряжённые устройства</h4>
+    <span class="count-badge" id="pairedCount">0</span>
+  </div>
+  <div class="device-list" id="pairedList">
+    <div class="empty-state" id="pairedEmpty">
+      <div class="icon">📭</div>
+      <p>Нет сопряжённых устройств</p>
+    </div>
+  </div>
+</div>
+
+<div id="tab-scan" class="tab-content">
+  <div class="scan-indicator" id="scanIndicator">
+    <div class="spinner"></div>
+    <span>Сканирование... <span id="scanTimer">10</span>с</span>
+  </div>
+  <div class="section-header">
+    <h4>Доступные устройства</h4>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="count-badge" id="scanCount">0</span>
+      <button class="btn btn-primary btn-sm" id="scanBtn" onclick="startScan()">🔍 Поиск</button>
+    </div>
+  </div>
+  <div class="device-list" id="scanList">
+    <div class="empty-state" id="scanEmpty">
+      <div class="icon">📡</div>
+      <p>Устройства не найдены.<br>Нажмите 'Поиск' для сканирования.</p>
+    </div>
+  </div>
+</div>
+
+<div id="tab-audio" class="tab-content">
+  <div class="section-header">
+    <h4>Аудиоустройства</h4>
+    <span class="count-badge" id="audioCount">0</span>
+  </div>
+  <div class="device-list" id="audioList">
+    <div class="empty-state" id="audioEmpty">
+      <div class="icon">🔈</div>
+      <p>Аудиоустройства не найдены</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let scanInterval = null;
+  let scanCountdown = null;
+
+  function showToast(msg, type = 'info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + type + ' show';
+    setTimeout(() => { t.className = 'toast'; }, 3000);
+  }
+
+  async function api(url, opts = {}) {
+    try {
+      const r = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...opts
+      });
+      return await r.json();
+    } catch (e) {
+      showToast('Ошибка сети', 'error');
+      return { ok: false, error: e.message };
+    }
+  }
+
+  async function loadStatus() {
+    const d = await api('/api/bluetooth/status');
+    if (!d.ok) return;
+    document.getElementById('adapterName').textContent = d.name || d.adapter;
+    document.getElementById('adapterMAC').textContent = d.mac || '--:--:--:--:--:--';
+    const dot = document.getElementById('statusDot');
+    dot.className = 'adapter-status ' + (d.powered ? 'on' : 'off');
+    document.getElementById('powerToggle').checked = !!d.powered;
+    document.getElementById('discoverableToggle').checked = !!d.discoverable;
+  }
+
+  async function toggleDiscoverable(on) {
+    const d = await api('/api/bluetooth/discoverable', {
+      method: 'POST',
+      body: JSON.stringify({ on })
+    });
+    if (d.ok) showToast(on ? 'Обнаруживаемость включена' : 'Обнаруживаемость выключена', 'success');
+    else showToast('Ошибка', 'error');
+    setTimeout(loadStatus, 500);
+  }
+
+  async function loadDevices() {
+    const d = await api('/api/bluetooth/devices');
+    if (!d.ok) return;
+    const devices = d.devices || [];
+    renderPaired(devices.filter(x => x.paired));
+    renderScan(devices.filter(x => !x.paired));
+    renderAudio(devices.filter(x => x.type === 'audio'));
+  }
+
+  function deviceTypeIcon(type) {
+    const icons = { audio: '🔊', input: '⌨️', phone: '📱', computer: '🖥️', peripheral: '🖱️', network: '🌐' };
+    return icons[type] || '❓';
+  }
+
+  function signalBars(signal) {
+    if (signal == null) return '';
+    let level = 0;
+    if (signal > -50) level = 4;
+    else if (signal > -65) level = 3;
+    else if (signal > -75) level = 2;
+    else if (signal > -85) level = 1;
+    const color = level >= 3 ? 'green' : level >= 2 ? 'yellow' : 'red';
+    let html = '<div class="signal-bar">';
+    for (let i = 1; i <= 4; i++) {
+      html += `<div class="bar ${i <= level ? 'active ' + color : ''}"></div>`;
+    }
+    html += `</div><span style="font-size:11px;color:var(--gray)">${signal} dBm</span>`;
+    return html;
+  }
+
+  function badgeHtml(device) {
+    if (device.connected) return '<span class="badge badge-connected">Подключено</span>';
+    if (device.paired) return '<span class="badge badge-paired">Сопряжено</span>';
+    return '<span class="badge badge-available">Доступно</span>';
+  }
+
+  function deviceCard(device, showConnect, showDisconnect, showPair, showRemove) {
+    let actions = '';
+    if (showConnect && !device.connected)
+      actions += `<button class="btn btn-success btn-sm" onclick="connectDevice('${device.mac}')">Подключить</button>`;
+    if (showDisconnect && device.connected)
+      actions += `<button class="btn btn-danger btn-sm" onclick="disconnectDevice('${device.mac}')">Отключить</button>`;
+    if (showPair && !device.paired)
+      actions += `<button class="btn btn-primary btn-sm" onclick="pairDevice('${device.mac}')">Сопрячь</button>`;
+    if (showRemove && device.paired)
+      actions += `<button class="btn btn-secondary btn-sm" onclick="removeDevice('${device.mac}')">Удалить</button>`;
+
+    return `
+      <div class="device-card">
+        <div class="device-icon">${deviceTypeIcon(device.type)}</div>
+        <div class="device-info">
+          <div class="device-name">${escapeHtml(device.name || 'Неизвестно')}</div>
+          <div class="device-mac">${device.mac}</div>
+          <div class="device-meta">
+            ${badgeHtml(device)}
+            ${signalBars(device.signal)}
+          </div>
+        </div>
+        <div class="device-actions">${actions}</div>
+      </div>`;
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function renderPaired(devices) {
+    const el = document.getElementById('pairedList');
+    const empty = document.getElementById('pairedEmpty');
+    document.getElementById('pairedCount').textContent = devices.length;
+    if (!devices.length) {
+      el.innerHTML = '';
+      el.appendChild(empty);
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+    el.innerHTML = devices.map(d => deviceCard(d, true, true, false, true)).join('');
+  }
+
+  function renderScan(devices) {
+    const el = document.getElementById('scanList');
+    const empty = document.getElementById('scanEmpty');
+    document.getElementById('scanCount').textContent = devices.length;
+    if (!devices.length) {
+      el.innerHTML = '';
+      el.appendChild(empty);
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+    el.innerHTML = devices.map(d => deviceCard(d, true, false, true, false)).join('');
+  }
+
+  function renderAudio(devices) {
+    const el = document.getElementById('audioList');
+    const empty = document.getElementById('audioEmpty');
+    document.getElementById('audioCount').textContent = devices.length;
+    if (!devices.length) {
+      el.innerHTML = '';
+      el.appendChild(empty);
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+    el.innerHTML = devices.map(d => deviceCard(d, true, true, false, false)).join('');
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  async function togglePower(on) {
+    const d = await api('/api/bluetooth/power', {
+      method: 'POST',
+      body: JSON.stringify({ on })
+    });
+    if (d.ok) {
+      showToast(on ? 'Bluetooth включён' : 'Bluetooth выключен', 'success');
+      setTimeout(loadStatus, 500);
+    } else {
+      showToast('Ошибка переключения', 'error');
+      document.getElementById('powerToggle').checked = !on;
+    }
+  }
+
+  async function startScan() {
+    const btn = document.getElementById('scanBtn');
+    btn.disabled = true;
+    const ind = document.getElementById('scanIndicator');
+    ind.classList.add('active');
+    let sec = 30;
+    document.getElementById('scanTimer').textContent = sec;
+
+    scanCountdown = setInterval(() => {
+      sec--;
+      document.getElementById('scanTimer').textContent = sec;
+      if (sec <= 0) clearInterval(scanCountdown);
+    }, 1000);
+
+    await api('/api/bluetooth/scan', { method: 'POST' });
+
+    scanInterval = setInterval(() => {
+      loadDevices();
+    }, 2000);
+
+    setTimeout(() => {
+      clearInterval(scanInterval);
+      clearInterval(scanCountdown);
+      ind.classList.remove('active');
+      btn.disabled = false;
+      loadDevices();
+      showToast('Сканирование завершено', 'info');
+    }, 31000);
+  }
+
+  async function connectDevice(mac) {
+    showToast('Подключение...', 'info');
+    const d = await api('/api/bluetooth/connect', {
+      method: 'POST',
+      body: JSON.stringify({ mac })
+    });
+    if (d.ok) showToast('Подключено', 'success');
+    else showToast('Ошибка подключения', 'error');
+    setTimeout(loadDevices, 1000);
+  }
+
+  async function disconnectDevice(mac) {
+    const d = await api('/api/bluetooth/disconnect', {
+      method: 'POST',
+      body: JSON.stringify({ mac })
+    });
+    if (d.ok) showToast('Отключено', 'success');
+    else showToast('Ошибка отключения', 'error');
+    setTimeout(loadDevices, 1000);
+  }
+
+  async function pairDevice(mac) {
+    showToast('Сопряжение...', 'info');
+    const d = await api('/api/bluetooth/pair', {
+      method: 'POST',
+      body: JSON.stringify({ mac })
+    });
+    if (d.ok) showToast('Сопряжено', 'success');
+    else showToast('Ошибка сопряжения', 'error');
+    setTimeout(loadDevices, 1000);
+  }
+
+  async function removeDevice(mac) {
+    if (!confirm('Удалить устройство из сопряжённых?')) return;
+    const d = await api('/api/bluetooth/remove', {
+      method: 'POST',
+      body: JSON.stringify({ mac })
+    });
+    if (d.ok) showToast('Удалено', 'success');
+    else showToast('Ошибка удаления', 'error');
+    setTimeout(loadDevices, 1000);
+  }
+
+  function refreshAll() {
+    loadStatus();
+    loadDevices();
+    showToast('Обновлено', 'info');
+  }
+
+  loadStatus();
+  loadDevices();
+  setInterval(loadDevices, 15000);
+</script>
+{% endblock %}

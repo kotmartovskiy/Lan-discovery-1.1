@@ -1,0 +1,641 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title">
+    <h2>О системе</h2>
+    <div class="muted">
+        Подробная информация о сервере Orange Pi
+    </div>
+</div>
+
+<div class="cards">
+
+    <!-- Плата -->
+
+    <div class="card">
+        <div class="card-title" style="font-size:18px; font-weight:700;">🔧 Плата</div>
+
+        <div class="info">
+            <div class="info-row">
+                <span class="info-label">Модель</span>
+                <span>{{ about.board.model }}</span>
+            </div>
+
+            {% if about.board.device_tree %}
+            <div class="info-row">
+                <span class="info-label">Compatible</span>
+                <span class="mono">{{ about.board.device_tree }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- CPU -->
+
+    <div class="card">
+        <div class="card-title" style="font-size:18px; font-weight:700;">⚙️ Процессор</div>
+
+        <div class="info">
+
+            <div class="info-row">
+                <span class="info-label">Модель</span>
+                <span>{{ about.cpu.model }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Архитектура</span>
+                <span>{{ about.cpu.architecture }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Ядра</span>
+                <span>{{ about.cpu.cores }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Vendor ID</span>
+                <span class="mono">{{ about.cpu.vendor }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Частота</span>
+                <span>
+                    {{ about.cpu.min_mhz }} – {{ about.cpu.max_mhz }} MHz
+                </span>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Memory -->
+
+    <div class="card">
+        <div class="card-title" style="font-size:18px; font-weight:700;">🧠 Память</div>
+
+        <div class="info">
+
+            <div class="info-row">
+                <span class="info-label">RAM</span>
+                <span>{{ about.memory.total }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Используется</span>
+                <span>{{ about.memory.used }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Доступно</span>
+                <span>{{ about.memory.available }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Swap</span>
+                <span>{{ about.memory.swap_total }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Swap используется</span>
+                <span>{{ about.memory.swap_used }}</span>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- OS -->
+
+    <div class="card">
+        <div class="card-title" style="font-size:18px; font-weight:700;">💻 Операционная система</div>
+
+        <div class="info">
+
+            <div class="info-row">
+                <span class="info-label">Система</span>
+                <span>{{ about.os.pretty_name }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Ядро</span>
+                <span class="mono">{{ about.os.kernel }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Архитектура</span>
+                <span>{{ about.os.machine }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Hostname</span>
+                <span class="mono">{{ about.os.hostname }}</span>
+            </div>
+
+            {% if about.os.uptime %}
+            <div class="info-row">
+                <span class="info-label">Uptime</span>
+                <span>{{ about.os.uptime }}</span>
+            </div>
+            {% endif %}
+
+            <div class="info-row">
+                <span class="info-label">Python</span>
+                <span>{{ about.os.python }}</span>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Накопители -->
+
+<div class="card wide-card">
+
+    <div class="card-title" style="font-size:18px; font-weight:700;">💾 Накопители</div>
+
+    {% for d in about.disks %}
+
+    <div class="device-block">
+
+        <h3>
+            {{ d.path }}
+            {% if d.type == 'disk' %}
+                <span class="badge">DISK</span>
+            {% else %}
+                <span class="badge">PARTITION</span>
+            {% endif %}
+        </h3>
+
+        <div class="info">
+
+            <div class="info-row">
+                <span class="info-label">Размер</span>
+                <span>{{ d.size }}</span>
+            </div>
+
+            {% if d.vendor %}
+            <div class="info-row">
+                <span class="info-label">Vendor</span>
+                <span>{{ d.vendor }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.model %}
+            <div class="info-row">
+                <span class="info-label">Model</span>
+                <span>{{ d.model }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.udev_model %}
+            <div class="info-row">
+                <span class="info-label">udev Model</span>
+                <span class="mono">{{ d.udev_model }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.serial %}
+            <div class="info-row">
+                <span class="info-label">Serial</span>
+                <span class="mono">{{ d.serial }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.ata_serial %}
+            <div class="info-row">
+                <span class="info-label">ATA Serial</span>
+                <span class="mono">{{ d.ata_serial }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.rotation_rpm %}
+            <div class="info-row">
+                <span class="info-label">Rotation</span>
+                <span>{{ d.rotation_rpm }} RPM</span>
+            </div>
+            {% endif %}
+
+            {% if d.wwn %}
+            <div class="info-row">
+                <span class="info-label">WWN</span>
+                <span class="mono">{{ d.wwn }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.transport %}
+            <div class="info-row">
+                <span class="info-label">Transport</span>
+                <span>{{ d.transport }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.bus %}
+            <div class="info-row">
+                <span class="info-label">Bus</span>
+                <span>{{ d.bus }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.usb_vendor %}
+            <div class="info-row">
+                <span class="info-label">USB Vendor</span>
+                <span>{{ d.usb_vendor }} ({{ d.usb_vendor_id }})</span>
+            </div>
+            {% endif %}
+
+            {% if d.usb_model_id %}
+            <div class="info-row">
+                <span class="info-label">USB Product ID</span>
+                <span class="mono">{{ d.usb_model_id }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.usb_serial_short %}
+            <div class="info-row">
+                <span class="info-label">USB Serial</span>
+                <span class="mono">{{ d.usb_serial_short }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.usb_driver %}
+            <div class="info-row">
+                <span class="info-label">USB Driver</span>
+                <span class="mono">{{ d.usb_driver }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.mmc %}
+
+            <div class="subsection-title">eMMC / MMC</div>
+
+            {% for key, value in d.mmc.items() %}
+            <div class="info-row">
+                <span class="info-label">{{ key }}</span>
+                <span class="mono">{{ value }}</span>
+            </div>
+            {% endfor %}
+
+            {% endif %}
+
+            {% if d.fstype %}
+            <div class="info-row">
+                <span class="info-label">Файловая система</span>
+                <span>
+                    {{ d.fstype }}
+                    {% if d.fsver %} {{ d.fsver }}{% endif %}
+                </span>
+            </div>
+            {% endif %}
+
+            {% if d.label %}
+            <div class="info-row">
+                <span class="info-label">Label</span>
+                <span>{{ d.label }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.uuid %}
+            <div class="info-row">
+                <span class="info-label">UUID</span>
+                <span class="mono">{{ d.uuid }}</span>
+            </div>
+            {% endif %}
+
+            {% if d.mountpoints %}
+            <div class="info-row">
+                <span class="info-label">Монтирование</span>
+                <span class="mono">
+                    {{ d.mountpoints | join(', ') }}
+                </span>
+            </div>
+            {% endif %}
+
+            {% if d.logical_block_size %}
+            <div class="info-row">
+                <span class="info-label">Logical block</span>
+                <span>{{ d.logical_block_size }} B</span>
+            </div>
+            {% endif %}
+
+            {% if d.physical_block_size %}
+            <div class="info-row">
+                <span class="info-label">Physical block</span>
+                <span>{{ d.physical_block_size }} B</span>
+            </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+<!-- Сеть -->
+
+<div class="card wide-card">
+
+    <div class="card-title" style="font-size:18px; font-weight:700;">🌐 Сеть — физические интерфейсы</div>
+
+    {% for n in about.network_physical %}
+
+    <div class="device-block">
+
+        <h3>{{ n.name }}</h3>
+
+        <div class="info">
+
+            <div class="info-row">
+                <span class="info-label">Состояние</span>
+                <span>{{ n.state }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">MAC</span>
+                <span class="mono">{{ n.mac }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">MTU</span>
+                <span>{{ n.mtu }}</span>
+            </div>
+
+            {% if n.driver %}
+            <div class="info-row">
+                <span class="info-label">Driver</span>
+                <span class="mono">{{ n.driver }}</span>
+            </div>
+            {% endif %}
+
+            {% if n.speed %}
+            <div class="info-row">
+                <span class="info-label">Speed</span>
+                <span>{{ n.speed }}</span>
+            </div>
+            {% endif %}
+
+            {% for a in n.addresses %}
+            <div class="info-row">
+                <span class="info-label">{{ a.family }}</span>
+                <span class="mono">
+                    {{ a.address }}/{{ a.prefix }}
+                </span>
+            </div>
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+{% if about.network_virtual %}
+
+<div class="card wide-card">
+
+    <div class="card-title" style="font-size:18px; font-weight:700;">🌐 Сеть — виртуальные интерфейсы</div>
+
+    {% for n in about.network_virtual %}
+
+    <div class="device-block">
+
+        <h3>{{ n.name }}</h3>
+
+        <div class="info">
+
+            <div class="info-row">
+                <span class="info-label">Состояние</span>
+                <span>{{ n.state }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">MAC</span>
+                <span class="mono">{{ n.mac }}</span>
+            </div>
+
+            {% if n.type %}
+            <div class="info-row">
+                <span class="info-label">Тип</span>
+                <span>{{ n.type }}</span>
+            </div>
+            {% endif %}
+
+            {% for a in n.addresses %}
+            <div class="info-row">
+                <span class="info-label">{{ a.family }}</span>
+                <span class="mono">
+                    {{ a.address }}/{{ a.prefix }}
+                </span>
+            </div>
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+{% endif %}
+
+<!-- USB -->
+
+<div class="card wide-card">
+
+    <div class="card-title" style="font-size:18px; font-weight:700;">🔌 USB topology</div>
+
+    {% if about.usb_tree %}
+    <pre class="system-pre">{{ about.usb_tree }}</pre>
+    {% else %}
+    <div class="muted">lsusb -t недоступен</div>
+    {% endif %}
+
+</div>
+
+<div class="card wide-card">
+
+    <div class="card-title" style="font-size:18px; font-weight:700;">🔌 USB устройства</div>
+
+    {% for u in about.usb %}
+
+    <div class="device-block">
+
+        <h3>
+            {% if u.manufacturer %}
+                {{ u.manufacturer }}
+            {% endif %}
+
+            {% if u.product %}
+                {{ u.product }}
+            {% else %}
+                USB device
+            {% endif %}
+        </h3>
+
+        <div class="info">
+
+            <div class="info-row">
+                <span class="info-label">Sysfs</span>
+                <span class="mono">{{ u.sysfs }}</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">VID:PID</span>
+                <span class="mono">
+                    {{ u.vid }}:{{ u.pid }}
+                </span>
+            </div>
+
+            {% if u.bcd_device %}
+            <div class="info-row">
+                <span class="info-label">bcdDevice</span>
+                <span class="mono">{{ u.bcd_device }}</span>
+            </div>
+            {% endif %}
+
+            {% if u.serial %}
+            <div class="info-row">
+                <span class="info-label">Serial</span>
+                <span class="mono">{{ u.serial }}</span>
+            </div>
+            {% endif %}
+
+            <div class="info-row">
+                <span class="info-label">Bus / Device</span>
+                <span class="mono">
+                    {{ u.bus }} / {{ u.device }}
+                </span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">USB path</span>
+                <span class="mono">{{ u.port }}</span>
+            </div>
+
+            {% if u.speed %}
+            <div class="info-row">
+                <span class="info-label">Speed</span>
+                <span>{{ u.speed }} Mb/s</span>
+            </div>
+            {% endif %}
+
+            {% if u.driver %}
+            <div class="info-row">
+                <span class="info-label">Driver</span>
+                <span class="mono">{{ u.driver }}</span>
+            </div>
+            {% endif %}
+
+            {% if u.class %}
+            <div class="info-row">
+                <span class="info-label">Class</span>
+                <span class="mono">
+                    {{ u.class }} /
+                    {{ u.subclass }} /
+                    {{ u.protocol }}
+                </span>
+            </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+<!-- Файловые системы -->
+
+<div class="card wide-card">
+
+    <div class="card-title" style="font-size:18px; font-weight:700;">📁 Файловые системы</div>
+
+    <div class="info">
+
+        {% for f in about.filesystems %}
+
+        <div class="info-row">
+            <span class="info-label">{{ f.mount }}</span>
+            <span>
+                {{ f.used }} / {{ f.total }}
+                ({{ f.percent }}%)
+                — свободно {{ f.free }}
+            </span>
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+<!-- Software -->
+
+<div class="card wide-card">
+
+    <div class="card-title" style="font-size:18px; font-weight:700;">📦 Программное окружение</div>
+
+    <div class="info">
+
+        <div class="info-row">
+            <span class="info-label">Python</span>
+            <span>{{ about.software.python }}</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Flask</span>
+            <span>{{ about.software.flask }}</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Application</span>
+            <span class="mono">{{ about.software.app }}</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Размер app.py</span>
+            <span>{{ about.software.app_size }}</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Database</span>
+            <span class="mono">{{ about.software.database }}</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Размер БД</span>
+            <span>{{ about.software.database_size }}</span>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Services -->
+
+<div class="card wide-card">
+
+    <div class="card-title" style="font-size:18px; font-weight:700;">🛠 Сервисы</div>
+
+    <div class="info">
+
+        {% for s in about.services %}
+
+        <div class="info-row">
+            <span class="info-label mono">{{ s.name }}</span>
+            <span>
+                active={{ s.active }},
+                enabled={{ s.enabled }}
+            </span>
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+{% endblock %}

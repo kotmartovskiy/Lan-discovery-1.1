@@ -1,0 +1,715 @@
+{% extends "base_app.html" %}
+
+{% block content %}
+<style>
+.upnp-app {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 0 40px 0;
+}
+.upnp-app h2 {
+    color: #fff;
+    font-size: 20px;
+    margin: 0 0 16px 0;
+}
+.upnp-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+.upnp-header h2 { margin: 0; }
+.upnp-header button {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.upnp-header button:hover { background: #1d4ed8; }
+.upnp-header button:disabled { opacity: 0.5; cursor: not-allowed; }
+.upnp-status-msg {
+    color: #888;
+    font-size: 13px;
+    margin-left: auto;
+}
+
+/* Renderer cards */
+.renderer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+.renderer-card {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.renderer-card:hover {
+    border-color: #555;
+}
+.renderer-card.selected {
+    border-color: #2563eb;
+    background: #111827;
+}
+.renderer-card .rc-name {
+    font-size: 16px;
+    color: #fff;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+.renderer-card .rc-ip {
+    font-family: monospace;
+    color: #8ab4f8;
+    font-size: 13px;
+}
+.renderer-card .rc-manuf {
+    font-size: 12px;
+    color: #888;
+    margin-top: 4px;
+}
+
+/* Control panel */
+.control-panel {
+    background: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+.cp-title {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.cp-subtitle {
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+/* Now playing */
+.now-playing {
+    text-align: center;
+    margin-bottom: 16px;
+}
+.np-title {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.np-time {
+    font-family: monospace;
+    color: #888;
+    font-size: 13px;
+}
+.np-progress {
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    margin: 10px 0;
+    overflow: hidden;
+}
+.np-progress-bar {
+    height: 100%;
+    background: #2563eb;
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s;
+}
+
+/* Transport controls */
+.transport-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.transport-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #222;
+    color: #fff;
+    border: 1px solid #444;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+}
+.transport-btn:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+}
+.transport-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+.transport-btn.play-btn {
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+}
+
+/* Volume */
+.volume-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.volume-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 160px;
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    outline: none;
+    accent-color: #2563eb;
+}
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #2563eb;
+    cursor: pointer;
+}
+.volume-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #2563eb;
+    cursor: pointer;
+    border: none;
+}
+.volume-val {
+    font-family: monospace;
+    color: #888;
+    font-size: 13px;
+    min-width: 30px;
+    text-align: right;
+}
+.mute-btn {
+    background: none;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 18px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.mute-btn:hover { background: #333; }
+.mute-btn.muted { color: #e74c3c; border-color: #e74c3c; }
+
+/* Media server */
+.section-title {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #2a2a2a;
+    padding-bottom: 10px;
+}
+.server-selector {
+    background: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+.server-selector select {
+    background: #222;
+    color: #eee;
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+    min-width: 200px;
+}
+
+/* Content browser */
+.content-browser {
+    background: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+.content-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.cb-item {
+    color: #8ab4f8;
+    font-size: 13px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 2px 4px;
+}
+.cb-item:hover { text-decoration: underline; }
+.cb-item.current {
+    color: #ccc;
+    cursor: default;
+}
+.cb-sep {
+    color: #555;
+    font-size: 12px;
+}
+.content-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.content-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.1s;
+    font-size: 14px;
+    color: #ccc;
+}
+.content-item:hover { background: #252525; }
+.ci-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+}
+.ci-name { flex: 1; }
+.ci-send {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.content-item:hover .ci-send { opacity: 1; }
+.ci-send:hover { background: #1d4ed8; }
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #888;
+    font-size: 14px;
+}
+.empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+}
+</style>
+
+<div class="upnp-app">
+    <div class="upnp-header">
+        <h2>📡 UPnP Control Point</h2>
+        <button id="btn-discover" onclick="discover()">Найти рендереры</button>
+        <span class="upnp-status-msg" id="discover-msg"></span>
+    </div>
+
+    <div class="renderer-grid" id="renderer-grid">
+        <div class="empty-state" id="empty-renderers">
+            <div class="empty-icon">📡</div>
+            <div>UPnP-рендереры не найдены. Убедитесь, что устройства в той же Wi-Fi сети.</div>
+        </div>
+    </div>
+
+    <div class="control-panel" id="control-panel" style="display:none;">
+        <div class="cp-title" id="cp-device-name"></div>
+        <div class="cp-subtitle" id="cp-device-info"></div>
+
+        <div class="now-playing">
+            <div class="np-title" id="np-title">—</div>
+            <div class="np-progress"><div class="np-progress-bar" id="np-progress-bar"></div></div>
+            <div class="np-time"><span id="np-position">00:00:00</span> / <span id="np-duration">00:00:00</span></div>
+        </div>
+
+        <div class="transport-row">
+            <button class="transport-btn" onclick="sendCmd('prev')" title="Предыдущий">⏮</button>
+            <button class="transport-btn play-btn" id="btn-play" onclick="togglePlay()" title="Воспроизведение">▶️</button>
+            <button class="transport-btn" onclick="sendCmd('pause')" title="Пауза">⏸</button>
+            <button class="transport-btn" onclick="sendCmd('stop')" title="Стоп">⏹</button>
+            <button class="transport-btn" onclick="sendCmd('next')" title="Следующий">⏭</button>
+        </div>
+
+        <div class="volume-row">
+            <button class="mute-btn" id="btn-mute" onclick="toggleMute()" title="Mute">🔊</button>
+            <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="50" oninput="setVolume(this.value)">
+            <span class="volume-val" id="volume-val">50</span>
+        </div>
+    </div>
+
+    <div class="server-selector" id="server-section" style="display:none;">
+        <div class="section-title">📁 Медиасервер</div>
+        <select id="server-select" onchange="loadServerContent()">
+            <option value="">— Выберите сервер —</option>
+        </select>
+    </div>
+
+    <div class="content-browser" id="content-section" style="display:none;">
+        <div class="section-title">📂 Контент</div>
+        <div class="content-breadcrumb" id="breadcrumb"></div>
+        <ul class="content-list" id="content-list"></ul>
+    </div>
+</div>
+
+<script>
+let renderers = [];
+let servers = [];
+let selectedRenderer = null;
+let selectedServer = null;
+let contentPath = '/';
+let statusTimer = null;
+
+function discover() {
+    const btn = document.getElementById('btn-discover');
+    const msg = document.getElementById('discover-msg');
+    btn.disabled = true;
+    msg.textContent = 'Поиск...';
+
+    Promise.all([
+        fetch('/api/upnp/renderers').then(r => r.json()),
+        fetch('/api/upnp/servers').then(r => r.json())
+    ]).then(([rd, sd]) => {
+        btn.disabled = false;
+        renderers = rd.ok ? rd.renderers : [];
+        servers = sd.ok ? sd.servers : [];
+        msg.textContent = 'Рендереров: ' + renderers.length + ', серверов: ' + servers.length;
+        renderRendererList();
+        renderServerList();
+        if (renderers.length === 0) msg.textContent = '';
+    }).catch(e => {
+        btn.disabled = false;
+        msg.textContent = 'Ошибка: ' + e.message;
+    });
+}
+
+function renderRendererList() {
+    const grid = document.getElementById('renderer-grid');
+    const empty = document.getElementById('empty-renderers');
+
+    grid.innerHTML = '';
+    if (renderers.length === 0) {
+        grid.appendChild(createEmptyState());
+        return;
+    }
+
+    renderers.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'renderer-card' + (selectedRenderer && selectedRenderer.ip === r.ip ? ' selected' : '');
+        card.innerHTML =
+            '<div class="rc-name">' + esc(r.name) + '</div>' +
+            '<div class="rc-ip">' + esc(r.ip) + '</div>' +
+            '<div class="rc-manuf">' + esc(r.manufacturer || '') + (r.model ? ' · ' + esc(r.model) : '') + '</div>';
+        card.onclick = () => selectRenderer(r);
+        grid.appendChild(card);
+    });
+}
+
+function createEmptyState() {
+    const div = document.createElement('div');
+    div.className = 'empty-state';
+    div.style.gridColumn = '1 / -1';
+    div.innerHTML = '<div class="empty-icon">📡</div><div>UPnP-рендереры не найдены. Убедитесь, что устройства в той же Wi-Fi сети.</div>';
+    return div;
+}
+
+function selectRenderer(r) {
+    selectedRenderer = r;
+    renderRendererList();
+
+    document.getElementById('control-panel').style.display = '';
+    document.getElementById('cp-device-name').textContent = r.name;
+    document.getElementById('cp-device-info').textContent = r.ip + (r.manufacturer ? ' · ' + r.manufacturer : '') + (r.model ? ' · ' + r.model : '');
+
+    document.getElementById('server-section').style.display = servers.length > 0 ? '' : 'none';
+
+    startStatusPoll();
+    getStatus();
+}
+
+function togglePlay() {
+    if (!selectedRenderer) return;
+    const state = document.getElementById('btn-play').dataset.state;
+    if (state === 'PLAYING') {
+        sendCmd('pause');
+    } else {
+        sendCmd('play');
+    }
+}
+
+function sendCmd(cmd) {
+    if (!selectedRenderer) return;
+    const body = { renderer_ip: selectedRenderer.ip };
+    if (cmd === 'play') {
+        const url = document.getElementById('np-title').dataset.url;
+        if (url) body.url = url;
+        body.title = document.getElementById('np-title').textContent;
+    }
+    fetch('/api/upnp/' + cmd, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    }).then(r => r.json()).then(() => {
+        setTimeout(getStatus, 500);
+    }).catch(() => {});
+}
+
+function setVolume(val) {
+    if (!selectedRenderer) return;
+    document.getElementById('volume-val').textContent = val;
+    fetch('/api/upnp/volume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ renderer_ip: selectedRenderer.ip, level: parseInt(val) })
+    }).catch(() => {});
+}
+
+function toggleMute() {
+    if (!selectedRenderer) return;
+    const btn = document.getElementById('btn-mute');
+    const muted = !btn.classList.contains('muted');
+    fetch('/api/upnp/mute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ renderer_ip: selectedRenderer.ip, mute: muted })
+    }).then(() => {
+        btn.classList.toggle('muted', muted);
+        btn.textContent = muted ? '🔇' : '🔊';
+    }).catch(() => {});
+}
+
+function getStatus() {
+    if (!selectedRenderer) return;
+    fetch('/api/upnp/status?renderer_ip=' + encodeURIComponent(selectedRenderer.ip))
+        .then(r => r.json())
+        .then(d => {
+            if (!d.ok) return;
+
+            const btn = document.getElementById('btn-play');
+            btn.dataset.state = d.state || 'STOPPED';
+            btn.textContent = d.state === 'PLAYING' ? '⏸' : '▶️';
+
+            document.getElementById('np-title').textContent = d.title || '—';
+            if (d.url) document.getElementById('np-title').dataset.url = d.url;
+
+            document.getElementById('np-position').textContent = d.position || '00:00:00';
+            document.getElementById('np-duration').textContent = d.duration || '00:00:00';
+
+            let pct = 0;
+            if (d.position && d.duration) {
+                const p = parseTime(d.position);
+                const t = parseTime(d.duration);
+                if (t > 0) pct = Math.min(100, (p / t) * 100);
+            }
+            document.getElementById('np-progress-bar').style.width = pct + '%';
+
+            if (d.volume !== undefined && d.volume !== null) {
+                document.getElementById('volume-slider').value = d.volume;
+                document.getElementById('volume-val').textContent = d.volume;
+            }
+
+            const muteBtn = document.getElementById('btn-mute');
+            if (d.muted !== undefined) {
+                muteBtn.classList.toggle('muted', d.muted);
+                muteBtn.textContent = d.muted ? '🔇' : '🔊';
+            }
+        })
+        .catch(() => {});
+}
+
+function parseTime(ts) {
+    if (!ts) return 0;
+    const parts = ts.split(':').map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 0;
+}
+
+function startStatusPoll() {
+    stopStatusPoll();
+    statusTimer = setInterval(getStatus, 5000);
+}
+
+function stopStatusPoll() {
+    if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
+}
+
+function renderServerList() {
+    const sel = document.getElementById('server-select');
+    sel.innerHTML = '<option value="">— Выберите сервер —</option>';
+    servers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.ip;
+        opt.textContent = s.name + ' (' + s.ip + ')';
+        sel.appendChild(opt);
+    });
+    if (servers.length === 1) {
+        sel.value = servers[0].ip;
+        loadServerContent();
+    }
+}
+
+function loadServerContent() {
+    const sel = document.getElementById('server-select');
+    const ip = sel.value;
+    const section = document.getElementById('content-section');
+
+    if (!ip) {
+        section.style.display = 'none';
+        selectedServer = null;
+        return;
+    }
+
+    selectedServer = servers.find(s => s.ip === ip);
+    section.style.display = '';
+    contentPath = '/';
+    browseContent();
+}
+
+function browseContent() {
+    if (!selectedServer) return;
+    const list = document.getElementById('content-list');
+    list.innerHTML = '<li class="content-item"><span class="ci-icon">⏳</span><span class="ci-name">Загрузка...</span></li>';
+
+    fetch('/api/upnp/browse?server_ip=' + encodeURIComponent(selectedServer.ip) + '&path=' + encodeURIComponent(contentPath))
+        .then(r => r.json())
+        .then(d => {
+            if (!d.ok) {
+                list.innerHTML = '<li class="content-item"><span class="ci-icon">❌</span><span class="ci-name">' + esc(d.error || 'Ошибка загрузки') + '</span></li>';
+                return;
+            }
+            renderBreadcrumb();
+            renderContentList(d.items || []);
+        })
+        .catch(e => {
+            list.innerHTML = '<li class="content-item"><span class="ci-icon">❌</span><span class="ci-name">Ошибка сети</span></li>';
+        });
+}
+
+function renderBreadcrumb() {
+    const bc = document.getElementById('breadcrumb');
+    bc.innerHTML = '';
+    const parts = contentPath.split('/').filter(Boolean);
+
+    const rootBtn = document.createElement('button');
+    rootBtn.className = 'cb-item' + (parts.length === 0 ? ' current' : '');
+    rootBtn.textContent = '🏠 Корень';
+    rootBtn.onclick = () => { contentPath = '/'; browseContent(); };
+    bc.appendChild(rootBtn);
+
+    let path = '';
+    parts.forEach((p, i) => {
+        const sep = document.createElement('span');
+        sep.className = 'cb-sep';
+        sep.textContent = '›';
+        bc.appendChild(sep);
+
+        path += '/' + p;
+        const btn = document.createElement('button');
+        btn.className = 'cb-item' + (i === parts.length - 1 ? ' current' : '');
+        btn.textContent = p;
+        const capturePath = path;
+        if (i < parts.length - 1) {
+            btn.onclick = () => { contentPath = capturePath; browseContent(); };
+        }
+        bc.appendChild(btn);
+    });
+}
+
+function renderContentList(items) {
+    const list = document.getElementById('content-list');
+    list.innerHTML = '';
+
+    if (items.length === 0) {
+        list.innerHTML = '<li class="content-item"><span class="ci-icon">📭</span><span class="ci-name">Пусто</span></li>';
+        return;
+    }
+
+    items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'content-item';
+        const isDir = item.type === 'directory' || item.type === 'container';
+        const icon = isDir ? '📁' : '📄';
+
+        li.innerHTML =
+            '<span class="ci-icon">' + icon + '</span>' +
+            '<span class="ci-name">' + esc(item.name) + '</span>';
+
+        if (isDir) {
+            li.onclick = () => {
+                contentPath = contentPath === '/' ? '/' + item.name : contentPath + '/' + item.name;
+                browseContent();
+            };
+        } else if (item.url) {
+            const btn = document.createElement('button');
+            btn.className = 'ci-send';
+            btn.textContent = '▶ Воспроизвести';
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                playUrl(item.url, item.name);
+            };
+            li.appendChild(btn);
+            li.style.cursor = 'default';
+        }
+
+        list.appendChild(li);
+    });
+}
+
+function playUrl(url, title) {
+    if (!selectedRenderer) {
+        alert('Сначала выберите рендерер');
+        return;
+    }
+    fetch('/api/upnp/play', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ renderer_ip: selectedRenderer.ip, url: url, title: title || '' })
+    }).then(r => r.json()).then(d => {
+        if (d.ok) {
+            setTimeout(getStatus, 500);
+        }
+    }).catch(() => {});
+}
+
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+
+window.addEventListener('beforeunload', stopStatusPoll);
+</script>
+{% endblock %}

@@ -1,0 +1,262 @@
+{% extends "base_app.html" %}
+{% block content %}
+
+<h1 style="margin-bottom:16px;">🔌 Сетевые инструменты</h1>
+
+<div class="tabs" style="display:flex;gap:4px;margin-bottom:12px;">
+<button class="tab active" onclick="switchTab('ping')">Ping</button>
+<button class="tab" onclick="switchTab('dns')">DNS</button>
+<button class="tab" onclick="switchTab('ports')">Порты</button>
+<button class="tab" onclick="switchTab('trace')">Traceroute</button>
+</div>
+
+<style>
+.tab { background:#222; border:1px solid #333; border-radius:6px; padding:8px 16px; color:#ccc; cursor:pointer; font-size:13px; }
+.tab.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+.tab:hover:not(.active) { background:#2a2a2a; border-color:#444; }
+
+.input-field {
+    background:#111;
+    border:1px solid #333;
+    border-radius:4px;
+    color:#fff;
+    padding:8px 12px;
+    font-size:14px;
+    outline:none;
+}
+.input-field:focus {
+    border-color:#2563eb;
+}
+
+.action-btn {
+    background:#2563eb;
+    color:#fff;
+    border:none;
+    border-radius:6px;
+    padding:8px 16px;
+    cursor:pointer;
+    font-size:13px;
+}
+.action-btn:hover { background:#1d4ed8; }
+.action-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+.result-area {
+    font-family:monospace;
+    background:#111;
+    border:1px solid #333;
+    border-radius:6px;
+    padding:12px;
+    max-height:400px;
+    overflow-y:auto;
+    white-space:pre-wrap;
+    font-size:13px;
+    color:#ccc;
+    line-height:1.5;
+}
+
+.tool-section { display:none; }
+.tool-section.active { display:block; }
+
+.port-table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+.port-table th {
+    background:#181818;
+    color:#888;
+    padding:8px 12px;
+    text-align:left;
+    border-bottom:1px solid #333;
+    position:sticky;
+    top:0;
+}
+.port-table td {
+    padding:8px 12px;
+    border-bottom:1px solid #222;
+}
+.port-open { color:#2ecc71; font-weight:bold; }
+.port-closed { color:#e74c3c; font-weight:bold; }
+.port-filtered { color:#f39c12; font-weight:bold; }
+</style>
+
+<div id="ping-section" class="tool-section active">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+<input type="text" id="ping-host" class="input-field" placeholder="Хост или IP" style="flex:1;">
+<button class="action-btn" onclick="doPing()">Ping</button>
+</div>
+<div id="ping-result" class="result-area" style="display:none;"></div>
+</div>
+
+<div id="dns-section" class="tool-section">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+<input type="text" id="dns-host" class="input-field" placeholder="Домен или IP" style="flex:1;">
+<button class="action-btn" onclick="doDns()">Проверить</button>
+</div>
+<div id="dns-result" class="result-area" style="display:none;"></div>
+</div>
+
+<div id="ports-section" class="tool-section">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+<input type="text" id="ports-host" class="input-field" placeholder="Хост" value="192.168.3.234" style="flex:1;min-width:200px;">
+<input type="text" id="ports-list" class="input-field" placeholder="Порты (через запятую)" value="22,80,443,8080,3389" style="flex:1.5;min-width:250px;">
+<button class="action-btn" onclick="doPorts()">Сканировать</button>
+</div>
+<div id="ports-result" style="display:none;max-height:400px;overflow-y:auto;border:1px solid #333;border-radius:6px;">
+<table class="port-table">
+<thead><tr><th>Порт</th><th>Статус</th><th>Сервис</th></tr></thead>
+<tbody id="ports-tbody"></tbody>
+</table>
+</div>
+</div>
+
+<div id="trace-section" class="tool-section">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+<input type="text" id="trace-host" class="input-field" placeholder="Хост или IP" style="flex:1;">
+<button class="action-btn" onclick="doTrace()">Трассировка</button>
+</div>
+<div id="trace-result" class="result-area" style="display:none;"></div>
+</div>
+
+<script>
+var currentTab = 'ping';
+
+function switchTab(tab) {
+    document.querySelectorAll('.tool-section').forEach(function(el) { el.classList.remove('active'); });
+    document.querySelectorAll('.tab').forEach(function(el) { el.classList.remove('active'); });
+    document.getElementById(tab + '-section').classList.add('active');
+    var tabs = document.querySelectorAll('.tab');
+    var tabNames = ['ping', 'dns', 'ports', 'trace'];
+    for (var i = 0; i < tabNames.length; i++) {
+        if (tabNames[i] === tab) { tabs[i].classList.add('active'); break; }
+    }
+    currentTab = tab;
+}
+
+function setBtnLoading(btn, loading) {
+    btn.disabled = loading;
+    if (loading) { btn.dataset.orig = btn.textContent; btn.textContent = 'Выполняется...'; }
+    else { btn.textContent = btn.dataset.orig || btn.textContent; }
+}
+
+function doPing() {
+    var host = document.getElementById('ping-host').value.trim();
+    if (!host) return;
+    var btn = document.querySelector('#ping-section .action-btn');
+    var result = document.getElementById('ping-result');
+    setBtnLoading(btn, true);
+    result.style.display = 'block';
+    result.innerHTML = '<span style="color:#888;">Выполняется ping...</span>';
+    fetch('/api/nettools/ping', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({host: host})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        setBtnLoading(btn, false);
+        if (d.ok) { result.innerHTML = d.output; result.style.color = '#ccc'; }
+        else { result.innerHTML = 'Ошибка: ' + (d.error || 'неизвестная'); result.style.color = '#e74c3c'; }
+    })
+    .catch(function(e) {
+        setBtnLoading(btn, false);
+        result.innerHTML = 'Ошибка сети: ' + e.message;
+        result.style.color = '#e74c3c';
+    });
+}
+
+function doDns() {
+    var host = document.getElementById('dns-host').value.trim();
+    if (!host) return;
+    var btn = document.querySelector('#dns-section .action-btn');
+    var result = document.getElementById('dns-result');
+    setBtnLoading(btn, true);
+    result.style.display = 'block';
+    result.innerHTML = '<span style="color:#888;">Проверка DNS...</span>';
+    fetch('/api/nettools/dns', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({host: host})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        setBtnLoading(btn, false);
+        if (d.ok) { result.innerHTML = d.output; result.style.color = '#ccc'; }
+        else { result.innerHTML = 'Ошибка: ' + (d.error || 'неизвестная'); result.style.color = '#e74c3c'; }
+    })
+    .catch(function(e) {
+        setBtnLoading(btn, false);
+        result.innerHTML = 'Ошибка сети: ' + e.message;
+        result.style.color = '#e74c3c';
+    });
+}
+
+function doPorts() {
+    var host = document.getElementById('ports-host').value.trim();
+    var portsStr = document.getElementById('ports-list').value.trim();
+    if (!host || !portsStr) return;
+    var ports = portsStr.split(',').map(function(s) { return parseInt(s.trim(), 10); }).filter(function(n) { return !isNaN(n); });
+    if (ports.length === 0) return;
+    var btn = document.querySelector('#ports-section .action-btn');
+    var result = document.getElementById('ports-result');
+    var tbody = document.getElementById('ports-tbody');
+    setBtnLoading(btn, true);
+    result.style.display = 'block';
+    tbody.innerHTML = '<tr><td colspan="3" style="color:#888;">Сканирование...</td></tr>';
+    fetch('/api/nettools/ports', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({host: host, ports: ports})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        setBtnLoading(btn, false);
+        if (d.ok && d.results) {
+            tbody.innerHTML = '';
+            d.results.forEach(function(r) {
+                var tr = document.createElement('tr');
+                var stateClass = r.state === 'open' ? 'port-open' : (r.state === 'closed' ? 'port-closed' : 'port-filtered');
+                var stateLabel = r.state === 'open' ? 'Открыт' : (r.state === 'closed' ? 'Закрыт' : 'Фильтруется');
+                tr.innerHTML = '<td style="font-family:monospace;">' + r.port + '</td>' +
+                    '<td class="' + stateClass + '">' + stateLabel + '</td>' +
+                    '<td style="color:#888;">' + (r.service || '—') + '</td>';
+                tbody.appendChild(tr);
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="3" style="color:#e74c3c;">Ошибка: ' + (d.error || 'неизвестная') + '</td></tr>';
+        }
+    })
+    .catch(function(e) {
+        setBtnLoading(btn, false);
+        tbody.innerHTML = '<tr><td colspan="3" style="color:#e74c3c;">Ошибка сети: ' + e.message + '</td></tr>';
+    });
+}
+
+function doTrace() {
+    var host = document.getElementById('trace-host').value.trim();
+    if (!host) return;
+    var btn = document.querySelector('#trace-section .action-btn');
+    var result = document.getElementById('trace-result');
+    setBtnLoading(btn, true);
+    result.style.display = 'block';
+    result.innerHTML = '<span style="color:#888;">Выполняется трассировка...</span>';
+    fetch('/api/nettools/trace', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({host: host})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        setBtnLoading(btn, false);
+        if (d.ok) { result.innerHTML = d.output; result.style.color = '#ccc'; }
+        else { result.innerHTML = 'Ошибка: ' + (d.error || 'неизвестная'); result.style.color = '#e74c3c'; }
+    })
+    .catch(function(e) {
+        setBtnLoading(btn, false);
+        result.innerHTML = 'Ошибка сети: ' + e.message;
+        result.style.color = '#e74c3c';
+    });
+}
+</script>
+
+{% endblock %}

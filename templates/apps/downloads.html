@@ -1,0 +1,214 @@
+{% extends "base_app.html" %}
+{% block content %}
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+.header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.header h1{font-size:20px;color:#fff;margin:0}
+.status-badge{font-size:12px;padding:3px 10px;border-radius:12px;font-weight:600}
+.status-connected{background:rgba(46,204,113,0.15);color:#2ecc71}
+.status-disconnected{background:rgba(231,76,60,0.15);color:#e74c3c}
+.header-actions{margin-left:auto;display:flex;gap:8px}
+.btn{padding:7px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s}
+.btn-primary{background:#2563eb;color:#fff}.btn-primary:hover{background:#1d4ed8}
+.btn-secondary{background:#333;color:#ccc}.btn-secondary:hover{background:#444}
+.btn-icon{background:none;border:none;color:#888;cursor:pointer;padding:4px 6px;border-radius:4px;font-size:16px}
+.btn-icon:hover{color:#fff;background:rgba(255,255,255,0.1)}
+.stats-bar{display:flex;gap:16px;margin-bottom:12px}
+.stat{font-size:13px;color:#888}.stat b{color:#fff;margin-left:4px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:#0a0a1a;color:#8ab4f8;padding:8px;text-align:left;font-weight:600;white-space:nowrap;position:sticky;top:0}
+tbody td{padding:6px 8px;border-bottom:1px solid #222;vertical-align:middle}
+tbody tr{transition:background .1s}
+tbody tr:hover{background:#1e1e3a}
+.progress-wrap{width:100%;height:6px;background:#222;border-radius:3px;overflow:visible;position:relative}
+.progress-bar{height:100%;border-radius:3px;transition:width .3s}
+.progress-text{position:absolute;top:-18px;left:0;right:0;text-align:center;font-size:11px;color:#aaa;line-height:18px}
+.status-text{font-size:12px;font-weight:600;white-space:nowrap}
+.speed-down{color:#2ecc71}.speed-up{color:#2563eb}
+.torrent-name{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
+.actions-cell{display:flex;gap:4px;opacity:0;transition:opacity .15s}
+tbody tr:hover .actions-cell{opacity:1}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal{background:#1e1e2e;border:1px solid #333;border-radius:12px;padding:24px;width:100%;max-width:500px}
+.modal h2{color:#fff;font-size:18px;margin-bottom:16px}
+.modal input{width:100%;background:#111;border:1px solid #333;border-radius:6px;color:#fff;padding:10px;font-size:14px;outline:none}
+.modal input:focus{border-color:#2563eb}
+.modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+.empty-state{text-align:center;padding:48px;color:#555;font-size:14px}
+</style>
+
+<div class="header">
+  <h1>Transmission</h1>
+  <span id="connStatus" class="status-badge status-disconnected">Отключен</span>
+  <div class="header-actions">
+    <button class="btn btn-primary" onclick="openAddModal()">Добавить торрент</button>
+    <button class="btn btn-secondary" onclick="loadTorrents()">Обновить</button>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat">Скорость загрузки: <b id="statDown">—</b></div>
+  <div class="stat">Скорость раздачи: <b id="statUp">—</b></div>
+  <div class="stat">Активных: <b id="statActive">0</b></div>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+  <th>Название</th>
+  <th>Прогресс</th>
+  <th>Скорость ↓</th>
+  <th>Скорость ↑</th>
+  <th>Осталось</th>
+  <th>Сиды/Пиры</th>
+  <th>Коэфф.</th>
+  <th style="width:100px"></th>
+</tr>
+</thead>
+<tbody id="torrentList">
+  <tr><td colspan="8" class="empty-state">Загрузка...</td></tr>
+</tbody>
+</table>
+</div>
+
+<div id="addModal" class="modal-overlay" onclick="if(event.target===this)closeAddModal()">
+  <div class="modal">
+    <h2>Добавить торрент</h2>
+    <input id="torrentUrl" type="text" placeholder="magnet:... или URL на .torrent файл" autofocus
+           onkeydown="if(event.key==='Enter')addTorrent()">
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeAddModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="addTorrent()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function fmtSpeed(bps){
+  if(bps>1048576)return(bps/1048576).toFixed(1)+' МБ/с';
+  if(bps>1024)return(bps/1024).toFixed(0)+' КБ/с';
+  return bps+' Б/с';
+}
+function fmtSize(bytes){
+  if(bytes>1073741824)return(bytes/1073741824).toFixed(1)+' ГБ';
+  if(bytes>1048576)return(bytes/1048576).toFixed(0)+' МБ';
+  return(bytes/1024).toFixed(0)+' КБ';
+}
+function fmtEta(secs){
+  if(secs<0||secs>86400*365)return'∞';
+  var h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60);
+  return h>0?h+'ч '+m+'м':m+'м';
+}
+var STATUS_MAP={
+  0:{text:'Пауза',color:'#888'},
+  1:{text:'В очереди',color:'#f1c40f'},
+  2:{text:'Проверка',color:'#f1c40f'},
+  3:{text:'Загрузка',color:'#2ecc71'},
+  4:{text:'Раздача',color:'#3498db'},
+  5:{text:'Ошибка',color:'#e74c3c'}
+};
+var PROGRESS_COLORS={3:'#2563eb',4:'#2ecc71',5:'#e74c3c'};
+
+function renderTorrents(data){
+  var list=document.getElementById('torrentList');
+  if(!data.torrents||data.torrents.length===0){
+    list.innerHTML='<tr><td colspan="8" class="empty-state">Нет торрентов</td></tr>';
+    return;
+  }
+  var html='';
+  data.torrents.forEach(function(t){
+    var st=STATUS_MAP[t.status]||{text:'?',color:'#888'};
+    var barColor=PROGRESS_COLORS[t.status]||'#f39c12';
+    html+='<tr>';
+    html+='<td><div class="torrent-name" title="'+esc(t.name)+'">'+esc(t.name)+'</div></td>';
+    html+='<td style="min-width:140px"><div class="progress-wrap"><div class="progress-text">'+t.progress.toFixed(1)+'%</div><div class="progress-bar" style="width:'+t.progress+'%;background:'+barColor+'"></div></div></td>';
+    html+='<td class="speed-down">'+fmtSpeed(t.speed_down)+'</td>';
+    html+='<td class="speed-up">'+fmtSpeed(t.speed_up)+'</td>';
+    html+='<td>'+fmtEta(t.eta)+'</td>';
+    html+='<td>'+t.seeds+'/'+t.peers+'</td>';
+    html+='<td>'+t.ratio.toFixed(2)+'</td>';
+    html+='<td><div class="actions-cell">';
+    if(t.status===3||t.status===4){
+      html+='<button class="btn-icon" title="Пауза" onclick="torrentAction('+t.id+',\'stop\')">⏸</button>';
+    }else{
+      html+='<button class="btn-icon" title="Старт" onclick="torrentAction('+t.id+',\'start\')">▶</button>';
+    }
+    html+='<button class="btn-icon" title="Вверх" onclick="torrentQueue('+t.id+',\'up\')">▲</button>';
+    html+='<button class="btn-icon" title="Вниз" onclick="torrentQueue('+t.id+',\'down\')">▼</button>';
+    html+='<button class="btn-icon" title="Удалить" onclick="torrentAction('+t.id+',\'remove\')" style="color:#e74c3c">✕</button>';
+    html+='</div></td>';
+    html+='</tr>';
+  });
+  list.innerHTML=html;
+}
+
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+function updateStats(data){
+  if(data.stats){
+    document.getElementById('statDown').textContent=fmtSpeed(data.stats.speed_down_total);
+    document.getElementById('statUp').textContent=fmtSpeed(data.stats.speed_up_total);
+    document.getElementById('statActive').textContent=data.stats.active;
+  }
+}
+
+function setConnected(ok){
+  var el=document.getElementById('connStatus');
+  if(ok){el.textContent='Подключен';el.className='status-badge status-connected';}
+  else{el.textContent='Отключен';el.className='status-badge status-disconnected';}
+}
+
+function loadTorrents(){
+  fetch('/api/transmission/torrents').then(function(r){return r.json()}).then(function(d){
+    if(d.ok){
+      setConnected(true);
+      renderTorrents(d);
+      updateStats(d);
+    }else{
+      setConnected(false);
+      document.getElementById('torrentList').innerHTML='<tr><td colspan="8" class="empty-state">Transmission недоступен</td></tr>';
+    }
+  }).catch(function(){
+    setConnected(false);
+    document.getElementById('torrentList').innerHTML='<tr><td colspan="8" class="empty-state">Ошибка соединения</td></tr>';
+  });
+}
+
+function torrentAction(id,action){
+  fetch('/api/transmission/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,action:action})})
+  .then(function(r){return r.json()}).then(function(){loadTorrents()}).catch(function(){});
+}
+
+function torrentQueue(id,action){
+  fetch('/api/transmission/queue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,action:action})})
+  .then(function(r){return r.json()}).then(function(){loadTorrents()}).catch(function(){});
+}
+
+function openAddModal(){
+  document.getElementById('addModal').classList.add('active');
+  setTimeout(function(){document.getElementById('torrentUrl').focus()},100);
+}
+function closeAddModal(){
+  document.getElementById('addModal').classList.remove('active');
+  document.getElementById('torrentUrl').value='';
+}
+
+function addTorrent(){
+  var url=document.getElementById('torrentUrl').value.trim();
+  if(!url)return;
+  fetch('/api/transmission/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})})
+  .then(function(r){return r.json()}).then(function(d){
+    closeAddModal();
+    if(d.ok)loadTorrents();
+    else alert('Ошибка: '+(d.error||'Неизвестная ошибка'));
+  }).catch(function(){alert('Ошибка сети')});
+}
+
+loadTorrents();
+setInterval(loadTorrents,5000);
+</script>
+{% endblock %}

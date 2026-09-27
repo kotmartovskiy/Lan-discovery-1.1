@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Курсы валют и металлов</h2>
+
+{% if currency_data %}
+
+<style>
+.curr-table { border-collapse:collapse; width:fit-content; table-layout:fixed; }
+.curr-table th, .curr-table td { padding:3px 8px; border-bottom:1px solid #222; text-align:center; font-size:13px; white-space:nowrap; }
+.curr-table th { color:#8ab4f8; background:#111; position:sticky; top:0; }
+.curr-table th:nth-child(1) { width:130px; text-align:left; }
+.curr-table td:nth-child(1) { text-align:left; }
+.curr-table th:nth-child(2), .curr-table td:nth-child(2) { width:100px; }
+.curr-table th:nth-child(n+3):nth-child(-n+6), .curr-table td:nth-child(n+3):nth-child(-n+6) { width:65px; }
+.curr-table th:nth-child(7), .curr-table td:nth-child(7) { width:95px; }
+.curr-section { margin-top:8px; border-top:1px solid #333; padding-top:6px; }
+.curr-section:first-child { border-top:none; margin-top:0; padding-top:0; }
+.curr-section h3 { margin:0 0 4px; font-size:15px; }
+</style>
+
+{% for category, items in currency_data.items() %}
+
+<div class="curr-section">
+<h3>{{ currency_category_name(category) }}</h3>
+
+<table class="curr-table">
+<thead>
+<tr>
+<th>Название</th>
+<th>Цена</th>
+<th>24ч</th>
+<th>Неделя</th>
+<th>Месяц</th>
+<th>Год</th>
+<th>Источник</th>
+</tr>
+</thead>
+<tbody>
+
+{% for item in items %}
+<tr>
+<td><strong>{{ item.name }}</strong></td>
+<td>{{ "%.2f"|format(item.value) if item.value else '-' }}</td>
+<td>
+{% if item.change_24h is not none %}
+<span class="{{ 'online' if item.change_24h > 0 else 'offline' }}">
+{{ "+" if item.change_24h > 0 else "" }}{{ "%.2f"|format(item.change_24h) }}%
+</span>
+{% else %}-{% endif %}
+</td>
+<td>
+{% if item.change_week is not none %}
+<span class="{{ 'online' if item.change_week > 0 else 'offline' }}">
+{{ "+" if item.change_week > 0 else "" }}{{ "%.2f"|format(item.change_week) }}%
+</span>
+{% else %}-{% endif %}
+</td>
+<td>
+{% if item.change_month is not none %}
+<span class="{{ 'online' if item.change_month > 0 else 'offline' }}">
+{{ "+" if item.change_month > 0 else "" }}{{ "%.2f"|format(item.change_month) }}%
+</span>
+{% else %}-{% endif %}
+</td>
+<td>
+{% if item.change_year is not none %}
+<span class="{{ 'online' if item.change_year > 0 else 'offline' }}">
+{{ "+" if item.change_year > 0 else "" }}{{ "%.2f"|format(item.change_year) }}%
+</span>
+{% else %}-{% endif %}
+</td>
+<td class="small">{{ item.source }}</td>
+</tr>
+{% endfor %}
+
+</tbody>
+</table>
+</div>
+
+{% endfor %}
+
+{% else %}
+
+<div class="info">Данные загружаются... Попробуйте обновить страницу через минуту.</div>
+
+{% endif %}
+
+<h3>Приемные пункты (ЦФО)</h3>
+
+{% if recycling_data %}
+
+{% for category, items in recycling_data.items() %}
+
+<h4>{{ recycling_category_name(category) }}</h4>
+
+<table>
+<thead>
+<tr>
+<th>Материал</th>
+<th>Цена</th>
+<th>Ед.</th>
+<th>Регион</th>
+<th>Источник</th>
+</tr>
+</thead>
+<tbody>
+
+{% for item in items %}
+<tr>
+<td>{{ item.material }}</td>
+<td>{{ "%.2f"|format(item.price_min) if item.price_min else '-' }}</td>
+<td>{{ item.unit }}</td>
+<td class="small">{{ item.region }}</td>
+<td class="small">{{ item.source }}</td>
+</tr>
+{% endfor %}
+
+</tbody>
+</table>
+
+{% endfor %}
+
+{% else %}
+
+<div class="info">Данные о приемных пунктах пока недоступны.</div>
+
+{% endif %}
+
+<div style="margin-top:20px;">
+<span class="small">Последнее обновление: {{ currency_updated or 'никогда' }}</span>
+</div>
+{% endblock %}

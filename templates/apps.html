@@ -1,0 +1,1905 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.desktop { display: flex; flex-direction: column; gap: 20px; padding: 20px 10px; }
+.desktop-cat { display: flex; flex-wrap: wrap; gap: 8px; }
+.desktop-cat .cat-label { width: 100%; font-size: 13px; color: #555; text-transform: uppercase; letter-spacing: 1px; padding: 4px 0 0 4px; }
+.desktop-icon { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; padding: 12px 16px; border-radius: 12px; transition: background 0.2s; text-decoration: none; min-width: 80px; }
+.desktop-icon:hover { background: #1a1a2e; }
+.desktop-icon .icon { font-size: 42px; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; background: #1a1a2e; border-radius: 16px; border: 1px solid #333; }
+.desktop-icon .label { font-size: 12px; color: #ccc; text-align: center; }
+
+.app-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; }
+.app-overlay.open { display: flex; }
+.app-window { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; width: 360px; max-width: 95vw; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+.app-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #333; }
+.app-header h3 { margin: 0; font-size: 15px; color: #ddd; }
+.app-close { background: none; border: none; color: #888; font-size: 20px; cursor: pointer; padding: 0 4px; }
+.app-close:hover { color: #e74c3c; }
+.app-body { padding: 16px; }
+
+/* Calculator */
+.calc-toggle{display:flex;margin-bottom:12px;border-radius:8px;overflow:hidden;border:1px solid #333}
+.calc-toggle button{flex:1;padding:8px;font-size:12px;border:none;cursor:pointer;background:#222;color:#888;transition:all .15s}
+.calc-toggle button.active{background:#2563eb;color:#fff}
+.calc-display{background:#111;border:1px solid #333;border-radius:8px;padding:8px 12px;text-align:right;font-size:24px;color:#fff;margin-bottom:8px;min-height:40px;word-break:break-all}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.calc-grid.sci{grid-template-columns:repeat(5,1fr);gap:4px}
+.calc-grid.sci .calc-btn{padding:8px 2px;font-size:12px}
+.calc-grid.sci ~ .calc-grid .calc-btn{padding:10px;font-size:14px}
+.calc-btn{padding:14px;font-size:16px;border:1px solid #333;border-radius:6px;background:#222;color:#ddd;cursor:pointer}
+.calc-btn:hover{background:#333}
+.calc-btn.op{background:#2563eb;color:#fff}
+.calc-btn.op:hover{background:#1d4ed8}
+.calc-btn.eq{background:#2ecc71;color:#fff}
+.calc-btn.eq:hover{background:#27ae60}
+.calc-btn.clear{background:#e74c3c;color:#fff}
+.calc-btn.clear:hover{background:#c0392b}
+.calc-btn.fn{background:#1a1a2e;color:#8ab4f8;font-size:14px}
+.calc-btn.fn:hover{background:#2563eb;color:#fff}
+
+/* Timer / Stopwatch */
+.timer-display { font-size: 48px; font-family: monospace; text-align: center; color: #fff; padding: 20px; background: #111; border-radius: 8px; border: 1px solid #333; margin-bottom: 16px; letter-spacing: 2px; }
+.timer-controls { display: flex; gap: 8px; justify-content: center; }
+.timer-controls button { padding: 10px 24px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; color: #fff; }
+.btn-start { background: #2ecc71; }
+.btn-start:hover { background: #27ae60; }
+.btn-stop { background: #e74c3c; }
+.btn-stop:hover { background: #c0392b; }
+.btn-reset { background: #555; }
+.btn-reset:hover { background: #666; }
+.timer-inputs { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; }
+.timer-inputs input { width: 50px; text-align: center; padding: 6px; background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; font-size: 16px; }
+.timer-inputs label { font-size: 12px; color: #888; align-self: center; }
+
+/* Calendar */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.cal-header{font-size:16px;color:#ddd;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.cal-header button{background:none;border:none;color:#8ab4f8;font-size:18px;cursor:pointer;padding:4px 8px}
+.cal-day-name{font-size:11px;color:#888;padding:4px}
+.cal-day{padding:6px;font-size:13px;color:#ccc;border-radius:4px;cursor:pointer;position:relative}
+.cal-day:hover{background:#222}
+.cal-day.today{background:#2563eb;color:#fff;font-weight:bold}
+.cal-day.holiday{color:#e74c3c;font-weight:600}
+.cal-day.weekend{color:#f59e0b}
+.cal-day.has-event::after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:#58a6ff}
+.cal-day.has-birthday::after{background:#f472b6}
+.cal-day.has-history::after{background:#6e7681}
+.cal-day.other{color:#555}
+.cal-events{margin-top:12px;font-size:13px;max-height:220px;overflow-y:auto}
+.cal-event{padding:6px 0;border-bottom:1px solid #222;color:#ccc}
+.cal-event .ev-date{color:#888;font-size:12px}
+.cal-event.ev-holiday{color:#e74c3c}
+.cal-event.ev-birthday{color:#f472b6}
+.cal-event.ev-history{color:#8b949e;font-size:12px}
+.cal-event.ev-custom{color:#58a6ff}
+.cal-add{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.cal-add input,.cal-add select{background:#111;border:1px solid #333;border-radius:4px;color:#fff;padding:5px 8px;font-size:12px}
+.cal-add input:focus,.cal-add select:focus{border-color:#2563eb}
+.cal-add button{padding:5px 10px;font-size:12px;border:none;border-radius:4px;cursor:pointer;color:#fff}
+.cal-add .btn-add{background:#2563eb}.cal-add .btn-add:hover{background:#1d4ed8}
+.cal-add .btn-del{background:#da3633;padding:2px 6px;font-size:11px}.cal-add .btn-del:hover{background:#f85149}
+.cal-custom-list{margin-top:8px}
+.cal-custom-item{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;color:#8ab4f8;border-bottom:1px solid #1a1a2e}
+.cal-legend{display:flex;gap:10px;margin-top:8px;font-size:11px;color:#888;flex-wrap:wrap}
+.cal-legend span::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.cal-legend .l-holiday::before{background:#e74c3c}
+.cal-legend .l-birthday::before{background:#f472b6}
+.cal-legend .l-history::before{background:#6e7681}
+.cal-legend .l-custom::before{background:#58a6ff}
+
+/* Alarm */
+.alarm-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #222; }
+.alarm-time { font-size: 24px; font-weight: bold; color: #fff; font-family: monospace; min-width: 80px; }
+.alarm-file { font-size: 12px; color: #888; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alarm-days { display: flex; gap: 3px; }
+.alarm-days span { font-size: 10px; padding: 2px 5px; border-radius: 3px; cursor: pointer; background: #222; color: #666; }
+.alarm-days span.active { background: #2563eb; color: #fff; }
+.alarm-toggle { width: 36px; height: 20px; border-radius: 10px; border: none; cursor: pointer; position: relative; transition: background 0.2s; }
+.alarm-toggle.on { background: #2ecc71; }
+.alarm-toggle.off { background: #555; }
+.alarm-toggle::after { content: ''; position: absolute; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.2s; }
+.alarm-toggle.on::after { left: 18px; }
+.alarm-toggle.off::after { left: 2px; }
+.alarm-del { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 16px; }
+.alarm-add-row { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.alarm-add-row input[type="time"] { background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; padding: 6px; font-size: 14px; }
+.alarm-add-row select { background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; padding: 6px; font-size: 13px; max-width: 200px; }
+.alarm-volume { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.alarm-volume input[type="range"] { flex: 1; accent-color: #2563eb; }
+.alarm-test { display: flex; gap: 8px; margin-top: 8px; }
+
+/* Radio */
+.app-radio .app-window { width: 700px; max-width: 95vw; }
+.radio-layout { display: flex; gap: 16px; height: 420px; }
+.radio-player { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-width: 200px; }
+.radio-stations { flex: 1; display: flex; flex-direction: column; border-left: 1px solid #333; padding-left: 16px; overflow: hidden; }
+.radio-stations-header { font-size: 13px; color: #888; margin-bottom: 8px; display: flex; gap: 6px; }
+.radio-stations-header select { background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; padding: 4px 6px; font-size: 12px; flex: 1; }
+
+.radio-viz-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.radio-viz { display: flex; align-items: flex-end; gap: 3px; height: 60px; }
+.radio-viz .bar { width: 6px; height: 8px; background: #2563eb; border-radius: 3px 3px 0 0; transition: height 0.15s ease; }
+.radio-viz.playing .bar { animation: eqBar 0.8s ease-in-out infinite alternate; }
+.radio-viz .bar:nth-child(1) { animation-delay: 0s; }
+.radio-viz .bar:nth-child(2) { animation-delay: 0.1s; }
+.radio-viz .bar:nth-child(3) { animation-delay: 0.2s; }
+.radio-viz .bar:nth-child(4) { animation-delay: 0.3s; }
+.radio-viz .bar:nth-child(5) { animation-delay: 0.15s; }
+.radio-viz .bar:nth-child(6) { animation-delay: 0.05s; }
+.radio-viz .bar:nth-child(7) { animation-delay: 0.25s; }
+.radio-viz .bar:nth-child(8) { animation-delay: 0.35s; }
+.radio-viz .bar:nth-child(9) { animation-delay: 0.12s; }
+.radio-viz .bar:nth-child(10) { animation-delay: 0.22s; }
+.radio-viz .bar:nth-child(11) { animation-delay: 0.08s; }
+.radio-viz .bar:nth-child(12) { animation-delay: 0.18s; }
+@keyframes eqBar { 0% { height: 8px; } 100% { height: 55px; } }
+
+.radio-now-name { font-size: 18px; color: #fff; font-weight: bold; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radio-now-status { font-size: 12px; color: #888; text-align: center; }
+.radio-now-status.on { color: #2ecc71; }
+
+.radio-controls { display: flex; gap: 10px; align-items: center; }
+.radio-controls button { width: 44px; height: 44px; border-radius: 50%; border: none; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+.radio-btn-play { background: #2ecc71; color: #fff; }
+.radio-btn-play:hover { background: #27ae60; }
+.radio-btn-stop { background: #e74c3c; color: #fff; }
+.radio-btn-stop:hover { background: #c0392b; }
+.radio-btn-nav { background: #333; color: #ddd; }
+.radio-btn-nav:hover { background: #444; }
+.radio-volume { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 220px; }
+.radio-volume input[type="range"] { flex: 1; accent-color: #2563eb; }
+.radio-volume span { font-size: 12px; color: #888; min-width: 28px; text-align: center; }
+.radio-list { flex: 1; overflow-y: auto; }
+.radio-item { padding: 8px 10px; font-size: 13px; color: #ccc; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radio-item:hover { background: #222; }
+.radio-item.active { background: #2563eb; color: #fff; }
+
+/* Player */
+.app-player .app-window { width: 700px; max-width: 95vw; }
+.player-layout { display: flex; gap: 16px; height: 420px; }
+.player-left { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-width: 200px; }
+.player-right { flex: 1; display: flex; flex-direction: column; border-left: 1px solid #333; padding-left: 16px; overflow: hidden; }
+.player-right-header { font-size: 13px; color: #888; margin-bottom: 8px; display: flex; gap: 6px; }
+.player-right-header select { background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; padding: 4px 6px; font-size: 12px; flex: 1; }
+.player-now-name { font-size: 18px; color: #fff; font-weight: bold; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-now-status { font-size: 12px; color: #888; text-align: center; }
+.player-now-status.on { color: #2ecc71; }
+.player-controls { display: flex; gap: 10px; align-items: center; }
+.player-controls button { width: 44px; height: 44px; border-radius: 50%; border: none; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+.player-btn-play { background: #2ecc71; color: #fff; }
+.player-btn-play:hover { background: #27ae60; }
+.player-btn-stop { background: #e74c3c; color: #fff; }
+.player-btn-stop:hover { background: #c0392b; }
+.player-btn-nav { background: #333; color: #ddd; }
+.player-btn-nav:hover { background: #444; }
+.player-btn-random { background: #333; color: #ddd; font-size: 14px; }
+.player-btn-random.active { background: #2563eb; color: #fff; }
+.player-btn-random:hover { background: #444; }
+.player-btn-random.active:hover { background: #1d4ed8; }
+.player-viz { display: flex; align-items: flex-end; gap: 3px; height: 60px; }
+.player-viz .bar { width: 6px; height: 8px; background: #2563eb; border-radius: 3px 3px 0 0; transition: height 0.15s ease; }
+.player-viz.playing .bar { animation: eqBar 0.8s ease-in-out infinite alternate; }
+.player-volume { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 220px; }
+.player-volume input[type="range"] { flex: 1; accent-color: #2563eb; }
+.player-volume span { font-size: 12px; color: #888; min-width: 28px; text-align: center; }
+.player-list { flex: 1; overflow-y: auto; }
+.player-item { padding: 8px 10px; font-size: 13px; color: #ccc; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-item:hover { background: #222; }
+.player-item.active { background: #2563eb; color: #fff; }
+.player-create { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
+.player-create-btn { padding: 6px 12px; font-size: 12px; background: #2563eb; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+.player-create-btn:hover { background: #1d4ed8; }
+.player-browse { display: none; margin-top: 10px; }
+.player-browse.open { display: block; }
+.player-browse-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.player-browse-bar button { padding: 4px 10px; font-size: 12px; background: #333; color: #ddd; border: none; border-radius: 4px; cursor: pointer; }
+.player-browse-bar button:hover { background: #444; }
+.player-browse-bar input { flex: 1; min-width: 120px; padding: 4px 8px; background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; font-size: 12px; }
+.player-browse-list { max-height: 200px; overflow-y: auto; border: 1px solid #333; border-radius: 4px; }
+.player-browse-item { padding: 6px 10px; font-size: 12px; color: #ccc; cursor: pointer; border-bottom: 1px solid #222; display: flex; justify-content: space-between; }
+.player-browse-item:hover { background: #222; }
+.player-browse-item.selected { background: #2563eb; color: #fff; }
+.player-browse-item .dir-icon { color: #f39c12; }
+.player-browse-item .file-icon { color: #2ecc71; }
+.player-browse-item .count { color: #666; font-size: 11px; }
+/* Camera */
+.app-camera .app-window { width: 90vw; max-width: 1400px; height: 85vh; }
+.cam-layout { display: flex; height: calc(85vh - 50px); }
+.cam-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.cam-toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #333; flex-wrap: wrap; }
+.cam-toolbar button { padding: 5px 12px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; color: #fff; }
+.cam-btn-add { background: #2ecc71; }
+.cam-btn-add:hover { background: #27ae60; }
+.cam-btn-start { background: #2563eb; }
+.cam-btn-start:hover { background: #1d4ed8; }
+.cam-btn-stop { background: #e74c3c; }
+.cam-btn-stop:hover { background: #c0392b; }
+.cam-btn-page { background: #333; }
+.cam-btn-page:hover { background: #444; }
+.cam-btn-page.active { background: #2563eb; }
+.cam-count { font-size: 12px; color: #888; margin-left: auto; }
+.cam-grid { flex: 1; display: grid; gap: 4px; padding: 4px; overflow: hidden; }
+.cam-grid.g1 { grid-template-columns: 1fr; }
+.cam-grid.g2 { grid-template-columns: 1fr 1fr; }
+.cam-grid.g4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.cam-grid.g16 { grid-template-columns: 1fr 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr 1fr; }
+.cam-cell { background: #000; border-radius: 4px; overflow: hidden; position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.cam-cell img { width: 100%; height: 100%; object-fit: contain; }
+.cam-cell .cam-label { position: absolute; bottom: 4px; left: 6px; font-size: 11px; color: #fff; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 3px; }
+.cam-cell .cam-off { color: #888; font-size: 12px; text-align: center; }
+.cam-cell.fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; border-radius: 0; }
+.cam-cell.fullscreen img { object-fit: contain; }
+.cam-pages { display: flex; gap: 4px; padding: 6px 12px; border-top: 1px solid #333; justify-content: center; }
+.cam-side { width: 300px; border-left: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
+.cam-side.hidden { display: none; }
+.cam-side-header { padding: 10px 12px; border-bottom: 1px solid #333; font-size: 13px; color: #888; display: flex; justify-content: space-between; align-items: center; }
+.cam-side-close { background: none; border: none; color: #888; font-size: 18px; cursor: pointer; }
+.cam-side-close:hover { color: #e74c3c; }
+.cam-list { flex: 1; overflow-y: auto; padding: 8px; }
+.cam-list-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 4px; margin-bottom: 4px; background: #111; border: 1px solid #222; }
+.cam-list-item .cam-list-name { flex: 1; font-size: 13px; color: #ccc; }
+.cam-list-item .cam-list-url { font-size: 11px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+.cam-list-item button { background: none; border: none; color: #888; cursor: pointer; font-size: 14px; padding: 2px 4px; }
+.cam-list-item button:hover { color: #fff; }
+.cam-list-item .cam-del { color: #e74c3c; }
+.cam-add-form { padding: 10px; border-top: 1px solid #333; }
+.cam-add-form input { width: 100%; padding: 6px 8px; background: #111; border: 1px solid #333; border-radius: 4px; color: #fff; font-size: 12px; margin-bottom: 6px; }
+.cam-add-form button { width: 100%; padding: 6px; background: #2ecc71; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+</style>
+
+<h2>Приложения</h2>
+
+<div class="desktop">
+<div class="desktop-cat">
+<div class="cat-label">Утилиты</div>
+<div class="desktop-icon" onclick="openApp('calc')">
+<div class="icon">🔢</div>
+<div class="label">Калькулятор</div>
+</div>
+<div class="desktop-icon" onclick="openApp('calendar')">
+<div class="icon">📅</div>
+<div class="label">Календарь</div>
+</div>
+<div class="desktop-icon" onclick="openApp('timer')">
+<div class="icon">⏳</div>
+<div class="label">Таймер</div>
+</div>
+<div class="desktop-icon" onclick="openApp('stopwatch')">
+<div class="icon">⏱</div>
+<div class="label">Секундомер</div>
+</div>
+<div class="desktop-icon" onclick="openApp('alarm')">
+<div class="icon">⏰</div>
+<div class="label">Будильник</div>
+</div>
+<div class="desktop-icon" onclick="openApp('notes')">
+<div class="icon">📝</div>
+<div class="label">Заметки</div>
+</div>
+<div class="desktop-icon" onclick="openApp('passwords')">
+<div class="icon">🔐</div>
+<div class="label">Пароли</div>
+</div>
+<div class="desktop-icon" onclick="openApp('filemanager')">
+<div class="icon">📁</div>
+<div class="label">Файлы</div>
+</div>
+</div>
+<div class="desktop-cat">
+<div class="cat-label">Медиа</div>
+<div class="desktop-icon" onclick="openApp('radio')">
+<div class="icon">📻</div>
+<div class="label">Радио</div>
+</div>
+<div class="desktop-icon" onclick="openApp('player')">
+<div class="icon">🎵</div>
+<div class="label">Плеер</div>
+</div>
+<div class="desktop-icon" onclick="openApp('camera')">
+<div class="icon">📷</div>
+<div class="label">Камеры</div>
+</div>
+</div>
+<div class="desktop-cat">
+<div class="cat-label">Игры</div>
+<div class="desktop-icon" onclick="openApp('snake')">
+<div class="icon">🐍</div>
+<div class="label">Змейка</div>
+</div>
+<div class="desktop-icon" onclick="openApp('tetris')">
+<div class="icon">🟦</div>
+<div class="label">Тетрис</div>
+</div>
+<div class="desktop-icon" onclick="openApp('g2048')">
+<div class="icon">🟩</div>
+<div class="label">2048</div>
+</div>
+<div class="desktop-icon" onclick="openApp('arkanoid')">
+<div class="icon">🟪</div>
+<div class="label">Арканоид</div>
+</div>
+</div>
+<div class="desktop-cat">
+<div class="cat-label">Система и сеть</div>
+<div class="desktop-icon" onclick="openApp('terminal')">
+<div class="icon">💻</div>
+<div class="label">Терминал</div>
+</div>
+<div class="desktop-icon" onclick="openApp('nettools')">
+<div class="icon">🔌</div>
+<div class="label">Сеть</div>
+</div>
+<div class="desktop-icon" onclick="openApp('wifianalyzer')">
+<div class="icon">📡</div>
+<div class="label">Wi-Fi</div>
+</div>
+<div class="desktop-icon" onclick="openApp('disks')">
+<div class="icon">💾</div>
+<div class="label">Диски</div>
+</div>
+<div class="desktop-icon" onclick="openApp('downloads')">
+<div class="icon">📦</div>
+<div class="label">Загрузки</div>
+</div>
+<div class="desktop-icon" onclick="openApp('bluetooth')">
+<div class="icon">📶</div>
+<div class="label">Bluetooth</div>
+</div>
+<div class="desktop-icon" onclick="openApp('dlna')">
+<div class="icon">📺</div>
+<div class="label">DLNA</div>
+</div>
+<div class="desktop-icon" onclick="openApp('upnp')">
+<div class="icon">📡</div>
+<div class="label">UPnP</div>
+</div>
+</div>
+</div>
+
+<!-- Calculator -->
+<div class="app-overlay" id="app-calc">
+<div class="app-window">
+<div class="app-header"><h3>Калькулятор</h3><button class="app-close" onclick="closeApp('calc')">&times;</button></div>
+<div class="app-body">
+<div class="calc-toggle">
+<button class="calc-btn" onclick="calcMode('basic')" id="calc-btn-basic">Обычный</button>
+<button class="calc-btn" onclick="calcMode('sci')" id="calc-btn-sci">Инженерный</button>
+</div>
+<div class="calc-display" id="calc-display">0</div>
+<div id="calc-sci-grid" class="calc-grid sci" style="display:none">
+<button class="calc-btn fn" onclick="calcFn('sin')">sin</button>
+<button class="calc-btn fn" onclick="calcFn('cos')">cos</button>
+<button class="calc-btn fn" onclick="calcFn('tan')">tan</button>
+<button class="calc-btn fn" onclick="calcFn('log')">log</button>
+<button class="calc-btn fn" onclick="calcFn('ln')">ln</button>
+<button class="calc-btn fn" onclick="calcFn('asin')">asin</button>
+<button class="calc-btn fn" onclick="calcFn('acos')">acos</button>
+<button class="calc-btn fn" onclick="calcFn('atan')">atan</button>
+<button class="calc-btn fn" onclick="calcFn('sqrt')">√</button>
+<button class="calc-btn fn" onclick="calcFn('cbrt')">∛</button>
+<button class="calc-btn fn" onclick="calcInput('Math.PI')">π</button>
+<button class="calc-btn fn" onclick="calcInput('Math.E')">e</button>
+<button class="calc-btn fn" onclick="calcInput('**')">x^y</button>
+<button class="calc-btn fn" onclick="calcInput('**2')">x²</button>
+<button class="calc-btn fn" onclick="calcInput('**3')">x³</button>
+<button class="calc-btn fn" onclick="calcInput('!')">n!</button>
+<button class="calc-btn fn" onclick="calcFn('abs')">|x|</button>
+<button class="calc-btn fn" onclick="calcInput('%')">%</button>
+<button class="calc-btn fn" onclick="calcInput('10**')">10^x</button>
+<button class="calc-btn fn" onclick="calcInput('Math.sqrt(')">√(</button>
+</div>
+<div id="calc-basic-grid" class="calc-grid">
+<button class="calc-btn clear" onclick="calcClear()">C</button>
+<button class="calc-btn" onclick="calcInput('(')">(</button>
+<button class="calc-btn" onclick="calcInput(')')">)</button>
+<button class="calc-btn op" onclick="calcInput('/')">÷</button>
+<button class="calc-btn" onclick="calcInput('7')">7</button>
+<button class="calc-btn" onclick="calcInput('8')">8</button>
+<button class="calc-btn" onclick="calcInput('9')">9</button>
+<button class="calc-btn op" onclick="calcInput('*')">×</button>
+<button class="calc-btn" onclick="calcInput('4')">4</button>
+<button class="calc-btn" onclick="calcInput('5')">5</button>
+<button class="calc-btn" onclick="calcInput('6')">6</button>
+<button class="calc-btn op" onclick="calcInput('-')">−</button>
+<button class="calc-btn" onclick="calcInput('1')">1</button>
+<button class="calc-btn" onclick="calcInput('2')">2</button>
+<button class="calc-btn" onclick="calcInput('3')">3</button>
+<button class="calc-btn op" onclick="calcInput('+')">+</button>
+<button class="calc-btn" onclick="calcInput('0')">0</button>
+<button class="calc-btn" onclick="calcInput('.')">.</button>
+<button class="calc-btn" onclick="calcBackspace()">⌫</button>
+<button class="calc-btn eq" onclick="calcEquals()">=</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Timer -->
+<div class="app-overlay" id="app-timer">
+<div class="app-window">
+<div class="app-header"><h3>Таймер</h3><button class="app-close" onclick="closeApp('timer')">&times;</button></div>
+<div class="app-body">
+<div class="timer-inputs" id="timer-setup">
+<input type="number" id="timer-h" min="0" max="23" value="0" placeholder="ч">
+<label>ч</label>
+<input type="number" id="timer-m" min="0" max="59" value="5" placeholder="м">
+<label>м</label>
+<input type="number" id="timer-s" min="0" max="59" value="0" placeholder="с">
+<label>с</label>
+</div>
+<div class="timer-display" id="timer-display">00:05:00</div>
+<div class="timer-controls">
+<button class="btn-start" id="timer-start-btn" onclick="timerToggle()">Старт</button>
+<button class="btn-reset" onclick="timerReset()">Сброс</button>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Stopwatch -->
+<div class="app-overlay" id="app-stopwatch">
+<div class="app-window">
+<div class="app-header"><h3>Секундомер</h3><button class="app-close" onclick="closeApp('stopwatch')">&times;</button></div>
+<div class="app-body">
+<div class="timer-display" id="sw-display">00:00:00.0</div>
+<div class="timer-controls">
+<button class="btn-start" id="sw-start-btn" onclick="swToggle()">Старт</button>
+<button class="btn-reset" onclick="swReset()">Сброс</button>
+</div>
+<div id="sw-laps" style="margin-top:12px; max-height:200px; overflow-y:auto;"></div>
+</div>
+</div>
+</div>
+
+<!-- Calendar -->
+<div class="app-overlay" id="app-calendar">
+<div class="app-window" style="width:420px;">
+<div class="app-header"><h3>Календарь</h3><button class="app-close" onclick="closeApp('calendar')">&times;</button></div>
+<div class="app-body">
+<div id="cal-today-line" style="text-align:center;font-size:18px;font-weight:700;color:#e6edf3;margin-bottom:10px;"></div>
+<div class="cal-header">
+<button onclick="calPrev()">&#9664;</button>
+<span id="cal-title"></span>
+<button onclick="calNext()">&#9654;</button>
+</div>
+<div class="cal-grid" id="cal-grid"></div>
+<div class="cal-legend">
+<span class="l-holiday">Праздник</span>
+<span class="l-birthday">День рождения</span>
+<span class="l-history">История</span>
+<span class="l-custom">Своё</span>
+</div>
+<div class="cal-events" id="cal-events"></div>
+<div class="cal-add">
+<input type="text" id="cal-custom-name" placeholder="Название" style="flex:1;min-width:120px;">
+<input type="date" id="cal-custom-date">
+<select id="cal-custom-type"><option value="holiday">Праздник</option><option value="birthday">День рождения</option></select>
+<button class="btn-add" onclick="calAddCustom()">+</button>
+</div>
+<div class="cal-custom-list" id="cal-custom-list"></div>
+</div>
+</div>
+</div>
+
+<!-- Alarm -->
+<div class="app-overlay" id="app-alarm">
+<div class="app-window" style="width:420px;">
+<div class="app-header"><h3>Будильник</h3><button class="app-close" onclick="closeApp('alarm')">&times;</button></div>
+<div class="app-body">
+
+<div class="alarm-volume">
+<span style="color:#888; font-size:13px;">🔊</span>
+<input type="range" id="alarm-vol" min="0" max="10" value="5" oninput="alarmSetVolume(this.value)">
+<span id="alarm-vol-val" style="color:#ccc; font-size:13px; min-width:20px;">5</span>
+</div>
+
+<div class="alarm-test">
+<button style="padding:6px 14px; font-size:12px; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="alarmTestPlay()">▶ Тест</button>
+<button style="padding:6px 14px; font-size:12px; background:#555; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="alarmStop()">⏹ Стоп</button>
+</div>
+
+<div id="alarm-list" style="margin-top:12px;"></div>
+
+<div class="alarm-add-row">
+<input type="time" id="alarm-new-time" value="07:00">
+<select id="alarm-new-file"></select>
+<button style="padding:6px 14px; font-size:12px; background:#2ecc71; color:#fff; border:none; border-radius:4px; cursor:pointer;" onclick="alarmAdd()">+ Добавить</button>
+</div>
+
+</div>
+</div>
+</div>
+
+<!-- Radio -->
+<div class="app-overlay app-radio" id="app-radio">
+<div class="app-window">
+<div class="app-header"><h3>Радио</h3><button class="app-close" onclick="closeApp('radio')">&times;</button></div>
+<div class="app-body" style="padding:12px;">
+<div class="radio-layout">
+<div class="radio-player">
+<div class="radio-viz-wrap">
+<div class="radio-viz" id="radio-viz">
+<div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+</div>
+<div class="radio-now-name" id="radio-now">Выберите станцию</div>
+<div class="radio-now-status" id="radio-status">Остановлено</div>
+</div>
+<div class="radio-controls">
+<button class="radio-btn-nav" onclick="radioPrev()">⏮</button>
+<button class="radio-btn-play" id="radio-play-btn" onclick="radioPlay(radioIndex>=0?radioIndex:0)">▶</button>
+<button class="radio-btn-stop" onclick="radioStop()">⏹</button>
+<button class="radio-btn-nav" onclick="radioNext()">⏭</button>
+</div>
+<div class="radio-volume">
+<span>🔊</span>
+<input type="range" min="0" max="100" value="80" oninput="radioSetVolume(this.value)">
+<span id="radio-vol-val">80</span>
+</div>
+</div>
+<div class="radio-stations">
+<div class="radio-stations-header">
+<select id="radio-playlist" onchange="radioSelectPlaylist(this.value)"></select>
+</div>
+<div class="radio-list" id="radio-list"><div style="color:#666;font-size:13px;padding:8px 0;">Выберите плейлист →</div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Player -->
+<div class="app-overlay app-player" id="app-player">
+<div class="app-window">
+<div class="app-header"><h3>Плеер</h3><button class="app-close" onclick="closeApp('player')">&times;</button></div>
+<div class="app-body" style="padding:12px;">
+<div class="player-layout">
+<div class="player-left">
+<div class="player-viz-wrap">
+<div class="player-viz" id="player-viz">
+<div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+</div>
+<div class="player-now-name" id="player-now">Выберите трек</div>
+<div class="player-now-status" id="player-status">Остановлено</div>
+</div>
+<div class="player-controls">
+<button class="player-btn-nav" onclick="playerPrev()">⏮</button>
+<button class="player-btn-play" id="player-play-btn" onclick="playerPlay(playerIndex>=0?playerIndex:0)">▶</button>
+<button class="player-btn-stop" onclick="playerStop()">⏹</button>
+<button class="player-btn-nav" onclick="playerNext()">⏭</button>
+<button class="player-btn-random" id="player-rand-btn" onclick="playerToggleRandom()">🎲</button>
+</div>
+<div class="player-volume">
+<span>🔊</span>
+<input type="range" min="0" max="100" value="80" oninput="playerSetVolume(this.value)">
+<span id="player-vol-val">80</span>
+</div>
+</div>
+<div class="player-right">
+<div class="player-right-header">
+<select id="player-playlist" onchange="playerSelectPlaylist(this.value)">
+<option value="">— Выберите плейлист —</option>
+</select>
+</div>
+<div class="player-list" id="player-list"><div style="color:#666;font-size:13px;padding:8px 0;">Выберите плейлист →</div></div>
+<div class="player-create">
+<button class="player-create-btn" onclick="playerToggleBrowse()">＋ Создать плейлист</button>
+<div class="player-browse" id="player-browse">
+<div class="player-browse-bar">
+<button onclick="playerBrowseUp()">⬆</button>
+<input id="player-browse-path" value="/srv/media" readonly>
+<button onclick="playerBrowseAddSelected()">＋ Добавить</button>
+<button onclick="playerBrowseSave()">💾 Сохранить</button>
+<button onclick="playerBrowseCancel()">✕</button>
+</div>
+<div class="player-browse-list" id="player-browse-list"></div>
+<div style="margin-top:6px;display:flex;gap:6px;align-items:center;">
+<input id="player-new-name" placeholder="Имя плейлиста" style="flex:1;padding:4px 8px;background:#111;border:1px solid #333;border-radius:4px;color:#fff;font-size:12px;">
+<span id="player-browse-count" style="font-size:11px;color:#888;">0 файлов</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Camera -->
+<div class="app-overlay app-camera" id="app-camera">
+<div class="app-window">
+<div class="app-header"><h3>Камеры</h3><button class="app-close" onclick="closeApp('camera')">&times;</button></div>
+<div class="cam-layout">
+<div class="cam-main">
+<div class="cam-toolbar">
+<button class="cam-btn-add" onclick="camToggleSide()">☰ Управление</button>
+<button class="cam-btn-start" onclick="camStartAll()">▶ Включить все</button>
+<button class="cam-btn-stop" onclick="camStopAll()">⏹ Выключить все</button>
+<span class="cam-count" id="cam-count"></span>
+</div>
+<div class="cam-grid g4" id="cam-grid"></div>
+<div class="cam-pages" id="cam-pages"></div>
+</div>
+<div class="cam-side hidden" id="cam-side">
+<div class="cam-side-header"><span>Управление камерами</span><button class="cam-side-close" onclick="camToggleSide()">&times;</button></div>
+<div class="cam-list" id="cam-list"></div>
+<div class="cam-add-form">
+<input id="cam-name" placeholder="Название">
+<input id="cam-url" placeholder="rtsp://user:pass@ip:port/stream">
+<button onclick="camAdd()">+ Добавить камеру</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Snake -->
+<div class="app-overlay app-snake" id="app-snake">
+<div class="app-window" style="width:90vw;max-width:560px;height:85vh;">
+<div class="app-header"><h3>🐍 Змейка</h3><button class="app-close" onclick="closeApp('snake')">&times;</button></div>
+<iframe src="/games/snake.html" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Tetris -->
+<div class="app-overlay app-tetris" id="app-tetris">
+<div class="app-window" style="width:90vw;max-width:560px;height:85vh;">
+<div class="app-header"><h3>🟦 Тетрис</h3><button class="app-close" onclick="closeApp('tetris')">&times;</button></div>
+<iframe src="/games/tetris.html" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- 2048 -->
+<div class="app-overlay app-g2048" id="app-g2048">
+<div class="app-window" style="width:90vw;max-width:500px;height:85vh;">
+<div class="app-header"><h3>🟩 2048</h3><button class="app-close" onclick="closeApp('g2048')">&times;</button></div>
+<iframe src="/games/2048.html" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Арканоид -->
+<div class="app-overlay app-arkanoid" id="app-arkanoid">
+<div class="app-window" style="width:90vw;max-width:560px;height:85vh;">
+<div class="app-header"><h3>🟪 Арканоид</h3><button class="app-close" onclick="closeApp('arkanoid')">&times;</button></div>
+<iframe src="/games/arkanoid.html" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Сетевые инструменты -->
+<div class="app-overlay app-nettools" id="app-nettools">
+<div class="app-window" style="width:90vw;max-width:700px;height:85vh;">
+<div class="app-header"><h3>🔌 Сетевые инструменты</h3><button class="app-close" onclick="closeApp('nettools')">&times;</button></div>
+<iframe src="/apps/nettools" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Диски -->
+<div class="app-overlay app-disks" id="app-disks">
+<div class="app-window" style="width:90vw;max-width:700px;height:85vh;">
+<div class="app-header"><h3>💾 Диски</h3><button class="app-close" onclick="closeApp('disks')">&times;</button></div>
+<iframe src="/apps/disks" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Заметки -->
+<div class="app-overlay app-notes" id="app-notes">
+<div class="app-window" style="width:90vw;max-width:800px;height:85vh;">
+<div class="app-header"><h3>📝 Заметки</h3><button class="app-close" onclick="closeApp('notes')">&times;</button></div>
+<iframe src="/apps/notes" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Пароли -->
+<div class="app-overlay app-passwords" id="app-passwords">
+<div class="app-window" style="width:90vw;max-width:700px;height:85vh;">
+<div class="app-header"><h3>🔐 Генератор паролей</h3><button class="app-close" onclick="closeApp('passwords')">&times;</button></div>
+<iframe src="/apps/passwords" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Файловый менеджер -->
+<div class="app-overlay app-filemanager" id="app-filemanager">
+<div class="app-window" style="width:95vw;max-width:900px;height:85vh;">
+<div class="app-header"><h3>📁 Файловый менеджер</h3><button class="app-close" onclick="closeApp('filemanager')">&times;</button></div>
+<iframe src="/apps/filemanager" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Wi-Fi Analyzer -->
+<div class="app-overlay app-wifianalyzer" id="app-wifianalyzer">
+<div class="app-window" style="width:90vw;max-width:800px;height:85vh;">
+<div class="app-header"><h3>📡 Wi-Fi Анализатор</h3><button class="app-close" onclick="closeApp('wifianalyzer')">&times;</button></div>
+<iframe src="/apps/wifianalyzer" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Загрузки -->
+<div class="app-overlay app-downloads" id="app-downloads">
+<div class="app-window" style="width:90vw;max-width:800px;height:85vh;">
+<div class="app-header"><h3>📦 Загрузки</h3><button class="app-close" onclick="closeApp('downloads')">&times;</button></div>
+<iframe src="/apps/downloads" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Терминал -->
+<div class="app-overlay app-terminal" id="app-terminal">
+<div class="app-window" style="width:95vw;max-width:900px;height:85vh;">
+<div class="app-header"><h3>💻 Веб-терминал</h3><button class="app-close" onclick="closeApp('terminal');termDisconnect()">&times;</button></div>
+<iframe src="/apps/terminal" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;" id="terminal-frame"></iframe>
+</div>
+</div>
+
+<!-- DLNA -->
+<div class="app-overlay app-dlna" id="app-dlna">
+<div class="app-window" style="width:90vw;max-width:700px;height:85vh;">
+<div class="app-header"><h3>📺 DLNA Браузер</h3><button class="app-close" onclick="closeApp('dlna')">&times;</button></div>
+<iframe src="/apps/dlna" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- Bluetooth -->
+<div class="app-overlay app-bluetooth" id="app-bluetooth">
+<div class="app-window" style="width:90vw;max-width:700px;height:85vh;">
+<div class="app-header"><h3>📶 Bluetooth Manager</h3><button class="app-close" onclick="closeApp('bluetooth')">&times;</button></div>
+<iframe src="/apps/bluetooth" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<!-- UPnP -->
+<div class="app-overlay app-upnp" id="app-upnp">
+<div class="app-window" style="width:90vw;max-width:800px;height:85vh;">
+<div class="app-header"><h3>📡 UPnP Control Point</h3><button class="app-close" onclick="closeApp('upnp')">&times;</button></div>
+<iframe src="/apps/upnp" style="width:100%;height:calc(85vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
+<script>
+function openApp(name) { document.getElementById('app-'+name).classList.add('open'); }
+function closeApp(name) { document.getElementById('app-'+name).classList.remove('open'); }
+
+/* === Calculator === */
+var calcExpr = '';
+function calcInput(v) { calcExpr += v; document.getElementById('calc-display').textContent = calcExpr; }
+function calcClear() { calcExpr = ''; document.getElementById('calc-display').textContent = '0'; }
+function calcBackspace() { calcExpr = calcExpr.slice(0,-1); document.getElementById('calc-display').textContent = calcExpr || '0'; }
+function calcFn(fn) {
+    var v = calcExpr || '0';
+    if (fn === 'sin') calcExpr = 'Math.sin(' + v + ')';
+    else if (fn === 'cos') calcExpr = 'Math.cos(' + v + ')';
+    else if (fn === 'tan') calcExpr = 'Math.tan(' + v + ')';
+    else if (fn === 'asin') calcExpr = 'Math.asin(' + v + ')';
+    else if (fn === 'acos') calcExpr = 'Math.acos(' + v + ')';
+    else if (fn === 'atan') calcExpr = 'Math.atan(' + v + ')';
+    else if (fn === 'log') calcExpr = 'Math.log10(' + v + ')';
+    else if (fn === 'ln') calcExpr = 'Math.log(' + v + ')';
+    else if (fn === 'sqrt') calcExpr = 'Math.sqrt(' + v + ')';
+    else if (fn === 'cbrt') calcExpr = 'Math.cbrt(' + v + ')';
+    else if (fn === 'abs') calcExpr = 'Math.abs(' + v + ')';
+    document.getElementById('calc-display').textContent = calcExpr;
+}
+function calcMode(mode) {
+    document.getElementById('calc-btn-basic').className = mode === 'basic' ? 'active' : '';
+    document.getElementById('calc-btn-sci').className = mode === 'sci' ? 'active' : '';
+    document.getElementById('calc-sci-grid').style.display = mode === 'sci' ? '' : 'none';
+}
+function calcEquals() {
+    try {
+        var expr = calcExpr.replace(/(\d+)!/g, function(m, n) {
+            var r = 1; for (var i = 2; i <= parseInt(n); i++) r *= i; return r;
+        });
+        var r = eval(expr);
+        document.getElementById('calc-display').textContent = isFinite(r) ? r : 'Ошибка';
+        calcExpr = String(isFinite(r) ? r : '');
+    }
+    catch(e) { document.getElementById('calc-display').textContent = 'Ошибка'; calcExpr = ''; }
+}
+
+/* === Timer === */
+var timerInterval = null, timerTotal = 0, timerRunning = false;
+function timerUpdateDisplay() {
+    var h = Math.floor(timerTotal/3600), m = Math.floor((timerTotal%3600)/60), s = timerTotal%60;
+    document.getElementById('timer-display').textContent =
+        String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+document.querySelectorAll('#timer-setup input').forEach(function(el){
+    el.addEventListener('input', function(){
+        var h=parseInt(document.getElementById('timer-h').value)||0;
+        var m=parseInt(document.getElementById('timer-m').value)||0;
+        var s=parseInt(document.getElementById('timer-s').value)||0;
+        timerTotal = h*3600+m*60+s;
+        timerUpdateDisplay();
+    });
+});
+function timerToggle() {
+    if (timerRunning) { clearInterval(timerInterval); timerRunning=false; document.getElementById('timer-start-btn').textContent='Старт'; document.getElementById('timer-start-btn').className='btn-start'; }
+    else {
+        if (timerTotal<=0) { var h=parseInt(document.getElementById('timer-h').value)||0; var m=parseInt(document.getElementById('timer-m').value)||0; var s=parseInt(document.getElementById('timer-s').value)||0; timerTotal=h*3600+m*60+s; }
+        if (timerTotal<=0) return;
+        timerRunning=true; document.getElementById('timer-start-btn').textContent='Пауза'; document.getElementById('timer-start-btn').className='btn-stop';
+        timerInterval=setInterval(function(){ timerTotal--; timerUpdateDisplay(); if(timerTotal<=0){clearInterval(timerInterval);timerRunning=false;document.getElementById('timer-start-btn').textContent='Старт';document.getElementById('timer-start-btn').className='btn-start';new Audio('data:audio/wav;base64,UklGRl9vT19teleQAVlbm9zdA==').play();}},1000);
+    }
+}
+function timerReset() { clearInterval(timerInterval); timerRunning=false; timerTotal=0; timerUpdateDisplay(); document.getElementById('timer-start-btn').textContent='Старт'; document.getElementById('timer-start-btn').className='btn-start'; document.getElementById('timer-h').value=0; document.getElementById('timer-m').value=5; document.getElementById('timer-s').value=0; }
+
+/* === Stopwatch === */
+var swInterval=null, swTime=0, swRunning=false, swLap=0;
+function swUpdateDisplay() {
+    var ms=swTime%10, s=Math.floor(swTime/10)%60, m=Math.floor(swTime/600)%60, h=Math.floor(swTime/36000);
+    document.getElementById('sw-display').textContent =
+        String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+ms;
+}
+function swToggle() {
+    if(swRunning){clearInterval(swInterval);swRunning=false;document.getElementById('sw-start-btn').textContent='Старт';document.getElementById('sw-start-btn').className='btn-start';}
+    else{swRunning=true;document.getElementById('sw-start-btn').textContent='Стоп';document.getElementById('sw-start-btn').className='btn-stop';swInterval=setInterval(function(){swTime++;swUpdateDisplay();},100);}
+}
+function swReset() { clearInterval(swInterval); swRunning=false; swTime=0; swLap=0; swUpdateDisplay(); document.getElementById('sw-start-btn').textContent='Старт'; document.getElementById('sw-start-btn').className='btn-start'; document.getElementById('sw-laps').innerHTML=''; }
+
+/* === Calendar === */
+var calYear=2026, calMonth=8;
+var holidays={
+'1-1':'Новый год','1-2':'Новый год','1-3':'Новый год','1-4':'Новый год','1-5':'Новый год','1-6':'Новый год','1-7':'Рождество Христово',
+'2-23':'День защитника Отечества','3-8':'Международный женский день','5-1':'Праздник Весны и Труда','5-9':'День Победы',
+'6-12':'День России','11-4':'День народного единства',
+'1-6':'Сочельник','2-14':'День святого Валентина','4-1':'День смеха','5-9':'День Победы',
+'6-1':'День защиты детей','9-1':'День знаний','10-14':'День Казанской иконы Божией Матери',
+'11-25':'Чёрная пятница','12-31':'Канун Нового года'
+};
+var weekends2026={
+'1-1':1,'1-2':1,'1-3':1,'1-4':1,'1-5':1,'1-6':1,'1-7':1,
+'2-23':1,'3-8':1,'5-1':1,'5-9':1,'5-10':1,'6-12':1,'11-4':1,
+'2-21':1,'2-22':1,'3-7':1,'4-30':1,'5-8':1,'6-13':1,'11-3':1
+};
+var historyEvents={
+'1-1':['1801 — Вышел первый номер газеты «Московские ведомости»','1912 — Китай объявил о независимости от Маньчж우рии','1942 — Подписано соглашение СССР, США и Великобритании о создании Антигитлеровской коалиции','1999 — Введена Euro — единица евро','2002 — Введено евро наличный расчёт'],
+'1-2':['1492 — Христофор Колумб открыл Гаити','1839 — Луи Дагер сделал первую фотографию Луны','1905 — Подписан Портсмутский мирный договор (Россия-Япония)'],
+'1-3':['1468 — Иоанн Бессонов изобрёл оптическую линзу','1868 — Япония приняла конституцию','1959 — Аляска стала 49-м штатом США'],
+'1-4':['1643 — Родился Исаак Ньютон','1885 — Получен патент на телевидение','1948 — Бирма получила независимость'],
+'1-5':['1477 — Битва при Нанси','1896 — Вильгельм Рентген открыл рентгеновские лучи','1930 — Сталин начал раскулачивание'],
+'1-6':['1838 — Сэмюэл Морзе провёл первую телеграфную демонстрацию','1907 — Монте-Карло стал первым казино'],
+'1-7':['1610 — Галилео Галилей открыл спутники Юпитера','1927 — Первый трансатлантический телефонный звонок','1953 — Трумэн объявил о создании водородной бомбы'],
+'1-8':['1815 — Битва при Ватерлоо','1935 — Элвис Пресли','1942 — Стивен Хокинг','1976 — Дэвид Боуи записал Ziggy Stardust'],
+'1-9':['1799 — Введён налог на алкоголь','1923 — Кемаль Ататюрк стал президентом Турции','1972 — Япония и Китай восстановили дипломатические отношения'],
+'1-10':['1776 — Томас Пейн опубликовал «Здравый смысл»','1946 — Лига Наций прекратила существование','2000 — AOL объявил о покупке Time Warner'],
+'1-11':['1787 — Уильям Гершель открыл спутники Урана','1922 — Инсулин впервые применён для лечения диабета','1964 — Впервые показана лепрозория в США'],
+'1-12':['1904 — Генри Форд основал компанию','1945 — Советские войска освободили Варшаву','1991 — Расстрел в Вильнюсе'],
+'1-13':['1898 — Эмиль Золя опубликовал «Я обвиняю»','1942 — Первая в мире экспериментальная атомная реакция','1968 — Джонни Кэш записал At Folsom Prison'],
+'1-14':['1784 — Конгресс США ратифицировал Версальский договор','1953 — Тито стал первым президентом Югославии','1973 — Элвис Пресли встретился с Никсоном'],
+'1-15':['1559 — Коронованabeth I','1919 — Бостонский пожар','1929 — Мартин Лютер Кинг','1943 — Пентагон стал штаб-квартирой Пентагона'],
+'1-16':['1547 — Иван IV коронован как первый царь всея Руси','1920 — Запрет алкоголя в США','1979 — Шах Ирана бежал'],
+'1-17':['1773 — Бостонское чаепитие','1945 — Освобождение Варшавы','1991 — Начало войны в Персидском заливе'],
+'1-18':['1778 — Основан Гонолулу','1911 — Эжен Рише совершил первый полёт на самолёте','1919 — Подписан Версальский договор'],
+'1-19':['1839 — Британия захватила Аден','1915 — Германия впервые использовала дирижабли','1966 — Индира Ганди стала премьер-министром Индии'],
+'1-20':['1841 — В Гонконге поднят британский флаг','1949 — Трумэн инициировал атомную программу','1981 — Рейган стал президентом США'],
+'1-21':['1793 — Казнь Людовика XVI','1919 — Независимость Ирландии','1954 — Первый полёт атомной подлодки Nautilus'],
+'1-22':['1901 — Великобритания: королева Виктория','1905 — Кровавое воскресенье в Петербурге','1973 — Верховный суд США разрешает аборты'],
+'1-23':['1556 — Шэньси, Китай: землетрясение убило 830 тыс.чел','1849 — Элизабет Блэквелл стала первым врачом-женщиной в США','1960 — Жак Пикар достиг дна Марианской впадины'],
+'1-24':['1848 — Золотая лихорадка в Калифорнии','1916 — Верховный суд США запретил подоходный налог','1984 — ЭпплMacintosh'],
+'1-25':['1858 — Свадьба Феликса Дзержинского','1947 — Американец Аль Каппоне','1971 — День Робеспьера'],
+'1-26':['1788 — Австралия: День Австралии','1905 — Largest diamond found (3106 carat)','1950 — Ганди начинает пост'],
+'1-27':['1756 — Вольфганг Амадей Моцарт','1943 — Начало восстания в Варшавском гетто','1945 — Освобождение Освенцима'],
+'1-28':['1807 — Лондонская Pall Mall освещена газом','1921 — Независимость Грузии','1986 — Катастрофа шаттла «Челленджер»'],
+'1-29':['1845 — Эдгар Аллан По опубликовал «Ворона»','1861 — Канзас стал штатом','2002 — Буш объявил «ось зла»'],
+'1-30':['1649 — Казнь Карла I','1933 — Гитлер стал канцлером','1948 — Махатма Ганди убит'],
+'1-31':['1606 — Гай Фокс приговорён к казни','1876 — Патент на телефон','1950 — Трумэн объявил о создании водородной бомбы'],
+'2-1':['1662 — Китайский пират Коксинга','1790 — Суд присяжных впервые заседал в США','1908 — Португалия: король Карл I убит'],
+'2-2':['1421 — Генри VI переехал в Виндзор','1943 — Германо-нацистские войска сдались под Сталинградом','1990 — ЮАР: дебаты о apartheid'],
+'2-3':['1468 — Иоганн Гутенберг','1815 — Швейцария приняла конституцию','1972 — XI Олимпийские игры в Мюнхене'],
+'2-4':['2004 — Facebook запущен','1945 — Ялтинская конференция','1783 — Независимость Испании'],
+'2-5':['1917 — Конституция Мексики','1919 — Чарли Чаплин основал студию','1962 — Солнечный шторм вывел из строя электросеть Квебека'],
+'2-6':['1819 — Сингапур основан Томасом Стэмфордом','1952 — Елизавета II стала королевой','1958 — В Мюнхене погибла команда «Манчестер Юнайтед»'],
+'2-7':['1812 — Чарльз Диккенс','1904 — Пожар в Балтиморе','1984 — Американец Брюс Маккэндлесс вышел в открытый космос'],
+'2-8':['1828 — Жюль Верн','1904 — Начало русско-японской войны','1910 — Крестоносцы: Бой у Добровича'],
+'2-9':['1825 — Рональд Амундсен','1943 — Битва при Гуадалканале','1950 — Маккартизм в США'],
+'2-10':['1258 — Монголы захватили Багдад','1763 — Парижский мирный договор','1840 — Королева Виктория вышла замуж'],
+'2-11':['1858 — Бернардетта Субиру в Лурде','1929 — Латеранские соглашения','1979 — Иранская революция'],
+'2-12':['1809 — Авраам Линкольн','1809 — Чарльз Дарвин','1912 — Падение династии Цин в Китае'],
+'2-13':['1542 — Кэтрин Ховард казнена','1633 — Галилей прибыл в Рим','1689 — Вильгельм III стал королём'],
+'2-14':['1876 — Белл подал заявку на телефон','1929 — День святого Валентина','2005 — YouTube запущен'],
+'2-15':['1564 — Галилео Галилей','1898 — «Мэн» потоплен','1965 — Канада приняла флаг'],
+'2-16':['1918 — Литва восстановила независимость','1923 — Говард Картер открыл гробницу Тутанхамона','1968 — Первый 911-звонок в США'],
+'2-17':['1600 — Джордано Бруно сожжён','1863 — Международный Красный Крест','1904 — «Мадам Баттерфляй» Пуччини'],
+'2-18':['1929 — Первый мультфильм «Кошка Феликс»','1930 — Плутон открыт Клайдом Томбо','1947 — Индия и Пакистан получили независимость'],
+'2-19':['1473 — Николай Коперник','1861 — Отмена крепостного права в России','1945 — Высадка на Иводзиму'],
+'2-20':['1792 — Закон о президентском преступлении','1872 — Нью-Йорк: Метрополитен-музей','1962 — Джон Гленн облетел Землю'],
+'2-21':['1848 — Карл Маркс и Фридрих Энгельс: «Манифест Коммунистической партии»','1965 — Малкольм Икс убит','1972 — Начало миссии «Союз-10»'],
+'2-22':['1732 — Джордж Вашингтон','1819 — Испания уступила Флориду США','1997 — Окунутся в Долли — первое клонирование млекопитающего'],
+'2-23':['1455 — Начало Войны алой и белой розы','1917 — Февральская революция в России','1945 — Берлинская операция'],
+'2-24':['1803 — Марбургское право','1920 — Гитлер произнёс речь в мюнхенской пивной','1938 — Никола Тесла запатентировал башню Ворденклифф'],
+'2-25':['1570 — Пий V отлучил Елизавету I','1836 — Сэмюэль Колт запатентовал револьвер','1956 — Хрущёв выступил с докладом на XX съезде КПСС'],
+'2-26':['1815 — Наполеон бежал с острова Эльба','1936 — Начало Японско-китайской войны','1993 — Взрыв в ВТЦ'],
+'2-27':['1812 — Байрон произнёс первую речь в Палате лордов','1933 — Пожар в Рейхстаге','1976 — Западная Сахара объявила независимость'],
+'2-28':['1922 — Египет получил независимость','1947 — Индонезия: конфликт с Нидерландами','1953 — Уотсон и Крик описали ДНК'],
+'3-1':['1803 — Огайо стал штатом','1872 — Йеллоустоун — первый национальный парк','1954 — США провели ядерные испытания на атолле Бикини'],
+'3-2':['1807 — Джордж Клуни','1962 — Бирма: переворот','1969 — «Конкорд» совершил первый полёт'],
+'3-3':['1847 — Александр Белл','1861 — Отмена крепостного права в России','1918 — Брестский мир'],
+'3-4':['1890 — Форт-Бридж упомянут','1933 — Рузвельт стал президентом','1952 — Гарри Трумэн национализировал нефтяную промышленность'],
+'3-5':['1953 — Смерть Сталина','1770 — Бостонская бойня','1979 — Зонд «Венера-11» совершил посадку'],
+'3-6':['1475 — Микеланджело','1836 — Аламо','1899 — Аспирин запатентован'],
+'3-7':['1876 — Александр Белл получил патент на телефон','1936 — Пивной путч','1965 — Марс-3 совершил первую мягкую посадку на Марс'],
+'3-8':['1618 — Иоганн Кеплер открыл закон Кеплера','1917 — Международный женский день','1965 — США ввели войска на Доминику'],
+'3-9':['1796 — Жак Невёль','1862 — Битва при Хэмптон-Роудс','1959 — Барби выпущена Mattel'],
+'3-10':['241 до н.э. — Первая Пуническая война','1876 — Белл позвонил','1959 — Тибетское восстание'],
+'3-11':['1702 — Первая ежедневная газета в Англии','1851 — Верди: «Риголетто»','2011 — Землетрясение в Японии'],
+'3-12':['1894 — Кока-кола продана в бутылках','1930 — Ганди начал Бsalt March','1947 — Независимость Пакистана'],
+'3-13':['1639 — Гарвардский колледж назван в честь Джона Гарварда','1881 — Александр II убит','1988 — Гейзерский извержение'],
+'3-14':['1489 — Венеция купила Кипр','1879 — Эйнштейн родился','1994 — Нельсон Мандела избран президентом ЮАР'],
+'3-15':['44 до н.э. — Убийство Юлия Цезаря','1892 — Джеймс Нейсмит создал баскетбол','1939 — Линкольнс-центр открыт'],
+'3-16':['1521 — Магеллан抵达 Гуам','1802 — Томас Джефферсон создал ВМС','1988 — Ирак применил химическое оружие'],
+'3-17':['461 — Святой Патрик','1776 — Британцы покинули Бостон','1959 — Далай-lama бежал из Тибета'],
+'3-18':['1314 — Битва при Бэннокберне','1850 — American Express','1965 — Космонавт Леонов вышел в открытый космос'],
+'3-19':['1279 — Битва при Яме','1812 — Конституция Испании','2003 — США вторглись в Ирак'],
+'3-20':['1852 — Гарриет Бичер-Стоу: «Хижина дяди Тома»','1916 — Эйнштейн: теория относительности','1995 — ОПХЗ: химическое оружие запрещено'],
+'3-21':['1685 — Бах','1804 — Франция: кодекс Наполеона','1960 — Расстрел в Шарпевиле'],
+'3-22':['1739 — Битва при Кирке-Килдее','1895 — Братя Люмьер','1945 — Арабская лига основана'],
+'3-23':['1775 — Патрик Генри: «Дайте мне свободу»','1933 — Германия запретила профсоюзы','1983 — Стратегическая оборонная инициатива'],
+'3-24':['1603 — Якоб I стал королём Англии','1837 — Канада предоставила право голосования чернокожим','1999 — НАТО бомбило Югославию'],
+'3-25':['1807 — Великобритания отменила работорговлю','1911 — Пожар в Нью-Йорке','1957 — Римский договор'],
+'3-26':['1812 — Землетрясение в Венесуэле','1830 — «Книга мормонов»','1979 — Мирный договор между Египтом и Израилем'],
+'3-27':['1794 — ВМС США подняли флаг','1836 — Падение Аламо','1964 — Землетрясение на Аляске'],
+'3-28':['1854 — Крымская война','1930 — Стамбул переименован','1979 — Авария на АЭС Три-Майл-Айленд'],
+'3-29':['1871 — Китай: королева Виктория','1974 — Массовые протесты в Египте','1974 — Ньют Гингрич избран в Конгресс'],
+'3-30':['1856 — Крымская война: Севастополь сдался','1981 — Покушение на Рейгана','2006 — YouTube запущен в Бразилии'],
+'3-31':['1727 — Бах: «Страсти по Матфею»','1889 — Эйфелева башня открыта','1959 — Тибет: восстание'],
+'4-1':['1572 — Голландия: Брилл','1867 — Сингапур стал британской колонией','1976 — Apple Computer основана'],
+'4-2':['1792 — Конгресс США принял закон о чеканке монет','1902 — Кино Театр открылся в Лос-Анджелесе','1982 — Фолклендская война началась'],
+'4-3':['1882 — Джесси Джеймс убит','1922 — Сталин стал генсеком КПСС','1973 — Мартиン Купер совершил первый мобильный звонок'],
+'4-4':['1949 — Основан НАТО','1968 — Мартин Лютер Кинг убит','1975 — Microsoft основана'],
+'4-5':['1242 — Ледовое побоище','1794 — Казнь Жоржа Дантон','1976 — Представлен Apple I'],
+'4-6':['1199 — Погиб король Ричард Львиное Сердце','1896 — Возрождение Олимпийских игр в Афинах','1917 — США вступили в Первую мировую войну'],
+'4-7':['1805 — Бетховен завершил «Героическую симфонию»','1927 — Первый межконтинентальный телефонный звонок (Нью-Йорк — Лондон)','1948 — Создана Всемирная организация здравоохранения (ВОЗ)'],
+'4-8':['1820 — Найдена Венера Милосская','1904 — Премьера «Мадам Баттерфляй» Пуччини','1953 — Кения: движение Маджи-Маджи начало восстание против колонизаторов'],
+'4-9':['1865 — Капитуляция Конфедерации: окончание Гражданской войны в США','1940 — Германия оккупировала Данию и Норвегию','1942 — Начало Ялтинской конференции'],
+'4-10':['1710 — Английский статут о правах авторов (первый в мире закон об авторском праве)','1919 — Революция в Мексике: гибель Панчо Вильи','1971 — Открыт музей Тейт Модерн в Лондоне'],
+'4-11':['1713 — Утрехтский мир: окончание Войны за испанское наследство','1814 — Наполеон отрёкся от престола','1945 — Освобождение концлагеря Бухенвальд'],
+'4-12':['1606 — Яков I утвердил флаг Union Jack','1861 — Начало Гражданской войны в США','1961 — Юрий Гагарин совершил первый полёт в космос'],
+'4-13':['1742 — Премьера «Мессии» Генделя в Дублине','1919 — Бойня в Амритсаре (Индия)','1970 — Парниковый эффект: обнаружен рост уровня CO₂'],
+'4-14':['1865 — Авраам Линкольн убит в театре','1912 — Титаник столкнулся с айсбергом','1986 — Катастрофа шаттла «Челленджер» при запуске'],
+'4-15':['1755 — Джонсон опубликовал Словарь английского языка','1912 — Титаник затонул','1989 — Трагедия на стадионе Хиллсборо: погибли 97 человек'],
+'4-16':['1746 — Битва при Куллодене: последняя битва на британской земле','1922 — Подписан Рапалльский договор между Германией и РСФСР','2007 — Стрельба в Политехническом институте Вирджинии'],
+'4-17':['1397 — Джеффри Чосер читал «Кентерберийские рассказы» при дворе короля','1961 — Высадка в заливе Свиней на Кубе','1975 — Кхмеры захватили Пномпень (начало геноцида)'],
+'4-18':['1025 — Коронование Болеслава I Храброго (первый король Польши)','1906 — Разрушительное землетрясение в Сан-Франциско','1980 — Зимбабве получила независимость'],
+'4-19':['1775 — Битва при Лексингтоне и Конкорде: начало Войны за независимость США','1943 — Восстание в Варшавском гетто','1995 — Теракт в Оклахома-Сити'],
+'4-20':['1889 — Родился Адольф Гитлер','1971 — Верховный США по делу Миренда: права обвиняемых','2010 — Взрыв на платформе Deepwater Horizon в Мексиканском заливе'],
+'4-21':['753 до н.э. — Традиционная дата основания Рима Ромулом','1836 — Битва при Сан-Хасинто: Техас обрёл независимость от Мексики','1967 — Военный переворот в Греции'],
+'4-22':['1889 — Международный День Земли','1915 — Первая массовая газовая атака на Западном фронте (Ипр)','1983 — Стив Джобс представил компьютер Macintosh'],
+'4-23':['1564 — Родился Уильям Шекспир','1895 — Николай II коронован как последний император России','1985 — «Кока-кола» изменила рецепт, вызвав бурю негодования'],
+'4-24':['1915 — Начало Геноцида армян в Османской империи','1916 — Начало Битвы при Вердене','1990 — Запущен космический телескоп «Хаббл»'],
+'4-25':['1945 — Основана ООН (подписание Устава в Сан-Франциско)','1953 — Уотсон и Крик описали структуру ДНК','1974 — Революция гвоздик в Португалии'],
+'4-26':['1937 — Бомбардировка Герники немецкой авиацией','1986 — Авария на Чернобыльской АЭС','2000 — Нидерланды легализовали однополые браки (первая страна в мире)'],
+'4-27':['1521 — Битва при Павии: испанцы разбили французов','1961 — Сьерра-Леоне получила независимость','2005 — Совершил первый полёт Airbus A380'],
+'4-28':['1789 — Бунт на британском судне «Баунти»','1945 — Арестован Бенито Муссолини','1969 — Шарль де Голль ушёл в отставку с поста президента Франции'],
+'4-29':['1945 — Освобождение концлагеря Дахау','1991 — Тайфун уничтожил 138 000 человек в Бангладеш','2011 — Ликвидация Усамы бен Ладена в Пакистане'],
+'4-30':['1803 — США купили Луизиану у Франции за $15 млн','1945 — Адольф Гитлер покончил с собой в бункере','1993 — Запущен первый веб-сайт в мире (info.cern.ch)'],
+'5-1':['1886 — Чикаго: забастовка за 8-часовой рабочий день (основание Дня труда)','1931 — Открыт Эмпайр-стейт-билдинг в Нью-Йорке','1994 — Погиб Айртон Сенна на Гран-при Сан-Марино'],
+'5-2':['1519 — Родилась Екатерина Медичи (будущая королева Франции)','1808 — Начало Испанской революции против Наполеона','2011 — В Пакистане ликвидирован Усама бен Ладен'],
+'5-3':['1469 — Родился Никколо Макиавелли (итальянский мыслитель)','1928 — Независимость Китая (Тайвань)','2006 — Взрыв в школе №1 в Бешлане (подтверждение)'],
+'5-4':['1626 — Питер Миноит купил Манхэттен за $24 у индейцев','1945 — Конференция в Сан-Франциско: создание ООН','1979 — Маргарет Тэтчер стала премьер-министром Великобритании'],
+'5-5':['1818 — Родился Карл Маркс (немецкий философ)','1862 — Мексиканская битва при Пуэбло: французы разбиты','1945 — Капитуляция Германии: окончание войны в Европе'],
+'5-6':['1536 — Казнь Томаса Мора (английского гуманиста)','1937 — Бомбардировка немецкой авиацией баскского города Герника','1994 — Открыт тоннель под Ла-Маншем'],
+'5-7':['1824 — Первая постановка «Девятой симфонии» Бетховена','1945 — Безоговорочная капитуляция нацистской Германии','1999 — Подписан Белградский договор: Сербия и Черногория'],
+'5-8':['1886 — Впервые продана «Кока-кола» в аптеке в Атланте','1945 — День Победы в Европе (День Победы)','1984 — СССР бойкотировал Олимпиаду в Лос-Анджелесе'],
+'5-9':['1945 — День Победы: капитуляция Германии','1950 — Декларация Шумана: начало европейской интеграции','1994 — Нельсон Мандела стал первым президентом ЮАР'],
+'5-10':['1857 — Джон Сёрл запатентовал вулканизацию каучука','1933 — Книгосожжение нацистами в Германии','1994 — Нельсон Мандела и Ф.В. де Клерк получили Нобелевскую премию мира'],
+'5-11':['1812 — Британцы сожгли Вашингтон во время Англо-американской войны','1949 — Израиль: первые выборы в Кнессет','2011 — Стив Джобс представил iCloud'],
+'5-12':['1820 — Родилась Флоренс Найтингейл (основательница сестринского дела)','1898 — Начало Боксёрского восстания в Китае','2008 — Разрушительное землетрясение в провинции Сычуань (70 000 погибших)'],
+'5-13':['1917 — Явление Девы Марии в Фатиме (Португалия)','1981 — Покушение на Папу Римского Иоанна Павла II','2011 — Apple представила облачный сервис iCloud'],
+'5-14':['1643 — Людовик XIV стал королём Франции (в 4 года)','1948 — Провозглашение независимости Государства Израиль','2012 — Завершена модернизация линейного ускорителя в Курске'],
+'5-15':['1718 — Родился Джонни Кэш (американский певец)','1848 — Бавария приняла конституцию','1972 — Япония вернула себе Окинаву у США'],
+'5-16':['1770 — Родилась Мэри Аннинг (палеонтолог, открыла птеродактиля)','1929 — Вручена первая кинопремия «Оскар»','1966 — Основана Библиотека Конгресса'],
+'5-17':['1510 — Родился Сандро Боттичелли (итальянский художник)','1943 — Открыто Лондонское метро для всех слоёв населения','1969 — Симона де Бовуар опубликовала «Второй пол»'],
+'5-18':['1804 — Наполеон Бонапарт короновался как Император Франции','1896 — Верховный США отменил закон о сегрегации (Plessy v. Ferguson)','1980 — Извержение вулкана Сент-Хеленс в США'],
+'5-19':['1898 — Умер Уильям Гладстон (британский премьер-министр)','1962 — Мэрилин Монро спела «Happy Birthday» президенту Кеннеди','1991 — Диктатор Мануэль Норьега сдался американским войскам'],
+'5-20':['1498 — Васко да Гамма достиг Каликута (Индия)','1873 — Леви Стросс запатентовал джинсы','2002 — Восточный Тимор получил независимость'],
+'5-21':['1420 — Генрих V заключил Торское соглашение с Францией','1881 — Основана Американская Красная организация','1991 — Убит премьер-министр Индии Раджив Ганди'],
+'5-22':['1807 — Аарон Бёрр осуждён за государственную измену','1859 — Артур Конан Дойл опубликовал первый рассказ о Шерлоке Холмсе','2017 — Пожар в ТЦ «Зимняя вишня» в Кемерово (60 погибших)'],
+'5-23':['1618 — Вторая Пражская дефенестрация: католических чиновников выбросили из окна','1934 — Банда Джона Диллинджера убита агентами ФБР','2006 — Финал НБА: «Майами Хит» — «Даллас Маверикс»'],
+'5-24':['1819 — Родилась королева Виктория','1844 — Сэмюэл Морзе отправил первый телеграфный сигнал','1941 — Гитлер и Муссолини встретились в Бреннерском перевале'],
+'5-25':['1810 — Аргентина: День независимости от Испании','1961 — Президент Кеннеди объявил о программе высадки на Луну','1977 — Премьера «Звёздных войн» Джорджа Лукаса'],
+'5-26':['1896 — Индекс Dow Jones впервые превысил 100 пунктов','1969 — «Аполлон-10» совершил генеральную репетицию высадки на Луну','1998 — Начало кризиса в Сербии: массовые протесты'],
+'5-27':['1905 — Цусимское сражение: разгром русского флота','1937 — Открыт «Золотые ворота» в Сан-Франциско','1942 — Гиммлер подписал приказ о «окончательном решении еврейского вопроса»'],
+'5-28':['1830 — Конгресс США принял Закон о переселении индейцев','1871 — Великобритания: Закон о местном самоуправлении','1998 — Пакистан провёл ядерные испытания'],
+'5-29':['1453 — Падение Константинополя: конец Византийской империи','1886 — Впервые продана «Кока-кола» в бутылках','1953 — Эдмунд Хиллари и Тенцинг Норгей первыми поднялись на Эверест'],
+'5-30':['1431 — Казнь Жанны д\'Арк на костре в Руане','1884 — Дуайт Муди начал евангелическое движение','1922 — В США учреждён День поминовения'],
+'5-31':['1809 — Родился Генрих Гейне (немецкий поэт)','1859 — Биг-Бен впервые прозвонил в Лондоне','1910 — Открытие первой Государственной думы в России'],
+'6-1':['1533 — Ана Болейн коронована как королева Англии','1925 — Индонезия: первая публичная демонстрация против колонизаторов','1980 — Начало вещания телеканала CNN'],
+'6-2':['1835 — Открыт Мост Понтиарк в Уэльсе','1896 — Генри Форд проехал на первом автомобиле','1924 — Конгресс США принял закон об иммиграции (квоты)'],
+'6-3':['1539 — Эрнандо де Сото стал первым европейцем на территории будущих США','1888 — Нидерланды основали колонию Кюрасао','1937 — Жак Кусто обнаружил затонувший корабль у берегов Египта'],
+'6-4':['1783 — Братья Монгольфье представили воздушный шар','1919 — Верховный США признал право женщин на голосование','1989 — Протесты на площади Тяньаньмэнь в Пекине'],
+'6-5':['1794 — Террор во время Французской революции: расстрел в Париже','1849 — Пожар уничтожил центр Нью-Йорка','1981 — Зафиксированы первые случаи ВИЧ/СПИД'],
+'6-6':['1844 — Герман Шпренгель открыл азот','1944 — День D: высадка союзников в Нормандии','1982 — Фолклендская война: капитуляция Аргентины'],
+'6-7':['1776 — Ричард Генри Ли предложил резолюцию о независимости США','1893 — Новая Зеландия: женщины впервые проголосовали','1981 — Израиль уничтожил иракский ядерный реактор'],
+'6-8':['1845 — Президент Эндрю Джексон впустил посетителей в Белый дом','1869 — Вебер и Дюма написали национальный гимн Франции','1967 — Начало Шестидневной войны на Ближнем Востоке'],
+'6-9':['1772 — Британцы сожгли судно «Гаспи»','1934 — Дональд Дак дебютировал в мультфильме','1978 — Открыт стадион «Астриа» в Греции'],
+'6-10':['1776 — Конгресс США объявил о независимости','1916 — Основана компания Alibaba','1940 — Норвегия капитулировала перед Германией'],
+'6-11':['1776 — Конгресс США объявил о независимости','1982 — Стив Спилберг выпустил «Инопланетянина»','2001 — Взрыв в Нагасаки (Япония)'],
+'6-12':['1898 — Филиппины провозгласили независимость от Испании','1964 — Нельсон Мандела осуждён на пожизненное заключение','1991 — Россия: День независимости (принятие Декларации о суверенитете)'],
+'6-13':['1373 — Англо-португальский союз (старейший действующий договор в мире)','1898 — Умер Отто фон Бисмарк («железный канцлер»)','1966 — Маргарет Чейз Смит: первая женщина-сенатор США'],
+'6-14':['1777 — Конгресс США утвердил звёздно-полосатый флаг','1900 — Гавайи стали территорией США','1982 — Фолклендская война: битва за Стэнли'],
+'6-15':['1215 — Подписание Великой хартии вольностей (Magna Carta) в Англии','1752 — Бенджамин Франклин провёл эксперимент с молнией','1991 — Начало «жаркого лета» в Москве: путч ГКЧП'],
+'6-16':['1858 — Битва при Геттисберге (начало)','1903 — Генри Форд основал компанию Ford Motor Company','1976 — Начало раскопок города Эллс (Греция)'],
+'6-17':['1775 — Битва при Бункер-Хилле (Американская революция)','1885 — Статуя Свободы доставлена в Нью-Йорк из Франции','1994 — Халк Хоган: начало карьеры в рестлинге'],
+'6-18':['1812 — Начало войны 1812 года между США и Великобританией','1923 — Родился Чеви Чейз (американский комик)','1983 — Премьера «Моста Шаффера»'],
+'6-19':['1846 — Калифорния: начало освоения','1865 — Последняя битва Гражданской войны в США','1978 — Умер Гарви Манн (американский активист)'],
+'6-20':['1782 — Великая печать США утверждена Конгрессом','1947 — Раздел Бенгалии при независимости Индии','1991 — Кендалл: начало нового десятилетия'],
+'6-21':['1788 — Нью-Гэмпшир стал 9-м штатом США','1948 — Колумбия: Мануэль Мария провозгласил независимость','2004 — Суборбитальный полёт SpaceShipOne'],
+'6-22':['1870 — Морган Трофи: награда за выдающиеся достижения','1941 — Операция «Барбаросса»: начало вторжения Германии в СССР','1990 — Умер Курт Воннегут (американский писатель)'],
+'6-23':['1314 — Битва при Бэннокберне: шотландцы разбили англичан','1868 — Ливерпуль: открытие нового порта','2013 — Теракт в Нигерии: гибель мирных жителей'],
+'6-24':['1497 — Джон Кабот открыл Северную Америку','1880 — Премьера оперы «Самсон и Далила» Сен-Санса','1947 — Kenneth Arnold: первый задокументированный случай НЛО'],
+'6-25':['1876 — Битва при Литтл-Бигхорне: разгром генерала Кастера','1991 — Хорватия и Словения провозгласили независимость от Югославии','2009 — Умер Майкл Джексон («Король поп-музыки»)'],
+'6-26':['1945 — Подписан Устав ООН в Сан-Франциско','1963 — Президент Кеннеди: «Мы выберем Луну»','2008 — Башар Асад: президент Сирии'],
+'6-27':['1880 — Родился Гельмут Вальтер (конструктор самолётов)','1950 — Начало Корейской войны','1977 — Спецназ захватил заложников в аэропорту Энтеббе (Уганда)'],
+'6-28':['1914 — Убийство эрцгерцога Франца Фердинанда в Сараево (начало Первой мировой)','1919 — Подписан Версальский договор','1997 — Греция: массовые протесты против новой экономической политики'],
+'6-29':['1880 — Родился Нил Деграсс Тайсон (американский астрофизик)','1956 — США и Великобритания помогли Египту в Суэцком кризисе','2007 — Представлен первый iPhone'],
+'6-30':['1859 — Эйфелева башня открыта на Всемирной выставке в Париже','1908 — Тунгусский метеорит: largest impact event in recorded history','2009 — Иран: массовые протесты после президентских выборов'],
+'7-1':['1916 — Битва на Сомме (самое кровопролитное сражение Первой мировой)','1960 — Сомали получил независимость','2002 — Умер Курт Коббейн (лидер Nirvana)'],
+'7-2':['1881 — Президент Джеймс Гарфилд застрелен','1964 — Принят Закон о гражданских правах в США','2002 — Стив Фосетт совершил первый одиночный кругосветный полёт'],
+'7-3':['1863 — Битва при Геттисберге: поворотный момент Гражданской войны','1971 — Вьетнам: премьер-министр Ден Сюан Зу','2013 — Канада легализовала каннабис'],
+'7-4':['1776 — Провозглашение независимости США','1862 — Льюис Кэрролл начал писать «Алису в Стране чудес»','1886 — Статуя Свободы подарена Францией США'],
+'7-5':['1811 — Венесуэла провозгласила независимость','1946 — Майкл Бэдент (основатель психоанализа)','1975 — Артурс Эш стал первым чернокожим победителем Уимблдона'],
+'7-6':['1885 — Луи Пастер создал вакцину от бешенства','1957 — Элвис Пресли записал «Jailhouse Rock»','1988 — Баста Раймс дебютировал в хип-хопе'],
+'7-7':['1887 — Родилась Диана, принцесса Уэльская','1930 — Родилась Индира Ганди (премьер-министр Индии)','1981 — Наталья Водянова (российская супермодель)'],
+'7-8':['1838 — Первая телеграфная линия в мире (Великобритания)','1949 — Фейга БеренгARTS (немецкая художница)','1994 — Ким Пхенхэк: президент Южной Кореи'],
+'7-9':['1810 — Колумбия провозгласила независимость от Испании','1955 — Симон и Гарфанкел начали карьеру','2011 — Южный Судан получил независимость'],
+'7-10':['1890 — Вайоминг стал 44-м штатом США','1925 — Родился Герман Гессе (немецко-швейцарский писатель, Нобелевская премия)','1962 — Гибель Телмы Тодд (американская актриса)'],
+'7-11':['1576 — Генрих Наваррский (будущий король Генрих IV Франции)','1899 — Оливер Харди (комик из дуэта «Лорел и Харди»)','1979 — Стивен Спилберг выпустил «Синюю лагуну»'],
+'7-12':['1854 — Джордж Истмен (основатель Kodak)','1948 — Хавьер Солана (генсек НАТО)','1979 — Кирби Пакетт (канадский хоккеист)'],
+'7-13':['1919 — Балканская конференция в Лондоне','1977 — Нью-Йорк: массовое отключение электричества (riot)','2016 — Запущена Pokémon Go (мировой феномен)'],
+'7-14':['1789 — Взятие Бастилии: начало Французской революции','1969 — Финал ЧМ: Бразилия выиграла Кубок мира','2015 — НАСА: зонд New Horizons пролетел мимо Плутона'],
+'7-15':['1662 — Китай захватил остров Тайвань','1965 — «Маринер-4»: первые фото Марса с близкого расстояния','2006 — Твиттер (Twitter) запущен'],
+'7-16':['1790 — Джордж Вашингтон основал столицу США (Вашингтон)','1945 — Первое в мире ядерное оружие (Манхэттенский проект)','1969 — «Аполлон-11» стартовал к Луне'],
+'7-17':['1918 — Расстрел Николая II и его семьи в Екатеринбурге','1955 — Открыт Дизнейленд в Калифорнии','1996 — Бритни Спирс: «...Baby One More Time»'],
+'7-18':['1936 — Начало Гражданской войны в Испании','1968 — Intel выпустила микропроцессор 1103','1994 — Бомбардировка Киншасы (Заир)'],
+'7-19':['1870 — Начало Франко-прусской войны','1965 — Покорение Эвереста (20-я годовщина)','2006 — Катастрофа Ту-154 под Иркутском'],
+'7-20':['1969 — Высадка «Аполлона-11» на Луну (Нил Армстронг и Базз Олдрин)','1976 — «Viking 1» совершил первую успешную посадку на Марс','2012 — Разрушительное торнадо в Оклахоме'],
+'7-21':['1925 — Родился Мартин Скорсезе (американский режиссёр)','1969 — Марлон Брандо отказался от «Оскара»','1972 — Стрельба в аэропорту Майами'],
+'7-22':['1822 — Грегор Мендел: основы генетики','1933 — Вильям Голдман (американский писатель)','2011 — Теракт в Норвегии (Утёйа: 77 погибших)'],
+'7-23':['1829 — Роберт Кюнен (химик, открыл гелий)','1947 — Хелен Миррен (британская актриса)','1995 — Комета Хибоппа的最大亮度'],
+'7-24':['1847 — Родился Брюс Уиллис (американский актёр)','1895 — Финал Кубка: первый международный матч','1969 — «Аполлон-11» вернулся на Землю'],
+'7-25':['1965 — Бобби Фишер: чемпион мира по шахматам','1978 — Первая пересадка искусственного сердца','2000 — Конкорд разбился под Парижем (113 погибших)'],
+'7-26':['1856 — Родился Бернард Шоу (ирландский драматург, Нобелевская премия)','1948 — Харри Трумэн: президент США','2016 — Олимпиада в Рио-де-Жанейро'],
+'7-27':['1953 — Подписано Корейское перемирие (окончание Корейской войны)','1974 — Никсон объявил об отставке (Уотергейт)','1990 — Волк Герхардт (немецкий политик)'],
+'7-28':['1821 — Перу провозгласил независимость','1914 — Австрия объявила войну Сербии (начало Первой мировой)','2012 — Ким Чен Ун стал лидером Северной Кореи'],
+'7-29':['1588 — Родилась графиня Пемброк ( mecenate У. Шекспира)','1958 — NASA основана','1981 — Свадьба принца Чарльза и леди Дианы'],
+'7-30':['1863 — День независимости (дата varies)','1956 — Американское заявление','2012 — Теория «Большого взрыва»: экспериментальное подтверждение'],
+'7-31':['1849 — Фердинанд Монти (итальянский композитор)','1964 — Нил Армстронг стал первым человеком на Луне','1991 — Августовский путч в СССР'],
+'8-1':['1834 — Роберт Оуэн: основатель утопического социализма','1944 — Начало Варшавского восстания против немецкой оккупации','2010 — Теракт в Финляндии'],
+'8-2':['1802 — «Свобода слова»: первый номер газеты в США','1923 — Пивной путч Гитлера в Мюнхене (неудачная попытка захвата власти)','1990 — Ирак оккупировал Кувейт'],
+'8-3':['1460 — Нидерланды: битва при Грунло','1914 — Германия объявила войну Франции (Первая мировая)','1981 — Впервые описан СПИД'],
+'8-4':['1821 — Джеймс Брюс: британский путешественник','1892 — Родился Энди Уорхол (американский художник)','2020 — Взрыв в порту Бейрута (200+ погибших)'],
+'8-5':['1860 — Шарлотта Бронте (сестра Эмили Бронте)','1962 — Арестован Нельсон Мандела в ЮАР','2010 — Спасение чилийских шахтёров'],
+'8-6':['1945 — Атомная бомбардировка Хиросимы','1962 — Ямайка получила независимость','1991 — Тим Бернерс-Ли создал Всемирную паутину (WWW)'],
+'8-7':['1858 — Симон Боливар: освободитель Южной Америки','1947 — Изобретение кассетной бомбы','1998 — Взрывы в посольствах США в Кении и Танзании'],
+'8-8':['1942 — Британия: конфискация имущества','1963 — Кеннеди: речь у Берлинской стены','2008 — Олимпиада в Пекине'],
+'8-9':['1942 — Движение Quit India (Индия)','1945 — Атомная бомбардировка Нагасаки','2001 — Песня «Америка. Красивая»'],
+'8-10':['1846 — Конгресс США создал Министерство внутренних дел','1975 — Тимоти Лирри: «Возrugай свою жизнь»','2006 — Плутонио (итальянская группа)'],
+'8-11':['1934 — Август Хайек (чешский композитор)','1960 — Чад получил независимость','2003 — Хилари Суонк получила «Оскар»'],
+'8-12':['1851 — Айзек Singer запатентовал швейную машину','1908 — Генри Форд представил Model T','1990 — Открыт Суэцкий канал'],
+'8-13':['1913 — Кейт Меллоун (американская певица)','1961 — Начало строительства Берлинской стены','2004 — Пожар в Кемерово: гибель людей'],
+'8-14':['1900 — Хелен Келлер (американская активистка)','1941 — Подписана Атлантическая хартия (Рузвельт и Черчилль)','2003 — Взрыв в Ираке'],
+'8-15':['1914 — Открыт Панамский канал','1947 — Индия: День независимости','1969 — Фестиваль Вудсток (600 000 человек)'],
+'8-16':['1896 — Умер Гуго Вольф (австрийский композитор)','1960 — Буркина-Фасо получил независимость','1977 — Умер Элвис Пресли («Король рок-н-ролла»)'],
+'8-17':['1807 — Роберт Фултон запустил первый коммерческий пароход','1960 — Габон получил независимость','2008 — Махмуд Ахмадинежад: президент Ирана'],
+'8-18':['1868 — Париж: открытие нового музея','1920 — 19-я поправка: женщины получили право голосовать в США','1991 — Путч ГКПСС в Москве (августовский путч)'],
+'8-19':['1839 — Франция купила Луизиану у США','1960 — Запуск спутника Спутник-5 с собаками','2004 — «Революция роз» в Грузии'],
+'8-20':['1882 — Премьера «Лебединого озера» Чайковского','1968 — СССР вторгся в Чехословакию (Пражская весна)','1991 — Эстония: декларация о независимости'],
+'8-21':['1911 — Кража «Моны Лизы» из Лувра','1959 — Гавайи стали 50-м штатом США','1991 — Августовский путч в Москве'],
+'8-22':['1849 — Осада Венеции','1902 — Пожар в Кремле','2012 — WikiLeaks: Джулиан Ассанж'],
+'8-23':['1939 — Пакт Молотова-Риббентропа (секретный протокол)','1944 — Бомбардировка Дрездена союзниками','2005 — Кэти Кэтт (американская певица)'],
+'8-24':['79 — Извержение Везувия: гибель Помпей','1814 — Британцы сожгли Вашингтон','2006 — Плутон лишён статуса планеты'],
+'8-25':['1825 — Уругвай получил независимость','1991 — Подписано соглашение о создании СНГ в Минске','2001 — Стивен Хокинг: теория чёрных дыр'],
+'8-26':['1920 — 19-я поправка: женщины получили право голосовать в США','1978 — Папа Иоанн Павел II стал главой Ватикана','2009 — Землетрясение в Коннектикуте'],
+'8-27':['1859 — Эдвин Дрейк пробурил первую нефтяную скважину','1928 — Нил Армстронг родился (первый человек на Луне)','2003 — Марс был ближе всех к Земле за 60 000 лет'],
+'8-28':['1845 — Основан журнал Scientific American','1963 — Мартин Лютер Кинг: речь «У меня есть мечта»','2005 — Ураган Катрина: разрушение Нового Орлеана'],
+'8-29':['1533 — Родился Франциск Ассизский (основатель францисканского ордена)','1949 — СССР провёл первые ядерные испытания','2005 — Ураган Катрина обрушился на Новый Орлеан'],
+'8-30':['1835 — Основан Мельбурн (Австралия)','1914 — Германия вторглась в Бельгию','1999 — Восточный Тимор провозгласил независимость'],
+'8-31':['1888 — Начало убийств Джека-потрошителя в Лондоне','1939 — Германия вторглась в Польшу (начало Второй мировой)','1994 — Намибия получила независимость'],
+'9-1':['1807 — Открытие Государственной думы в России','1939 — Германия вторглась в Польшу (начало Второй мировой)','2004 — Теракт в Беслане (870 заложников)'],
+'9-2':['1859 — Открыт Суэцкий канал','1945 — Капитуляция Японии: окончание Второй мировой войны','2008 — Рианна: выход альбома'],
+'9-3':['1189 — Ричард Львиное Сердце коронован','1783 — Подписан Парижский мирный договор (конец Американской революции)','2007 — Ураган Катерина'],
+'9-4':['1888 — Эдисон запатентовал кинетограф','1957 — Форд: начало массового производства','2010 — Представлен iPhone 4'],
+'9-5':['1836 — Сэмюэл Кольт запатентовал револьвер','1972 — Олимпиада в Мюнхене','1977 — Запуск «Вояджера-1»'],
+'9-6':['1860 — Форт-Бридж (Великобритания)','1901 — Редьярд Киплинг получил Нобелевскую премию','2007 — Скандал с Бритни Спирс'],
+'9-7':['1822 — Бразилия: День независимости','1940 — Луциано Паваротти родился','2007 — Начало Олимпиады в Пекине'],
+'9-8':['1966 — Премьера сериала «Звёздный путь»','1974 — Президент Форд помиловал Никсона','2010 — Apple запустил социальную сеть Ping'],
+'9-9':['1850 — Калифорния стала штатом США','1948 — Ким Ир Сен основал Северную Корею','2009 — Норвегия: Осло — мирные переговоры'],
+'9-10':['1898 — Барбер (американский писатель)','1977 — Франция: Пятая республика','2008 — Крейг: политический скандал'],
+'9-11':['1777 — Битва при Брендивайне (Американская революция)','2001 — Теракты 11 сентября в США (2977 погибших)','2008 — Дилма Русефф (будущий президент Бразилии)'],
+'9-12':['1609 — Галилей впервые использовал телескоп','1940 — Кавендиш: открытие гелия','2011 — Умер Стив Джобс'],
+'9-13':['1848 — Сервантес: «Дон Кихот» (дата спорна)','1993 — Кассетный бандит','2008 — Дилма Русефф'],
+'9-14':['1812 — Пожар в Москве: Наполеон захватил Кремль','1959 — Луноход: первая мягкая посадка на Луну','2007 — Нобелевская премия по физике'],
+'9-15':['1776 — Британцы покинули Нью-Йорк','1935 — Нюрнбергские законы: дискриминация евреев в Германии','1981 — Столкновение авиалайнеров в Дели'],
+'9-16':['1810 — Мексика: День независимости от Испании','1920 — Основана Американская социал-демократическая партия','2007 — BlackBerry: начало эры смартфонов'],
+'9-17':['1787 — Подписание Конституции США','1862 — Битва при Энтитеме (самое кровавое сражение Гражданской войны)','1939 — Начало Советско-финской войны'],
+'9-18':['1759 — Французы сдали Квебек британцам','1931 — Япония вторглась в Маньчжурию','2008 — Катастрофа в Каховке'],
+'9-19':['1796 — Джордж Вашингтон произнёс прощальную речь','1944 — Битва при Арнеме (Операция «Маркет-Гарден»)','2006 — Тайфун: разрушения в Азии'],
+'9-20':['1519 — Чарльз V стал императором Священной Римской империи','1870 — Италия: присоединение Рима','1973 — Билли Джин Кинг: «Битва полов»'],
+'9-21':['1792 — Франция: провозглашение республики','1949 — Китай: провозглашение КНР','1991 — Армения: День независимости'],
+'9-22':['1862 — Прокламация об освобождении рабов (Авраам Линкольн)','1980 — Саддам Хусейн начал Ирано-иракскую войну','2003 — Майк Пенс: вице-президент США'],
+'9-23':['1846 — Открытие Нептуна (астрономия)','1949 — Основание ГДР (Восточная Германия)','1973 — Пиночет: переворот в Чили'],
+'9-24':['1789 — Билль о правах (первые 10 поправок к Конституции США)','1869 — Открыт Суэцкий канал','2009 — Рианна: выход альбома'],
+'9-25':['1493 — Колумб: второй рейс в Америку','1956 — СССР: кризис в Венгрии','1992 — NASA: программа MAAS'],
+'9-26':['1907 — Новая Зеландия: первое в мире избирательное право для женщин','1960 — Дебаты Кеннеди-Никсона (первые на ТВ)','2008 — Пожар в Лакхимпуре (Индия)'],
+'9-27':['1540 — Основание ордена иезуитов','1939 — Германия захватила Варшаву','1998 — Основание Google'],
+'9-28':['1542 — Величко (первое упоминание козацтва)','1924 — NASA: программа исследований','1995 — Барселона: Олимпиада'],
+'9-29':['1829 — Основание полиции Лондона (Скотленд-Ярд)','1907 — Washington Post: расследование','2008 — Падение индекса Dow Jones'],
+'9-30':['1938 — Мюнхенское соглашение: передача Чехословакии Германии','1946 — Нюрнберг: вынесение приговоров нацистским преступникам','2009 — Билл Клинтон: гуманитарная миссия'],
+'10-1':['1949 — Провозглашение КНР (Китайская Народная Республика)','1958 — NASA основана','2009 — Вьетнам: открытие метро'],
+'10-2':['1925 — Гитлер опубликовал «Мою борьбу»','1950 — Чарльз Шульц создал Peanuts (Чарли Браун)','2005 — Стивен Кинг: выход нового романа'],
+'10-3':['1207 — Генрих III стал королём Англии','1929 — Югославия: политический кризис','1990 — Объединение Германии'],
+'10-4':['1535 — Орден тамплиеров распущен','1957 — Запуск первого искусственного спутника Земли (Спутник-1)','2001 — Запуск Mars Odyssey'],
+'10-5':['1869 — Открыт Суэцкий канал','1947 — Харри Трумэн: президент США','1962 — Мэрилин Монро: последнее появление'],
+'10-6':['1927 — Первый звуковой фильм «Певец джаза»','1973 — Военный переворот Пиночета в Чили','2002 — Кушнер: американский драматург'],
+'10-7':['1571 — Битва при Лепанто: христиане разбили турок','1949 — Основана ГДР (Восточная Германия)','2001 — Начало войны в Афганистане'],
+'10-8':['1869 — Франклин Пирс (14-й президент США)','1956 — «Дон Кихот»: опера Массне','2005 — Балтийский флот: учения'],
+'10-9':['1874 — Нидерланды: колониальная политика','1962 — Уганда получила независимость','2009 — Стивен Кинг: выход нового романа'],
+'10-10':['1846 — Открыт Суэцкий канал (проект)','1911 — Китайская революция: падение династии Цин','1935 — Плутон открыт Клайдом Томбо'],
+'10-11':['1776 — Британия: унтер-офицер','1968 — NASA: запуск Аполлона-7','2002 — Пожар в Кемерово'],
+'10-12':['1492 — Христофор Колумб достиг Америки','1810 — Мексика: День расы (Día de la Raza)','2000 — Библиотека Конгресса: цифровой архив'],
+'10-13':['1307 — Арест тамплиеров по приказу Филиппа IV','1972 — Авария на ТВС (авиакатастрофа)','2010 — Нобелевская премия по литературе'],
+'10-14':['1066 — Битва при Гастингсе: нормандское завоевание Англии','1947 — Чак Йегер: первый пилот, превысивший скорость звука','2012 — Зонд «Кассини»: данные о спутниках Сатурна'],
+'10-15':['1917 — Маргарет Сэнгер: движение за контрацепцию','1964 — СССР: Нобелевская премия мира','2003 — Коби Брайант: рекорд NBA'],
+'10-16':['1793 — Казнь Марии-Антуанетты на гильотине','1923 — Основана компания Disney','1978 — Польша: Лех Валенса начал забастовку'],
+'10-17':['1777 — Битва при Саратоге: поворотный момент Американской революции','1933 — Альберт Эйнштейн эмигрировал в США','1989 — Землетрясение в Сан-Франциско'],
+'10-18':['1867 — Аляска куплена США у России за $7,2 млн','1922 — Основана Би-Би-Си (BBC)','2007 — Дженнифер Джейсон Ли: актриса'],
+'10-19':['1781 — Осада Йорктауна: капитуляция британцев (конец Американской революции)','1969 — Marvel Comics: Человек-паук','2005 — Джордж Буш-мл.: президент США'],
+'10-20':['1803 — США купили Луизиану','1944 — Битва при Лейте: крупнейшее морское сражение','1968 — Джеки Кеннеди: интервью'],
+'10-21':['1805 — Битва при Трафальгаре: Нельсон разбил франко-испанский флот','1945 — Основание Формулы-1','1959 — Юрий Гагарин: полёт в космос'],
+'10-22':['1836 — Сэмюэл Кольт запатентовал револьвер','1962 — Кубинский ракетный кризис: мир на грани ядерной войны','2008 — Индия: теракты в Мумбаи'],
+'10-23':['1942 — Первое использование ЭВМ (Чарльз Бэббидж)','1956 — ГДР: восстание','2001 — Представлен iPod'],
+'10-24':['1929 — Чёрный четверг: начало Великой депрессии','1945 — Основана ООН','2003 — Стивен Кинг: выход романа'],
+'10-25':['1854 — Битва при Балаклаве (Крымская война)','1917 — Керенский: отставка','2001 — Олимпиада в Афинах'],
+'10-26':['1520 — Эрнан Кортес: испанское завоевание Мексики','1881 — Виктор Гюго: французский писатель','1979 — Ким Чен Ир стал лидером Северной Кореи'],
+'10-27':['1807 — Бонапарт: Кодекс Наполеона','1904 — Открытие нью-йоркского метро','1961 — Запуск космического корабля «Восход»'],
+'10-28':['1886 — Открытие Статуи Свободы в Нью-Йорке','1922 — Муссолини: марш на Рим','2007 — Кристофер Нолан: выход фильма'],
+'10-29':['1929 — Биржевой крах: начало Великой депрессии','1964 — Япония: землетрясение','2008 — Жозе Мануэл Баррозу: председатель Евросовета'],
+'10-30':['1938 — Орсон Уэллс: радиопостановка «Война миров»','1961 — СССР: испытание центральной водородной бомбы','1995 — Баррикады в Москве'],
+'10-31':['1517 — Мартин Лютер: 95 тезисов (начало Реформации)','1941 — Маринка (день всех святых)','1992 — Катастрофа в Лакхимпуре (Индия)'],
+'11-1':['1755 — Лиссабонское землетрясение (80 000 погибших)','1952 — Первое термоядерное оружие (США)','1993 — Подписан Маастрихтский договор (основа ЕС)'],
+'11-2':['1930 — Гаити: оккупация США','1947 — Бум «Серебряный гром» (кассетный бум)','2000 — Хилари Клинтон избрана сенатором'],
+'11-3':['1957 — Запуск «Спутника-2» с собакой Лайкой','1978 — Доминиканская Республика: выборы','2007 — Евгений Касперский: кибербезопасность'],
+'11-4':['1783 — Александр Гамильтон: первый Secretary of Treasury','1922 — Открытие гробницы Тутанхамона','1995 — Билл Клинтон переизбран президентом'],
+'11-5':['1605 — Заговор пороховщиков: попытка взорвать Парламент','1872 — Сьюзен Энтони: избирательные права женщин','2006 — Дональд Трамп: начало политической карьеры'],
+'11-6':['1860 — Авраам Линкольн избран президентом','1917 — Октябрьская революция: большевики захватили власть','2012 — Барак Обама переизбран президентом'],
+'11-7':['1917 — Октябрьская революция (по новому стилю)','1944 — Франклин Рузвельт переизбран на 4-й срок','2000 — Стивен Кинг: выход романа'],
+'11-8':['1895 — Герхард Гауптман: немецкий драматург','1923 — Пивной путч Гитлера в Мюнхене','1942 — «Трон»: научно-фантастический фильм'],
+'11-9':['1799 — Папирус Рамзеса II','1938 — Хрустальная ночь: погромы в Германии','1989 — Падение Берлинской стены'],
+'11-10':['1775 — Континентальная морская пехота','1871 — Генрих Гейне: немецкий поэт','2008 — Барак Обама: президент США'],
+'11-11':['1918 — Компьенское перемирие: конец Первой мировой войны','1965 — Родезия: декларация независимости','2000 — Кенеффи: британская актриса'],
+'11-12':['1799 — Эндрю Карнеги: американский промышленник','1927 — Леонов: первый выход в открытый космос','1990 — Тим Бернерс-Ли создал WWW'],
+'11-13':['1940 — Дисней: «Пиноккио»','1985 — Открытие Байконура','2015 — Теракты в Париже (130 погибших)'],
+'11-14':['1889 — Индира Ганди родилась','1922 — Основание Би-Би-Си','2008 — «Кассини»: данные о спутниках Сатурна'],
+'11-15':['1889 — Бразилия: провозглашение республики','1920 — Создана Лига Наций','2003 — Кубок Davis'],
+'11-16':['1938 — Лиза Монтгомери (первая женщина, казнённая в США)','1945 — Основана ЮНЕСКО','2004 — Нобелевская премия по литературе'],
+'11-17':['1869 — Открыт Суэцкий канал','1970 — Дуглас Адамс родился (автор «Автостопом по галактике»)','2003 — Пьер-Симон Лаплас: математик'],
+'11-18':['1883 — Открытие Парижского метро','1928 — Премьера «Парохода Билли Кларка»','2003 — Майкл Джackson: скандал'],
+'11-19':['1863 — Геттисбергская речь Авраама Линкольна','1942 — Германия: оккупация Франции','2007 — Филиппины: тайфун'],
+'11-20':['1789 — Билль о правах (первые 10 поправок)','1945 — Нюрнбергский процесс: начало','2003 — Последний полёт «Конкорда»'],
+'11-21':['1877 — Томас Эдисон: граммофон','1916 — Транспортное судно Britannic затонуло','1995 — Гонки Daytona 500'],
+'11-22':['1718 — Пират Стед Боннет: морской разбойник','1963 — Убийство президента Кеннеди в Далласе','2005 — Ангела Меркель: канцлер Германии'],
+'11-23':['1889 — Башня Эйфеля: открытие','1963 — «Первая битва»','1996 — Нобелевская премия'],
+'11-24':['1859 — Дарвин опубликовал «Происхождение видов»','1944 — Освобождение Освенцима','2005 — Гонконг: передача Китаю'],
+'11-25':['1876 — Премьера «Крокодилов Данди»','1952 — Умерла Агата Кристи','2005 — Стивен Кинг: выход романа'],
+'11-26':['1825 — Основание Колледжа','1922 — Открытие гробницы Тутанхамона','2008 — Нобелевская премия по химии'],
+'11-27':['1895 — Альфред Нобель: завещание (основание Нобелевской премии)','1978 — Харви Милк: первая открытая ЛГБТ-персона в политике','1978 — Джордж Майкл: дебют в Wham!'],
+'11-28':['1943 — Тегеранская конференция: Рузвельт, Черчилль, Сталин','1958 — Чад: независимость от Франции','2008 — Барак Обама: избрание президентом'],
+'11-29':['1929 — Ричард Бартелмесс: американский актёр','1947 — Резолюция ООН по Палестине','2001 — Умер Джордж Харрисон (Beatles)'],
+'11-30':['1872 — Фридрих Шиллер: немецкий поэт','1939 — Советско-финская война','2005 — Стивен Кинг: выход романа'],
+'12-1':['1521 — Сигизмунд стал королём Венгрии','1955 — Роза Паркс отказалась уступить место в автобусе','2001 — Катастрофа A300 в Нью-Йорке'],
+'12-2':['1804 — Наполеон Бонапарт короновался как Император','1942 — Начало Манхэттенского проекта (создание атомной бомбы)','1982 — Первые случаи СПИД'],
+'12-3':['1967 — Первая пересадка человеческого сердца (Кристиан Барнард)','1973 — Аполлон-17: последняя миссия на Луну','2007 — Греция: массовые протесты'],
+'12-4':['1872 — Крузенштерн: русский мореплаватель','1956 — Гитлер: воспоминания','2001 — Катастрофа A300 в Нью-Йорке'],
+'12-5':['1776 — Открытие Государственной думы','1933 — Запрет алкоголя в США (21-я поправка)','2001 — Теракт в Тель-Авиве'],
+'12-6':['1884 — Основание Гатчины','1921 — Независимость Финляндии','2006 — Нобелевская премия по литературе'],
+'12-7':['1776 — Открытие Государственной думы','1941 — Японская атака на Перл-Харбор (вступление США в войну)','1988 — Армянское землетрясение (25 000 погибших)'],
+'12-8':['1854 — Папа Пий IX: догма о непорочном зачатии','1980 — Убит Джон Лennon (Beatles)','2004 — «Кассини»: данные о спутниках Сатурна'],
+'12-9':['1854 — Альфред Нобель родился (химик, изобретатель динамита)','1961 — Танзания: независимость','1992 — Аресипело: итальянский скандал'],
+'12-10':['1869 — Впервые вручена Нобелевская премия (физика, химия, литература)','1948 — Конвенция о геноциде (ООН)','2009 — Копенгаген: конференция по климату'],
+'12-11':['1899 — Рождество в Африке','1936 — Генрих Гиммлер: нацистский лидер','2008 — Барак Обама: президент США'],
+'12-12':['1898 — Стокгольм: открытие Нобелевских премий','1936 — Тяньцзинь: японская оккупация','2000 — Касперский: антивирус'],
+'12-13':['1577 — Фрэнсис Дрейк: кругосветное плавание','1937 — Нанкинская резня (японская оккупация)','2007 — Филиппины: тайфун'],
+'12-14':['1799 — Умер Джордж Вашингтон (первый президент США)','1911 — Амундсен достиг Южного полюса','2012 — Стрельба в Сэнди-Хук (26 погибших)'],
+'12-15':['1939 — Премьера «Унесённые ветром»','1961 — Президент Эйзенхауэр','2001 — Билл Клинтон: инаугурация'],
+'12-16':['1770 — Родился Людвиг ван Бетховен','1944 — Балатонская операция','2008 — Бомба в Бангкоке'],
+'12-17':['1903 — Братья Райт: первый полёт в Китти-Хок','1989 — Бархатная революция в Чехословакии','2010 — Дональд Трамп: начало политической карьеры'],
+'12-18':['1865 — 13-я поправка: отмена рабства в США','1916 — Ференц Пушкаш: венгерский футболист','1997 — ОКВ: Организация Контрразведки'],
+'12-19':['1683 — Основание Новой Франции','1998 — Форд: массовое производство','2003 — «Кассини»: данные о спутниках Сатурна'],
+'12-20':['1860 — Южная Каролина: начало Гражданской войны','1999 — Португалия: переход к евро','2007 — Нобелевская премия'],
+'12-21':['1891 — Нью-Йорк: открытие метро','1937 — «Снежок»: первый полнометражный мультфильм Disney','1988 — Панама: вторжение США'],
+'12-22':['1937 — Открыт Линкольн-туннель в Нью-Йорке','1944 — Балатонская операция','2010 — Дюма: французский писатель'],
+'12-23':['1783 — Джордж Вашингтон распустил армию','1823 — Доктрина Монро (внешняя политика США)','2008 — Нобелевская премия по физике'],
+'12-24':['1865 — Авраам Линкольн: введение рабства','1953 — СССР: ядерные испытания','2008 — Нобелевская премия'],
+'12-25':['1046 — Чжоу Синь: падение династии Шан','1642 — Родился Исаак Ньютон','2003 — Война в Ираке'],
+'12-26':['1492 — Колумб: Санта-Крус','1946 — Боксёрское восстание в Китае','2004 — Цунами в Индийском океане (230 000 погибших)'],
+'12-27':['1900 — Керенский: русский политик','1945 — Нобелевская премия','2007 — Гибель Беназир Бхутто'],
+'12-28':['1895 — Братья Люмьер: первый кинопоказ в Париже','1944 — Варшавское восстание','2006 — Скарсгард: шведский актёр'],
+'12-29':['1845 — Техас стал штатом США','1989 — Румынская революция: свержение Чаушеску','2012 — Барак Обама: вторая инаугурация'],
+'12-30':['1922 — Образование СССР','1936 — Адольф Гитлер стал главой государства','2006 — Казнь Саддама Хусейна'],
+'12-31':['1857 — Париж: открытие Эйфелевой башни','1999 — Панама: передача Панамского канала','2000 — Начало нового тысячелетия']
+};
+var monthNames=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+var dayNames=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+function calLoadCustom(){try{return JSON.parse(localStorage.getItem('cal_custom')||'[]}');}catch(e){return[];}}
+function calSaveCustom(items){localStorage.setItem('cal_custom',JSON.stringify(items));}
+function calRender(){
+var today=new Date();
+var fullDayNames=['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+var todayLine=today.getDate()+' '+monthNames[today.getMonth()]+' '+today.getFullYear()+', '+fullDayNames[today.getDay()];
+document.getElementById('cal-today-line').textContent='Сегодня: '+todayLine;
+document.getElementById('cal-title').textContent=monthNames[calMonth]+' '+calYear;
+var grid=document.getElementById('cal-grid');
+grid.innerHTML='';
+dayNames.forEach(function(d){var el=document.createElement('div');el.className='cal-day-name';el.textContent=d;grid.appendChild(el);});
+var first=new Date(calYear,calMonth,1).getDay();
+first=first===0?6:first-1;
+var daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+var prevDays=new Date(calYear,calMonth,0).getDate();
+var today=new Date();
+var customs=calLoadCustom();
+for(var i=0;i<first;i++){var el=document.createElement('div');el.className='cal-day other';el.textContent=prevDays-first+i+1;grid.appendChild(el);}
+for(var d=1;d<=daysInMonth;d++){
+var el=document.createElement('div');el.className='cal-day';
+var dow=new Date(calYear,calMonth,d).getDay();
+if(dow===0||dow===6)el.className+=' weekend';
+if(calYear===today.getFullYear()&&calMonth===today.getMonth()&&d===today.getDate())el.className+=' today';
+var key=(calMonth+1)+'-'+d;
+if(holidays[key])el.className+=' holiday';
+var hasCustom=customs.some(function(c){return c.month===(calMonth+1)&&c.day===d;});
+if(hasCustom)el.className+=' has-event';
+var dateKey=(calMonth+1)+'-'+d;
+if(historyEvents[dateKey])el.className+=' has-history';
+el.textContent=d;
+el.onclick=(function(dd){return function(){calShowEvents(dd);};})(d);
+grid.appendChild(el);
+}
+var rem=7-((first+daysInMonth)%7);
+if(rem<7)for(var i=0;i<rem;i++){var el=document.createElement('div');el.className='cal-day other';el.textContent=i+1;grid.appendChild(el);}
+calRenderCustomList();
+if(calYear===today.getFullYear()&&calMonth===today.getMonth())calShowEvents(today.getDate());
+}
+function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}calRender();}
+function calNext(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}calRender();}
+function calShowEvents(day){
+var key=(calMonth+1)+'-'+day;
+var dateKey=(calMonth+1)+'-'+day;
+var customs=calLoadCustom();
+var html='';
+if(holidays[key])html+='<div class="cal-event ev-holiday">🎉 '+holidays[key]+'<div class="ev-date">'+day+' '+monthNames[calMonth]+'</div></div>';
+var userEvents=customs.filter(function(c){return c.month===(calMonth+1)&&c.day===day;});
+userEvents.forEach(function(c){
+var icon=c.type==='birthday'?'🎂':'📌';
+var cls=c.type==='birthday'?'ev-birthday':'ev-custom';
+html+='<div class="cal-event '+cls+'">'+icon+' '+c.name+'<div class="ev-date">'+day+' '+monthNames[calMonth]+'<button class="btn-del" onclick="calDelCustom('+c.id+')" title="Удалить">✕</button></div></div>';
+});
+if(historyEvents[dateKey]){
+historyEvents[dateKey].forEach(function(ev){
+html+='<div class="cal-event ev-history">📖 '+ev+'</div>';
+});
+}
+if(!html)html='<div style="color:#666; font-size:13px; padding:8px 0;">Нет событий</div>';
+document.getElementById('cal-events').innerHTML=html;
+}
+function calAddCustom(){
+var name=document.getElementById('cal-custom-name').value.trim();
+var dateVal=document.getElementById('cal-custom-date').value;
+var type=document.getElementById('cal-custom-type').value;
+if(!name||!dateVal){return;}
+var parts=dateVal.split('-');
+var m=parseInt(parts[1]),d=parseInt(parts[2]);
+var customs=calLoadCustom();
+customs.push({id:Date.now(),name:name,month:m,day:d,type:type});
+calSaveCustom(customs);
+document.getElementById('cal-custom-name').value='';
+document.getElementById('cal-custom-date').value='';
+calRender();
+}
+function calDelCustom(id){
+var customs=calLoadCustom().filter(function(c){return c.id!==id;});
+calSaveCustom(customs);
+calRender();
+}
+function calRenderCustomList(){
+var customs=calLoadCustom();
+var el=document.getElementById('cal-custom-list');
+if(!customs.length){el.innerHTML='';return;}
+var html='';
+customs.forEach(function(c){
+var icon=c.type==='birthday'?'🎂':'📌';
+html+='<div class="cal-custom-item">'+icon+' '+c.name+' <span style="color:#888;">('+c.day+'.'+c.month+')</span><button class="btn-del" onclick="calDelCustom('+c.id+')">✕</button></div>';
+});
+el.innerHTML=html;
+}
+calRender();
+
+/* === Alarm === */
+var alarmFiles = [];
+var dayNames = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+function alarmLoadFiles() {
+    fetch('/api/alarm/files').then(function(r){return r.json();}).then(function(files) {
+        alarmFiles = files;
+        var sel = document.getElementById('alarm-new-file');
+        sel.innerHTML = '';
+        files.forEach(function(f) {
+            var opt = document.createElement('option');
+            opt.value = f.path;
+            opt.textContent = f.name;
+            sel.appendChild(opt);
+        });
+    });
+}
+
+function alarmLoadVolume() {
+    fetch('/api/alarm/volume').then(function(r){return r.json();}).then(function(d) {
+        document.getElementById('alarm-vol').value = d.volume;
+        document.getElementById('alarm-vol-val').textContent = d.volume;
+    });
+}
+
+function alarmSetVolume(v) {
+    document.getElementById('alarm-vol-val').textContent = v;
+    fetch('/api/alarm/volume', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({volume:parseInt(v)})});
+}
+
+function alarmTestPlay() {
+    var sel = document.getElementById('alarm-new-file');
+    if (!sel.value) return;
+    fetch('/api/alarm/play', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({path:sel.value})});
+}
+
+function alarmStop() {
+    fetch('/api/alarm/stop', {method:'POST'});
+}
+
+function alarmRender() {
+    fetch('/api/alarms').then(function(r){return r.json();}).then(function(alarms) {
+        var el = document.getElementById('alarm-list');
+        if (!alarms.length) { el.innerHTML = '<div style="color:#666; font-size:13px; padding:8px 0;">Нет будильников</div>'; return; }
+        var html = '';
+        alarms.forEach(function(a) {
+            var fname = a.file ? a.file.split('/').pop() : '—';
+            var days = (a.days||[]).map(function(d){ return dayNames[d-1]; }).join(' ');
+            html += '<div class="alarm-row">';
+            html += '<div class="alarm-time">' + a.time + '</div>';
+            html += '<div class="alarm-file" title="' + fname + '">' + fname + '</div>';
+            html += '<div class="alarm-days">';
+            for (var i=1;i<=7;i++) {
+                html += '<span class="' + ((a.days||[]).indexOf(i)>=0?'active':'') + '" onclick="alarmToggleDay('+a.id+','+i+')">' + dayNames[i-1] + '</span>';
+            }
+            html += '</div>';
+            html += '<button class="alarm-toggle ' + (a.enabled?'on':'off') + '" onclick="alarmToggle(' + a.id + ')"></button>';
+            html += '<button class="alarm-del" onclick="alarmDelete(' + a.id + ')">&times;</button>';
+            html += '</div>';
+        });
+        el.innerHTML = html;
+    });
+}
+
+function alarmAdd() {
+    var time = document.getElementById('alarm-new-time').value;
+    var file = document.getElementById('alarm-new-file').value;
+    var days = [1,2,3,4,5];
+    fetch('/api/alarms', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({time:time, file:file, days:days})})
+    .then(function(){ alarmRender(); });
+}
+
+function alarmDelete(id) {
+    fetch('/api/alarms/' + id, {method:'DELETE'}).then(function(){ alarmRender(); });
+}
+
+function alarmToggle(id) {
+    fetch('/api/alarms/' + id + '/toggle', {method:'POST'}).then(function(){ alarmRender(); });
+}
+
+function alarmToggleDay(id, day) {
+    fetch('/api/alarms').then(function(r){return r.json();}).then(function(alarms){
+        var a = alarms.find(function(x){return x.id===id;});
+        if(!a) return;
+        var days = a.days || [];
+        var idx = days.indexOf(day);
+        if(idx>=0) days.splice(idx,1); else days.push(day);
+        days.sort();
+        fetch('/api/alarms', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({time:a.time,file:a.file,days:days,id:id})})
+        .then(function(){ alarmRender(); });
+    });
+}
+
+alarmLoadFiles();
+alarmLoadVolume();
+
+/* === Radio === */
+var radioStations = [];
+var radioIndex = -1;
+var radioPlaylist = '';
+
+function radioLoad() {
+    if (!radioPlaylist) {
+        radioStations = [];
+        radioRender();
+        document.getElementById('radio-now').textContent = 'Выберите плейлист';
+        return;
+    }
+    var url = '/api/radio/stations?playlist=' + encodeURIComponent(radioPlaylist);
+    fetch(url).then(function(r){return r.json();}).then(function(d) {
+        radioStations = d.stations || [];
+        radioIndex = -1;
+        radioRender();
+        document.getElementById('radio-now').textContent = radioStations.length + ' станций';
+    });
+}
+
+function radioLoadPlaylists() {
+    fetch('/api/radio/playlists').then(function(r){return r.json();}).then(function(list) {
+        var sel = document.getElementById('radio-playlist');
+        sel.innerHTML = '<option value="">— Выберите плейлист —</option>';
+        list.forEach(function(p) {
+            var opt = document.createElement('option');
+            opt.value = p.file;
+            opt.textContent = p.file + ' (' + p.count + ')';
+            sel.appendChild(opt);
+        });
+    });
+}
+
+function radioSelectPlaylist(file) {
+    radioPlaylist = file;
+    radioLoad();
+}
+
+function radioRender() {
+    var el = document.getElementById('radio-list');
+    if (!radioStations.length) { el.innerHTML = '<div style="color:#666;font-size:13px;padding:8px 0;">Нет станций</div>'; return; }
+    var html = '';
+    radioStations.forEach(function(s, i) {
+        var cls = i === radioIndex ? 'radio-item active' : 'radio-item';
+        html += '<div class="' + cls + '" onclick="radioPlay(' + i + ')" title="' + s.url + '">' + (s.name || 'Станция ' + (i+1)) + '</div>';
+    });
+    el.innerHTML = html;
+    if (radioIndex >= 0) {
+        var active = el.querySelector('.active');
+        if (active) active.scrollIntoView({block:'nearest'});
+    }
+}
+
+function radioPlay(idx) {
+    radioIndex = idx;
+    var vol = parseInt(document.getElementById('radio-vol-val').textContent) || 80;
+    fetch('/api/radio/play', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({index:idx, volume:vol})})
+    .then(function(r){return r.json();}).then(function(d) {
+        if (d.ok) {
+            radioIndex = idx;
+            radioSetPlaying(true, radioStations[idx] ? radioStations[idx].name : '');
+            radioRender();
+        }
+    });
+}
+
+function radioStop() {
+    fetch('/api/radio/stop', {method:'POST'});
+    radioSetPlaying(false, '');
+}
+
+function radioNext() {
+    var vol = parseInt(document.getElementById('radio-vol-val').textContent) || 80;
+    fetch('/api/radio/next', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({volume:vol})}).then(function(r){return r.json();}).then(function(d) {
+        if (d.ok && d.station) {
+            radioIndex = d.index;
+            radioSetPlaying(true, d.station.name);
+            radioRender();
+        }
+    });
+}
+
+function radioPrev() {
+    var vol = parseInt(document.getElementById('radio-vol-val').textContent) || 80;
+    fetch('/api/radio/prev', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({volume:vol})}).then(function(r){return r.json();}).then(function(d) {
+        if (d.ok && d.station) {
+            radioIndex = d.index;
+            radioSetPlaying(true, d.station.name);
+            radioRender();
+        }
+    });
+}
+
+function radioSetPlaying(on, name) {
+    var viz = document.getElementById('radio-viz');
+    var nameEl = document.getElementById('radio-now');
+    var statusEl = document.getElementById('radio-status');
+    var btn = document.getElementById('radio-play-btn');
+    if (on) {
+        viz.classList.add('playing');
+        statusEl.textContent = '● В эфире';
+        statusEl.className = 'radio-now-status on';
+        btn.textContent = '⏸';
+        if (name) nameEl.textContent = name;
+    } else {
+        viz.classList.remove('playing');
+        statusEl.textContent = 'Остановлено';
+        statusEl.className = 'radio-now-status';
+        btn.textContent = '▶';
+        if (name) nameEl.textContent = name;
+        else nameEl.textContent = 'Выберите станцию';
+    }
+}
+
+function radioSetVolume(v) {
+    document.getElementById('radio-vol-val').textContent = v;
+}
+
+function radioStatus() {
+    fetch('/api/radio/status').then(function(r){return r.json();}).then(function(d) {
+        if (d.station) {
+            radioIndex = d.index;
+            radioSetPlaying(d.playing, d.station.name);
+        } else {
+            radioSetPlaying(false, '');
+        }
+    });
+}
+
+radioLoadPlaylists();
+
+/* === Player === */
+var playerStations = [];
+var playerIndex = -1;
+var playerPlaylist = '';
+var playerRandom = false;
+var playerBrowsePath = '/srv/media';
+var playerBrowseSelected = [];
+
+function playerLoad() {
+    if (!playerPlaylist) {
+        playerStations = [];
+        playerRender();
+        document.getElementById('player-now').textContent = 'Выберите плейлист';
+        return;
+    }
+    fetch('/api/player/load?file=' + encodeURIComponent(playerPlaylist))
+    .then(function(r){return r.json();}).then(function(d) {
+        playerStations = d.stations || [];
+        playerIndex = -1;
+        playerRender();
+        document.getElementById('player-now').textContent = playerStations.length ? playerStations.length + ' треков' : 'Нет треков';
+    });
+}
+
+function playerLoadPlaylists() {
+    fetch('/api/player/playlists').then(function(r){return r.json();}).then(function(list) {
+        var sel = document.getElementById('player-playlist');
+        sel.innerHTML = '<option value="">— Выберите плейлист —</option>';
+        list.forEach(function(p) {
+            var opt = document.createElement('option');
+            opt.value = p.file;
+            opt.textContent = p.name + ' (' + p.count + ')';
+            sel.appendChild(opt);
+        });
+    });
+}
+
+function playerSelectPlaylist(file) {
+    playerPlaylist = file;
+    playerLoad();
+}
+
+function playerRender() {
+    var el = document.getElementById('player-list');
+    if (!playerStations.length) { el.innerHTML = '<div style="color:#666;font-size:13px;padding:8px 0;">Нет треков</div>'; return; }
+    var html = '';
+    playerStations.forEach(function(s, i) {
+        var cls = i === playerIndex ? 'player-item active' : 'player-item';
+        html += '<div class="' + cls + '" onclick="playerPlay(' + i + ')" title="' + s.path + '">' + (s.name || 'Трек ' + (i+1)) + '</div>';
+    });
+    el.innerHTML = html;
+    if (playerIndex >= 0) {
+        var active = el.querySelector('.active');
+        if (active) active.scrollIntoView({block:'nearest'});
+    }
+}
+
+function playerPlay(idx) {
+    playerIndex = idx;
+    var vol = parseInt(document.getElementById('player-vol-val').textContent) || 80;
+    fetch('/api/player/play', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({index:idx, volume:vol})})
+    .then(function(r){return r.json();}).then(function(d) {
+        if (d.ok) {
+            playerSetPlaying(true, playerStations[idx] ? playerStations[idx].name : '');
+            playerRender();
+        }
+    });
+}
+
+function playerStop() {
+    fetch('/api/player/stop', {method:'POST'});
+    playerSetPlaying(false, '');
+}
+
+function playerNext() {
+    var vol = parseInt(document.getElementById('player-vol-val').textContent) || 80;
+    fetch('/api/player/next', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({volume:vol})}).then(function(r){return r.json();}).then(function(d) {
+        if (d.ok && d.station) {
+            playerIndex = d.index;
+            playerSetPlaying(true, d.station.name);
+            playerRender();
+        }
+    });
+}
+
+function playerPrev() {
+    var vol = parseInt(document.getElementById('player-vol-val').textContent) || 80;
+    fetch('/api/player/prev', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({volume:vol})}).then(function(r){return r.json();}).then(function(d) {
+        if (d.ok && d.station) {
+            playerIndex = d.index;
+            playerSetPlaying(true, d.station.name);
+            playerRender();
+        }
+    });
+}
+
+function playerSetPlaying(on, name) {
+    var viz = document.getElementById('player-viz');
+    var nameEl = document.getElementById('player-now');
+    var statusEl = document.getElementById('player-status');
+    var btn = document.getElementById('player-play-btn');
+    if (on) {
+        viz.classList.add('playing');
+        statusEl.textContent = '● Играет';
+        statusEl.className = 'player-now-status on';
+        btn.textContent = '⏸';
+        if (name) nameEl.textContent = name;
+    } else {
+        viz.classList.remove('playing');
+        statusEl.textContent = 'Остановлено';
+        statusEl.className = 'player-now-status';
+        btn.textContent = '▶';
+        if (name) nameEl.textContent = name;
+        else nameEl.textContent = 'Выберите трек';
+    }
+}
+
+function playerSetVolume(v) {
+    document.getElementById('player-vol-val').textContent = v;
+}
+
+function playerToggleRandom() {
+    playerRandom = !playerRandom;
+    var btn = document.getElementById('player-rand-btn');
+    btn.className = playerRandom ? 'player-btn-random active' : 'player-btn-random';
+    fetch('/api/player/random', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({random:playerRandom})});
+}
+
+function playerStatus() {
+    fetch('/api/player/status').then(function(r){return r.json();}).then(function(d) {
+        if (d.station) {
+            playerIndex = d.index;
+            playerRandom = d.random;
+            var btn = document.getElementById('player-rand-btn');
+            if (btn) btn.className = playerRandom ? 'player-btn-random active' : 'player-btn-random';
+            playerSetPlaying(d.playing, d.station.name);
+        } else {
+            playerSetPlaying(false, '');
+        }
+    });
+}
+
+/* Player Browse */
+function playerToggleBrowse() {
+    var el = document.getElementById('player-browse');
+    el.classList.toggle('open');
+    if (el.classList.contains('open')) playerBrowse('/srv/media');
+}
+
+function playerBrowse(path) {
+    playerBrowsePath = path;
+    playerBrowseSelected = [];
+    document.getElementById('player-browse-path').value = path;
+    document.getElementById('player-browse-count').textContent = '0 файлов';
+    fetch('/api/player/browse?path=' + encodeURIComponent(path))
+    .then(function(r){return r.json();}).then(function(d) {
+        var el = document.getElementById('player-browse-list');
+        var html = '';
+        if (d.parent && d.parent !== path) {
+            html += '<div class="player-browse-item" onclick="playerBrowse(\'' + d.parent.replace(/'/g,"\\'") + '\')"><span class="dir-icon">📁 ..</span><span></span></div>';
+        }
+        d.entries.forEach(function(e) {
+            var icon = e.type === 'dir' ? '📁' : '🎵';
+            var cls = 'player-browse-item';
+            var onclick = e.type === 'dir' ? "playerBrowse('" + e.path.replace(/'/g,"\\'") + "')" : "playerBrowseToggle(this,'" + e.path.replace(/'/g,"\\'") + "')";
+            var info = e.type === 'dir' ? (e.count + ' файлов') : '';
+            html += '<div class="' + cls + '" onclick="' + onclick + '"><span>' + icon + ' ' + e.name + '</span><span>' + info + '</span></div>';
+        });
+        el.innerHTML = html || '<div style="color:#666;padding:8px;font-size:12px;">Пусто</div>';
+    });
+}
+
+function playerBrowseUp() {
+    var parts = playerBrowsePath.split('/');
+    if (parts.length > 2) { parts.pop(); playerBrowse(parts.join('/')); }
+}
+
+function playerBrowseToggle(el, path) {
+    var idx = playerBrowseSelected.indexOf(path);
+    if (idx >= 0) {
+        playerBrowseSelected.splice(idx, 1);
+        el.classList.remove('selected');
+    } else {
+        playerBrowseSelected.push(path);
+        el.classList.add('selected');
+    }
+    document.getElementById('player-browse-count').textContent = playerBrowseSelected.length + ' файлов';
+}
+
+function playerBrowseAddSelected() {
+    if (!playerBrowseSelected.length) return;
+    var name = document.getElementById('player-new-name').value.trim();
+    if (!name) { alert('Введите имя плейлиста'); return; }
+    fetch('/api/player/playlist', {method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:name, files:playerBrowseSelected})})
+    .then(function(r){return r.json();}).then(function(d) {
+        if (d.ok) {
+            playerLoadPlaylists();
+            document.getElementById('player-new-name').value = '';
+            playerBrowseSelected = [];
+            document.getElementById('player-browse-count').textContent = '0 файлов';
+            document.querySelectorAll('#player-browse-list .selected').forEach(function(e){e.classList.remove('selected');});
+        }
+    });
+}
+
+function playerBrowseSave() {
+    var name = document.getElementById('player-new-name').value.trim();
+    if (!name) { alert('Введите имя плейлиста'); return; }
+    fetch('/api/player/playlist', {method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:name, files:playerBrowseSelected})})
+    .then(function(r){return r.json();}).then(function(d) {
+        if (d.ok) {
+            playerLoadPlaylists();
+            playerToggleBrowse();
+        }
+    });
+}
+
+function playerBrowseCancel() {
+    document.getElementById('player-browse').classList.remove('open');
+}
+
+playerLoadPlaylists();
+
+/* === Camera === */
+var camCameras = [];
+var camPage = 1;
+var camPerPage = 4;
+var camSideOpen = false;
+
+function camCalcPerPage() {
+    var n = camCameras.length;
+    if (n <= 1) return 1;
+    if (n <= 2) return 2;
+    if (n <= 4) return 4;
+    return 16;
+}
+
+function camLoad() {
+    fetch('/api/cameras').then(function(r){return r.json();}).then(function(cams) {
+        camCameras = cams || [];
+        camPerPage = camCalcPerPage();
+        camRender();
+        camRenderList();
+        camRenderPages();
+    });
+}
+
+function camRender() {
+    var grid = document.getElementById('cam-grid');
+    var total = camCameras.length;
+    var pages = Math.max(1, Math.ceil(total / camPerPage));
+    if (camPage > pages) camPage = pages;
+    var start = (camPage - 1) * camPerPage;
+    var slice = camCameras.slice(start, start + camPerPage);
+    grid.className = 'cam-grid g' + camPerPage;
+    var html = '';
+    var ts = Date.now();
+    slice.forEach(function(c) {
+        html += '<div class="cam-cell" ondblclick="camFullscreen(this)">';
+        html += '<img src="/api/cameras/stream/' + c.id + '?t=' + ts + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'block\'">';
+        html += '<div class="cam-off" style="display:none">● Офлайн</div>';
+        html += '<div class="cam-label">' + c.name + '</div>';
+        html += '</div>';
+    });
+    var empty = camPerPage - slice.length;
+    for (var i = 0; i < empty; i++) {
+        html += '<div class="cam-cell"><div class="cam-off">Нет камеры</div></div>';
+    }
+    grid.innerHTML = html;
+    document.getElementById('cam-count').textContent = total + ' камер';
+}
+
+function camRenderPages() {
+    var total = camCameras.length;
+    var pages = Math.max(1, Math.ceil(total / camPerPage));
+    var el = document.getElementById('cam-pages');
+    var html = '';
+    for (var i = 1; i <= pages; i++) {
+        html += '<button class="cam-btn-page' + (i === camPage ? ' active' : '') + '" onclick="camSetPage(' + i + ')">' + i + '</button>';
+    }
+    el.innerHTML = pages > 1 ? html : '';
+}
+
+function camSetPage(p) {
+    camPage = p;
+    camRender();
+    camRenderPages();
+}
+
+function camRenderList() {
+    var el = document.getElementById('cam-list');
+    if (!camCameras.length) { el.innerHTML = '<div style="color:#666;font-size:13px;padding:8px;">Нет камер</div>'; return; }
+    var html = '';
+    camCameras.forEach(function(c) {
+        html += '<div class="cam-list-item">';
+        html += '<span class="cam-list-name">' + c.name + '</span>';
+        html += '<span class="cam-list-url" title="' + c.url + '">' + c.url + '</span>';
+        html += '<button title="Настроить" onclick="camEdit(' + c.id + ')">✏</button>';
+        html += '<button class="cam-del" title="Удалить" onclick="camDelete(' + c.id + ')">✕</button>';
+        html += '</div>';
+    });
+    el.innerHTML = html;
+}
+
+function camToggleSide() {
+    camSideOpen = !camSideOpen;
+    document.getElementById('cam-side').className = camSideOpen ? 'cam-side' : 'cam-side hidden';
+}
+
+function camAdd() {
+    var name = document.getElementById('cam-name').value.trim();
+    var url = document.getElementById('cam-url').value.trim();
+    if (!url) { alert('Введите RTSP URL'); return; }
+    fetch('/api/cameras', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name, url:url})})
+    .then(function(r){return r.json();}).then(function(d) {
+        if (d.ok) {
+            document.getElementById('cam-name').value = '';
+            document.getElementById('cam-url').value = '';
+            camLoad();
+        }
+    });
+}
+
+function camEdit(id) {
+    var cam = camCameras.find(function(c){return c.id===id;});
+    if (!cam) return;
+    var newName = prompt('Название:', cam.name);
+    if (newName === null) return;
+    var newUrl = prompt('RTSP URL:', cam.url);
+    if (newUrl === null) return;
+    fetch('/api/cameras/' + id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:newName, url:newUrl})})
+    .then(function(r){return r.json();}).then(function(){ camLoad(); });
+}
+
+function camDelete(id) {
+    if (!confirm('Удалить камеру?')) return;
+    fetch('/api/cameras/' + id, {method:'DELETE'}).then(function(){ camLoad(); });
+}
+
+function camStartAll() {
+    fetch('/api/cameras/start_all', {method:'POST'}).then(function(){
+        setTimeout(function(){ camRender(); }, 2000);
+    });
+}
+
+function camStopAll() {
+    fetch('/api/cameras/stop_all', {method:'POST'}).then(function(){ camRender(); });
+}
+
+function camFullscreen(el) {
+    if (el.classList.contains('fullscreen')) {
+        el.classList.remove('fullscreen');
+    } else {
+        document.querySelectorAll('.cam-cell.fullscreen').forEach(function(e){e.classList.remove('fullscreen');});
+        el.classList.add('fullscreen');
+    }
+}
+
+camLoad();
+</script>
+{% endblock %}

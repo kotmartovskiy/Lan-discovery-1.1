@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="device">
+
+<a class="back" href="/">← Все устройства</a>
+
+<h2>
+{{ device[2] or device[0] }}
+</h2>
+
+<form method="post" action="/device/{{ device[0] }}/name">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input
+type="text"
+name="name"
+value="{{ device[2] or '' }}"
+placeholder="Название устройства"
+>
+
+<select name="device_type">
+<option value="">-- Тип устройства --</option>
+<option value="computer"{% if device[11] == 'computer' %} selected{% endif %}>💻 Компьютер</option>
+<option value="mobile"{% if device[11] == 'mobile' %} selected{% endif %}>📱 Мобильное устройство</option>
+<option value="iot"{% if device[11] == 'iot' %} selected{% endif %}>🏠 Устройство IoT</option>
+<option value="other"{% if device[11] == 'other' %} selected{% endif %}>❓ Прочее</option>
+</select>
+
+<button type="submit">
+Сохранить
+</button>
+
+</form>
+
+<table>
+
+<tr>
+<td>Статус</td>
+
+<td>
+
+{% if device[1] %}
+<span class="online">● ONLINE</span>
+{% else %}
+<span class="offline">● OFFLINE</span>
+{% endif %}
+
+</td>
+</tr>
+
+<tr>
+<td>IP</td>
+<td>{{ device[0] }}</td>
+</tr>
+
+<tr>
+<td>Hostname</td>
+<td>{{ device[3] or '-' }}</td>
+</tr>
+
+<tr>
+<td>MAC</td>
+<td>{{ device[4] or '-' }}</td>
+</tr>
+
+<tr>
+<td>Производитель</td>
+<td>{{ device[5] or '-' }}</td>
+</tr>
+
+<tr>
+<td>Первое обнаружение</td>
+<td>{{ device[6] or '-' }}</td>
+</tr>
+
+<tr>
+<td>Последнее обнаружение</td>
+<td>{{ device[7] or '-' }}</td>
+</tr>
+
+<tr>
+<td>Пропуски</td>
+<td>{{ device[8] }}</td>
+</tr>
+
+<tr>
+<td>Появлений</td>
+<td>{{ device[9] }}</td>
+</tr>
+
+</table>
+
+<h3>История устройства</h3>
+
+<table>
+
+<tr>
+<th>Время</th>
+<th>Событие</th>
+</tr>
+
+{% for e in events %}
+
+<tr>
+
+<td>{{ e[0] }}</td>
+
+<td>
+
+{% if e[1] == 'ONLINE' %}
+
+<span class="online">● ONLINE</span>
+
+{% elif e[1] == 'OFFLINE' %}
+
+<span class="offline">● OFFLINE</span>
+
+{% else %}
+
+<span class="new">● {{ e[1] }}</span>
+
+{% endif %}
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+{% endblock %}

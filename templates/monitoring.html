@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Мониторинг устройств</h2>
+
+<style>
+.accordion { margin-bottom: 8px; }
+.accordion-header {
+    background: #181818;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 14px 18px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.2s;
+}
+.accordion-header:hover { background: #222; }
+.accordion-header.open { border-radius: 8px 8px 0 0; }
+.accordion-arrow { font-size: 12px; color: #888; transition: transform 0.3s; }
+.accordion-header.open .accordion-arrow { transform: rotate(90deg); }
+.accordion-body {
+    display: none;
+    background: #181818;
+    border: 1px solid #333;
+    border-top: 0;
+    border-radius: 0 0 8px 8px;
+    padding: 16px 18px;
+}
+.accordion-body.show { display: block; }
+.host-status { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.host-status .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.badge-online { background: rgba(101,212,110,0.15); color: #65d46e; }
+.badge-offline { background: rgba(212,101,101,0.15); color: #d46565; }
+.badge-netdata { background: rgba(138,180,248,0.15); color: #8ab4f8; }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+.metric-card {
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 12px;
+}
+.metric-label { color: #888; font-size: 12px; margin-bottom: 4px; }
+.metric-value { font-size: 20px; font-weight: 600; }
+.metric-bar { height: 4px; background: #333; border-radius: 2px; margin-top: 6px; }
+.metric-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+.bar-ok { background: #65d46e; }
+.bar-warn { background: #ffb84d; }
+.bar-crit { background: #ff6666; }
+.detail-table { width: 100%; margin-top: 12px; }
+.detail-table td { padding: 4px 8px; border-bottom: 1px solid #222; }
+.detail-table td:first-child { color: #888; width: 140px; }
+.netdata-link { color: #8ab4f8; text-decoration: none; font-size: 13px; }
+.netdata-link:hover { text-decoration: underline; }
+</style>
+
+{% for host in monitoring_hosts %}
+
+<div class="accordion">
+<div class="accordion-header {{ 'open' if host.netdata else '' }}" onclick="toggleAccordion(this)">
+    <div class="host-status">
+        <strong>{{ host.name or host.ip }}</strong>
+        {% if host.netdata %}
+        <span class="badge badge-netdata">Netdata</span>
+        {% endif %}
+        <span class="badge {{ 'badge-online' if host.netdata else 'badge-offline' }}">
+            {{ 'ONLINE' if host.netdata else 'OFFLINE' }}
+        </span>
+        {% if host.cpu_percent is not none %}
+        <span style="color:#{{ '65d46e' if host.cpu_percent < 60 else ('ffb84d' if host.cpu_percent < 80 else 'ff6666') }}">
+            CPU {{ host.cpu_percent }}%
+        </span>
+        {% endif %}
+        {% if host.ram_percent is not none %}
+        <span style="color:#{{ '65d46e' if host.ram_percent < 60 else ('ffb84d' if host.ram_percent < 80 else 'ff6666') }}">
+            RAM {{ host.ram_percent }}%
+        </span>
+        {% endif %}
+    </div>
+    <span class="accordion-arrow">&#9654;</span>
+</div>
+
+<div class="accordion-body {{ 'show' if host.netdata else '' }}">
+
+    <div class="metric-grid">
+        {% if current_user.role != 'guest' %}
+        <div class="metric-card">
+            <div class="metric-label">IP</div>
+            <div class="metric-value" style="font-size:14px;">{{ host.ip }}</div>
+        </div>
+        {% endif %}
+        {% if host.uptime %}
+        <div class="metric-card">
+            <div class="metric-label">Uptime</div>
+            <div class="metric-value" style="font-size:14px;">{{ host.uptime }}</div>
+        </div>
+        {% endif %}
+        {% if host.processes %}
+        <div class="metric-card">
+            <div class="metric-label">Процессы</div>
+            <div class="metric-value" style="font-size:14px;">{{ host.processes }}</div>
+        </div>
+        {% endif %}
+        <div class="metric-card">
+            <div class="metric-label">Netdata</div>
+            {% if host.netdata %}
+            {% if current_user.role != 'guest' %}
+            <a class="netdata-link" href="http://{{ host.ip }}:19999" target="_blank">Открыть &#8599;</a>
+            {% else %}
+            <span style="color:#8ab4f8;">Доступен</span>
+            {% endif %}
+            {% else %}
+            <span style="color:#666;">Недоступен</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if host.netdata %}
+
+    <div class="metric-grid">
+        <div class="metric-card">
+            <div class="metric-label">CPU загрузка</div>
+            <div class="metric-value" style="color:#{{ '65d46e' if host.cpu_percent < 60 else ('ffb84d' if host.cpu_percent < 80 else 'ff6666') }}">
+                {{ host.cpu_percent or 0 }}%
+            </div>
+            <div class="metric-bar"><div class="metric-bar-fill {{ 'bar-ok' if (host.cpu_percent or 0) < 60 else ('bar-warn' if (host.cpu_percent or 0) < 80 else 'bar-crit') }}" style="width:{{ host.cpu_percent or 0 }}%"></div></div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">RAM использование</div>
+            <div class="metric-value" style="color:#{{ '65d46e' if host.ram_percent < 60 else ('ffb84d' if host.ram_percent < 80 else 'ff6666') }}">
+                {{ host.ram_percent or 0 }}%
+            </div>
+            <div class="metric-bar"><div class="metric-bar-fill {{ 'bar-ok' if (host.ram_percent or 0) < 60 else ('bar-warn' if (host.ram_percent or 0) < 80 else 'bar-crit') }}" style="width:{{ host.ram_percent or 0 }}%"></div></div>
+        </div>
+    </div>
+
+    {% if host.cpu_detail %}
+    <h4 style="margin-top:16px; margin-bottom:8px; color:#aaa;">CPU по состояниям</h4>
+    <table class="detail-table">
+    {% for item in host.cpu_detail %}
+    {% if item.label != 'guest_nice' and item.label != 'steal' %}
+    <tr>
+        <td>{{ item.label }}</td>
+        <td>{{ item.value }}%</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if host.ram_detail %}
+    <h4 style="margin-top:16px; margin-bottom:8px; color:#aaa;">RAM</h4>
+    <table class="detail-table">
+    {% for item in host.ram_detail %}
+    <tr>
+        <td>{{ item.label }}</td>
+        <td>{{ item.value }} MiB</td>
+    </tr>
+    {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if host.disk_detail %}
+    <h4 style="margin-top:16px; margin-bottom:8px; color:#aaa;">Диски</h4>
+    <table class="detail-table">
+    {% for item in host.disk_detail %}
+    <tr>
+        <td>{{ item.label }}</td>
+        <td>{{ item.value }}</td>
+    </tr>
+    {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if host.net_detail %}
+    <h4 style="margin-top:16px; margin-bottom:8px; color:#aaa;">Сеть</h4>
+    <table class="detail-table">
+    {% for item in host.net_detail %}
+    <tr>
+        <td>{{ item.label }}</td>
+        <td>{{ item.value }}</td>
+    </tr>
+    {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if host.load_detail %}
+    <h4 style="margin-top:16px; margin-bottom:8px; color:#aaa;">Load Average</h4>
+    <table class="detail-table">
+    {% for item in host.load_detail %}
+    <tr>
+        <td>{{ item.label }}</td>
+        <td>{{ item.value }}</td>
+    </tr>
+    {% endfor %}
+    </table>
+    {% endif %}
+
+    {% else %}
+
+    <div style="padding:20px; text-align:center; color:#666;">
+        Netdata агент не установлен или порт 19999 закрыт.<br>
+        <span style="font-size:13px;">Установите Netdata на этом устройстве для сбора данных.</span>
+    </div>
+
+    {% endif %}
+
+</div>
+</div>
+
+{% endfor %}
+
+{% if netdata_overview %}
+
+<div class="accordion">
+<div class="accordion-header open" onclick="toggleAccordion(this)">
+    <div class="host-status">
+        <strong>Orange Pi (сервер)</strong>
+        <span class="badge badge-netdata">Netdata</span>
+        <span class="badge badge-online">LOCAL</span>
+        <span style="color:#{{ '65d46e' if netdata_overview.cpu.busy_percent < 60 else ('ffb84d' if netdata_overview.cpu.busy_percent < 80 else 'ff6666') }}">
+            CPU {{ netdata_overview.cpu.busy_percent }}%
+        </span>
+        {% if netdata_overview.ram %}
+        <span style="color:#{{ '65d46e' if netdata_overview.ram.percent < 60 else ('ffb84d' if netdata_overview.ram.percent < 80 else 'ff6666') }}">
+            RAM {{ netdata_overview.ram.percent }}%
+        </span>
+        {% endif %}
+        {% if netdata_overview.temperature %}
+        <span style="color:#{{ '65d46e' if netdata_overview.temperature < 60 else ('ffb84d' if netdata_overview.temperature < 75 else 'ff6666') }}">
+            {{ netdata_overview.temperature }}&#176;C
+        </span>
+        {% endif %}
+    </div>
+    <span class="accordion-arrow">&#9654;</span>
+</div>
+
+<div class="accordion-body show">
+
+    <div class="metric-grid">
+        <div class="metric-card">
+            <div class="metric-label">CPU загрузка</div>
+            <div class="metric-value" style="color:#{{ '65d46e' if netdata_overview.cpu.busy_percent < 60 else ('ffb84d' if netdata_overview.cpu.busy_percent < 80 else 'ff6666') }}">
+                {{ netdata_overview.cpu.busy_percent }}%
+            </div>
+            <div class="metric-bar"><div class="metric-bar-fill {{ 'bar-ok' if netdata_overview.cpu.busy_percent < 60 else ('bar-warn' if netdata_overview.cpu.busy_percent < 80 else 'bar-crit') }}" style="width:{{ netdata_overview.cpu.busy_percent }}%"></div></div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">RAM</div>
+            <div class="metric-value" style="color:#{{ '65d46e' if netdata_overview.ram.percent < 60 else ('ffb84d' if netdata_overview.ram.percent < 80 else 'ff6666') }}">
+                {{ netdata_overview.ram.percent }}%
+            </div>
+            <div class="metric-bar"><div class="metric-bar-fill {{ 'bar-ok' if netdata_overview.ram.percent < 60 else ('bar-warn' if netdata_overview.ram.percent < 80 else 'bar-crit') }}" style="width:{{ netdata_overview.ram.percent }}%"></div></div>
+        </div>
+
+        {% if netdata_overview.temperature %}
+        <div class="metric-card">
+            <div class="metric-label">Температура CPU</div>
+            <div class="metric-value" style="color:#{{ '65d46e' if netdata_overview.temperature < 60 else ('ffb84d' if netdata_overview.temperature < 75 else 'ff6666') }}">
+                {{ netdata_overview.temperature }}&#176;C
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if netdata_overview.ram_items %}
+    <h4 style="margin-top:16px; margin-bottom:8px; color:#aaa;">RAM</h4>
+    <table class="detail-table">
+    {% for item in netdata_overview.ram_items %}
+    <tr>
+        <td>{{ item.label }}</td>
+        <td>{{ item.value }} MiB</td>
+    </tr>
+    {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if netdata_overview.net_items %}
+    <h4 style="margin-top:16px; margin-bottom:8px; color:#aaa;">Сеть</h4>
+    <table class="detail-table">
+    {% for item in netdata_overview.net_items %}
+    <tr>
+        <td>{{ item.label }}</td>
+        <td>{{ item.value }} MiB</td>
+    </tr>
+    {% endfor %}
+    </table>
+    {% endif %}
+
+    <div style="margin-top:12px;">
+    <a class="netdata-link" href="http://127.0.0.1:19999" target="_blank">Открыть Netdata &#8599;</a>
+    </div>
+
+</div>
+</div>
+
+{% endif %}
+
+<script>
+function toggleAccordion(header) {
+    var body = header.nextElementSibling;
+    if (body.classList.contains('show')) {
+        header.classList.remove('open');
+        body.classList.remove('show');
+    } else {
+        header.classList.add('open');
+        body.classList.add('show');
+    }
+}
+</script>
+{% endblock %}

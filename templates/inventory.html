@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.accordion-header { cursor: pointer; padding: 6px 0; }
+.accordion-header:hover { background: #222; }
+.accordion-header.open { border-radius: 8px 8px 0 0; }
+.accordion-arrow { font-size: 12px; color: #888; transition: transform 0.3s; }
+.accordion-header.open .accordion-arrow { transform: rotate(90deg); }
+.accordion-body { display: none; background: #181818; border: 1px solid #333; border-top: 0; border-radius: 0 0 8px 8px; padding: 16px 18px; }
+.accordion-body.show { display: block; }
+</style>
+
+<script>
+function toggleAccordion(header) {
+    var body = header.nextElementSibling;
+    if (body.classList.contains('show')) {
+        header.classList.remove('open');
+        body.classList.remove('show');
+    } else {
+        header.classList.add('open');
+        body.classList.add('show');
+    }
+}
+</script>
+
+<h2>Инвентаризация устройств</h2>
+
+{% if inventories %}
+
+{% for inv in inventories %}
+
+<div class="card" style="margin-bottom: 20px;">
+
+<div class="card-title">
+{{ inv.model or inv.hostname or inv.ip }}
+{% if inv.device_type %}
+<span class="badge">{% if inv.device_type == 'computer' %}💻 Компьютер{% elif inv.device_type == 'mobile' %}📱 Мобильное{% elif inv.device_type == 'iot' %}🏠 IoT{% elif inv.device_type == 'other' %}❓ Прочее{% else %}{{ inv.device_type }}{% endif %}</span>
+{% endif %}
+{% if inv.netdata_host %}
+<span class="badge" style="background:#65d46e;color:#000;">NETDATA</span>
+{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">IP:</span> <strong{% if inv.online %} style="color:#65d46e"{% endif %}>{{ inv.ip }}</strong>{% if inv.device_name %} (<strong>{% if inv.has_web %}<a href="http://{{ inv.ip }}{{ ':' ~ inv.web_port if inv.web_port and inv.web_port != '80' else '' }}" target="_blank" style="color:#6ba3d6; text-decoration:none;">{{ inv.device_name }}</a>{% else %}{{ inv.device_name }}{% endif %}</strong>){% endif %}
+</div>
+
+{% if inv.hostname %}
+<div class="info-row">
+<span class="info-label">Hostname:</span> {{ inv.hostname }}
+</div>
+{% endif %}
+
+{% if inv.mac %}
+<div class="info-row">
+<span class="info-label">MAC:</span> {{ inv.mac }}
+</div>
+{% endif %}
+
+{% if inv.manufacturer %}
+<div class="info-row">
+<span class="info-label">Производитель:</span> {{ inv.manufacturer }}
+</div>
+{% endif %}
+
+{% if inv.model %}
+<div class="info-row">
+<span class="info-label">Модель:</span> {{ inv.model }}
+</div>
+{% endif %}
+
+{% if inv.serial_number %}
+<div class="info-row">
+<span class="info-label">Серийный номер:</span> {{ inv.serial_number }}
+</div>
+{% endif %}
+
+{% if inv.firmware %}
+<div class="info-row">
+<span class="info-label">Прошивка/ОС:</span> {{ inv.firmware }}
+</div>
+{% endif %}
+
+{% if inv.os_info %}
+<div class="info-row">
+<span class="info-label">ОС:</span> {{ inv.os_info }}
+</div>
+{% endif %}
+
+{% if inv.cpu_model %}
+<div class="info-row">
+<span class="info-label">CPU:</span> {{ inv.cpu_model }}
+</div>
+{% endif %}
+
+{% if inv.open_ports is iterable and inv.open_ports is not string and inv.open_ports|length > 0 %}
+
+<div class="accordion-header" onclick="toggleAccordion(this)" style="cursor:pointer; padding:6px 0;">
+<span style="font-size:14px; font-weight:600;">Открытые порты ({{ inv.open_ports|length }})</span>
+<span class="accordion-arrow" style="display:inline-block; margin-left:6px; transition:transform 0.2s;">▶</span>
+</div>
+<div class="accordion-body" style="margin-top:4px;">
+<table>
+<thead>
+<tr>
+<th>Порт</th>
+<th>Протокол</th>
+<th>Состояние</th>
+<th>Сервис</th>
+</tr>
+</thead>
+<tbody>
+{% for port in inv.open_ports %}
+<tr>
+<td>{{ port.port }}</td>
+<td>{{ port.proto }}</td>
+<td>{{ port.state }}</td>
+<td>{{ port.service }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+
+{% endif %}
+
+{% if inv.last_scan %}
+<div class="info-row small" style="margin-top:10px;">
+<span class="info-label">Последнее сканирование:</span> {{ _format_dt(inv.last_scan) if inv.last_scan else inv.last_scan }}
+</div>
+{% endif %}
+
+</div>
+
+{% endfor %}
+
+{% else %}
+
+<div class="info">Инвентаризация пока не выполнялась. Нажмите кнопку для запуска.</div>
+
+{% endif %}
+
+<div style="margin-top:20px;">
+<form method="post" action="/inventory/scan">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<button type="submit">Запустить сканирование всех устройств</button>
+</form>
+</div>
+{% endblock %}

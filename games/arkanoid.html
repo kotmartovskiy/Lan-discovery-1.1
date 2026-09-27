@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Арканоид</title>
+<style>
+:root{color-scheme:dark}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0f14;color:#e6edf3;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:4px 8px;overflow:hidden;height:100vh;user-select:none}
+.top{display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:center;margin-bottom:4px}
+.pill{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:3px 10px;font-size:12px}
+.pill b{font-weight:800}
+canvas{border-radius:8px;display:block;border:1px solid rgba(255,255,255,.08);background:#070a0f;touch-action:none;outline:none}
+.hint{opacity:.7;font-size:11px;margin-top:4px;text-align:center}
+</style>
+</head>
+<body tabindex="0">
+<div class="top">
+<div class="pill">Счёт: <b id="score">0</b></div>
+<div class="pill">Рекорд: <b id="hiscore">0</b></div>
+<div class="pill">Ур: <b id="level">1</b></div>
+<div class="pill">Жизни: <b id="lives">3</b></div>
+</div>
+<canvas id="c" width="440" height="400"></canvas>
+<div class="hint">← → движение · Пробел — старт · R — заново</div>
+<script>
+var cv=document.getElementById("c"),cx=cv.getContext("2d");
+var W=cv.width,H=cv.height;
+var PW=70,PH=10,PY=H-24,PS=8;
+var BR=5,BC=10,BW=Math.floor((W-20)/BC)-2,BH=16,BP=2,BT=30;
+var BOX=Math.floor((W-BC*(BW+BP))/2);
+var BR2=3;
+var COLS=["#ff6b6b","#ee5a24","#f0932b","#ffbe76","#badc58","#6ab04c"];
+var hi=0;try{hi=parseInt(localStorage.getItem("arank_hi"))||0}catch(e){}
+var paddle,ball,bricks,score,totalLives,level,alive,paused,started,ballLaunched;
+var particles=[];
+
+function beep(f,d,v){try{var a=new(window.AudioContext||window.webkitAudioContext)();var o=a.createOscillator(),g=a.createGain();o.type="sine";o.frequency.value=f;g.gain.value=v||0.04;o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+(d||0.05))}catch(e){}}
+
+function initLevel(lv){
+bricks=[];
+for(var r=0;r<BR;r++)for(var c=0;c<BC;c++){
+bricks.push({x:BOX+c*(BW+BP),y:BT+r*(BH+BP),w:BW,h:BH,color:COLS[r%COLS.length],hp:lv>3&&r<2?2:1,alive:true});}
+paddle={x:W/2-PW/2,w:PW,h:PH};
+ball={x:W/2,y:PY-BR2-1,r:BR2,dx:0,dy:0};
+ballLaunched=false;}
+
+function reset(){score=0;totalLives=3;level=1;alive=true;paused=false;started=true;initLevel(level);updateUI();focus();}
+
+function updateUI(){
+document.getElementById("score").textContent=score;
+document.getElementById("hiscore").textContent=hi;
+document.getElementById("level").textContent=level;
+document.getElementById("lives").textContent=totalLives;}
+
+function launchBall(){if(ballLaunched)return;var a=-Math.PI/2+(Math.random()-0.5)*0.6;var s=3.5+level*0.3;ball.dx=Math.cos(a)*s;ball.dy=Math.sin(a)*s;ballLaunched=true;}
+
+function step(){
+if(!alive||paused||!started||!ballLaunched)return;
+ball.x+=ball.dx;ball.y+=ball.dy;
+if(ball.x-ball.r<=0){ball.x=ball.r;ball.dx=Math.abs(ball.dx);}
+if(ball.x+ball.r>=W){ball.x=W-ball.r;ball.dx=-Math.abs(ball.dx);}
+if(ball.y-ball.r<=0){ball.y=ball.r;ball.dy=Math.abs(ball.dy);}
+if(ball.dy>0&&ball.y+ball.r>=PY&&ball.x>=paddle.x&&ball.x<=paddle.x+paddle.w){
+ball.y=PY-ball.r;var hit=(ball.x-paddle.x)/paddle.w;
+var angle=-Math.PI*(0.15+hit*0.7);var spd=Math.sqrt(ball.dx*ball.dx+ball.dy*ball.dy);
+ball.dx=Math.cos(angle)*spd;ball.dy=Math.sin(angle)*spd;if(ball.dy>-1)ball.dy=-1;}
+for(var i=0;i<bricks.length;i++){var b=bricks[i];if(!b.alive)continue;
+if(ball.x+ball.r>b.x&&ball.x-ball.r<b.x+b.w&&ball.y+ball.r>b.y&&ball.y-ball.r<b.y+b.h){
+b.hp--;if(b.hp<=0){b.alive=false;score+=10*level;}else{beep(300,.02);}
+var oL=(ball.x+ball.r)-b.x,oR=(b.x+b.w)-(ball.x-ball.r),oT=(ball.y+ball.r)-b.y,oB=(b.y+b.h)-(ball.y-ball.r);
+var m=Math.min(oL,oR,oT,oB);if(m===oL||m===oR)ball.dx=-ball.dx;else ball.dy=-ball.dy;break;}}
+var ac=0;for(var i=0;i<bricks.length;i++)if(bricks[i].alive)ac++;
+if(ac===0){level++;if(level>10)level=1;initLevel(level);ballLaunched=false;updateUI();}
+if(ball.y-ball.r>H){totalLives--;updateUI();
+if(totalLives<=0){alive=false;if(score>hi){hi=score;try{localStorage.setItem("arank_hi",hi)}catch(e){}}}
+else{ball.x=paddle.x+paddle.w/2;ball.y=PY-BR2-1;ball.dx=0;ball.dy=0;ballLaunched=false;}}
+updateUI();}
+
+function draw(){
+cx.fillStyle="#070a0f";cx.fillRect(0,0,W,H);
+for(var i=0;i<bricks.length;i++){var b=bricks[i];if(!b.alive)continue;
+cx.fillStyle=b.hp>1?"#888":b.color;cx.fillRect(b.x,b.y,b.w,b.h);}
+cx.fillStyle="#0984e3";cx.fillRect(paddle.x,PY,paddle.w,paddle.h);
+cx.fillStyle="#dfe6e9";cx.beginPath();cx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);cx.fill();
+for(var i=0;i<particles.length;i++){var p=particles[i];
+cx.globalAlpha=Math.max(0,p.life/20);cx.fillStyle=p.color;cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);cx.fill();}cx.globalAlpha=1;
+if(!alive&&totalLives<=0){cx.fillStyle="rgba(0,0,0,0.6)";cx.fillRect(0,H/2-25,W,50);cx.fillStyle="#e6edf3";cx.font="bold 16px system-ui";cx.textAlign="center";cx.textBaseline="middle";cx.fillText("Игра окончена! R — заново",W/2,H/2);}
+if(!ballLaunched&&alive){cx.fillStyle="rgba(255,255,255,0.5)";cx.font="13px system-ui";cx.textAlign="center";cx.fillText("Пробел или клик — старт",W/2,PY+25);}}
+
+function loop(){step();
+for(var i=particles.length-1;i>=0;i--){particles[i].x+=particles[i].dx;particles[i].y+=particles[i].dy;particles[i].life--;particles[i].dy+=0.05;if(particles[i].life<=0)particles.splice(i,1);}
+draw();requestAnimationFrame(loop);}
+
+function setPX(x){paddle.x=Math.max(0,Math.min(W-paddle.w,x-paddle.w/2));}
+function focus(){cv.focus();}
+
+cv.setAttribute("tabindex","0");
+cv.focus();
+cv.addEventListener("keydown",function(e){
+var k=e.key;
+if(k==="ArrowLeft"){e.preventDefault();e.stopPropagation();setPX(paddle.x-PS);}
+else if(k==="ArrowRight"){e.preventDefault();e.stopPropagation();setPX(paddle.x+PS);}
+else if(k===" "){e.preventDefault();e.stopPropagation();if(!ballLaunched&&alive)launchBall();}
+else if(k.toLowerCase()==="r"){e.preventDefault();reset();}});
+
+cv.addEventListener("mousemove",function(e){var r=cv.getBoundingClientRect();setPX((e.clientX-r.left)*(W/r.width));});
+cv.addEventListener("click",function(){cv.focus();if(!ballLaunched&&alive)launchBall();});
+cv.addEventListener("touchmove",function(e){e.preventDefault();var t=e.touches[0];var r=cv.getBoundingClientRect();setPX((t.clientX-r.left)*(W/r.width));},{passive:false});
+cv.addEventListener("touchstart",function(){if(!ballLaunched&&alive)launchBall();},{passive:true});
+
+reset();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

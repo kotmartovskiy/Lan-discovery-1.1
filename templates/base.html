@@ -1,0 +1,2024 @@
+
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<script>
+(function () {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (!meta) return;
+    var token = meta.getAttribute('content');
+    var origFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+        var method = 'GET';
+        if (init && init.method) method = init.method;
+        else if (input && input.method) method = input.method;
+        method = String(method).toUpperCase();
+        if (method !== 'GET' && method !== 'HEAD') {
+            var headers;
+            if (init && init.headers) headers = new Headers(init.headers);
+            else if (input && input.headers) headers = new Headers(input.headers);
+            else headers = new Headers();
+            if (!headers.has('X-CSRFToken')) headers.set('X-CSRFToken', token);
+            init = Object.assign({}, init || {}, {headers: headers});
+        }
+        return origFetch(input, init);
+    };
+})();
+</script>
+
+<title>LAN Discovery</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 5 C55 5, 60 8, 62 12 L58 18 C56 14, 53 12, 50 12 C47 12, 44 14, 42 18 L38 12 C40 8, 45 5, 50 5Z' fill='%237cb342'/%3E%3Cpath d='M58 8 C62 5, 68 4, 72 6 L66 14 C63 12, 60 11, 58 12Z' fill='%239ccc65'/%3E%3Cpath d='M50 15 C68 15, 85 32, 85 50 C85 68, 68 85, 50 85 C32 85, 15 68, 15 50 C15 32, 32 15, 50 15Z' fill='%23ffa726'/%3E%3Cpath d='M50 15 C68 15, 85 32, 85 50 C85 68, 68 85, 50 85 C32 85, 15 68, 15 50 C15 32, 32 15, 50 15Z' fill='none' stroke='%23f57c00' stroke-width='2'/%3E%3Cpath d='M50 22 C64 22, 78 36, 78 50 C78 64, 64 78, 50 78 C36 78, 22 64, 22 50 C22 36, 36 22, 50 22Z' fill='%23fff9c4'/%3E%3Cpath d='M50 30 L50 70' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L30 55' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L70 55' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L35 42' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L65 42' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L40 65' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L60 65' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='30' r='3' fill='%23ffcc02'/%3E%3C/svg%3E">
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0 25px 25px 25px;
+    background: #111;
+    color: #eee;
+    scrollbar-width: none;
+}
+::-webkit-scrollbar { width: 0; height: 0; }
+
+h1 {
+    margin-bottom: 5px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+
+    position: sticky;
+    top: 0;
+    z-index: 100;
+
+    background: #111;
+    margin: 0 -25px;
+    padding: 25px 25px 15px 25px;
+}
+
+.clock {
+    flex: 0 0 520px;
+    width: 520px;
+    box-sizing: border-box;
+    text-align: right;
+    color: #9fb7d0;
+    font-size: 16px;
+    font-weight: 600;
+    position: relative;
+}
+
+#clock-date {
+    color: #6ba3d6;
+}
+
+#clock-time {
+    color: #e0e0e0;
+}
+
+@media (max-width: 750px) {
+    .header {
+        flex-wrap: wrap;
+    }
+
+    .clock {
+        flex: 1 1 100%;
+        width: 100%;
+        margin-top: 15px;
+    }
+}
+
+.system-status-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+
+    background: #111;
+    border-top: 1px solid #333;
+
+    padding: 7px 15px;
+    box-sizing: border-box;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+body {
+    padding-bottom: 38px;
+}
+
+.system-status {
+    margin-top: 0;
+    margin-left: 0;
+    text-align: left;
+    flex: 1;
+}
+    color: #b8c4d1;
+    font-size: 14px;
+    font-weight: 400;
+    white-space: nowrap;
+    width: 100%;
+    max-width: 100%;
+    text-align: left;
+}
+
+.system-status .status-label {
+    font-weight: 600;
+}
+.system-status .sl-temp { color: #ff6b6b; }
+.system-status .sl-cpu { color: #ffd93d; }
+.system-status .sl-ram { color: #6bcb77; }
+.system-status .sl-emmc { color: #4d96ff; }
+.system-status .sl-hdd { color: #9b59b6; }
+.system-status .sl-sd { color: #e67e22; }
+.system-status .sl-lan { color: #1abc9c; }
+.system-status .sl-wifi { color: #3498db; }
+.system-status .sl-arrow { color: #95a5a6; }
+
+.system-status .status-value {
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    display: inline-block;
+    min-width: 4.5ch;
+    text-align: left;
+}
+
+.system-status .status-item {
+    white-space: nowrap;
+}
+
+.system-status .status-wide {
+    min-width: 8ch;
+}
+
+.system-status .status-warn {
+    color: #ffb84d;
+}
+
+.system-status .status-critical {
+    color: #ff6666;
+}
+
+.internet {
+    margin-top: 4px;
+}
+
+.internet.online {
+    color: #65d46e;
+}
+
+.internet.offline {
+    color: #d46565;
+}
+
+#health-detail {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 240px;
+    z-index: 200;
+    text-align: left;
+    box-shadow: 0 4px 16px rgba(0,0,0,.5);
+}
+
+.info {
+    color: #aaa;
+    margin-bottom: 20px;
+}
+
+.info-sticky {
+    position: sticky;
+    top: var(--header-height, 0px);
+    z-index: 90;
+    background: #111;
+    padding: 10px 0;
+    margin-bottom: 0;
+}
+
+.tabs {
+    margin-bottom: 20px;
+}
+
+.tabs a {
+    color: #aaa;
+    text-decoration: none;
+    margin-right: 20px;
+}
+
+.tabs a.active {
+    color: #fff;
+    font-weight: bold;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #333;
+    text-align: left;
+}
+
+th {
+    color: #999;
+    position: sticky;
+    top: var(--header-height, 0px);
+    background: #111;
+    z-index: 10;
+}
+
+.device-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.device-link:hover {
+    text-decoration: underline;
+}
+
+.online {
+    color: #65d46e;
+    font-weight: bold;
+}
+
+.offline {
+    color: #666;
+}
+
+.new {
+    color: #ffb84d;
+    font-weight: bold;
+}
+
+.small {
+    color: #888;
+    font-size: 12px;
+}
+
+.weather-grid {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+}
+
+.weather-grid .card {
+    flex-shrink: 0;
+}
+
+.system-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 20px;
+    grid-auto-rows: minmax(180px, auto);
+}
+
+.system-grid .card {
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s;
+}
+
+.system-grid .card:hover {
+    box-shadow: 0 2px 12px rgba(77, 150, 255, 0.08);
+}
+
+@media (max-width: 1100px) {
+    .system-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 700px) {
+    .system-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.card {
+    background: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.card h2 {
+    margin-top: 0;
+    margin-bottom: 14px;
+    font-size: 16px;
+    color: #e0e0e0;
+    border-bottom: 1px solid #2a2a2a;
+    padding-bottom: 10px;
+}
+
+.card h3 {
+    margin-top: 14px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #aaa;
+}
+
+.status-ok {
+    color: #65d46e;
+    font-weight: bold;
+}
+
+.status-error {
+    color: #ff6666;
+    font-weight: bold;
+}
+
+.status-running {
+    color: #ffb84d;
+    font-weight: bold;
+}
+
+.info-row {
+    margin: 6px 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.service-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid #222;
+}
+
+.service-row:last-child {
+    border-bottom: none;
+}
+
+.service-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.button-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.info-label {
+    color: #888;
+}
+
+button {
+    background: #252525;
+    color: #ddd;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    padding: 7px 14px;
+    cursor: pointer;
+    margin: 4px 4px 4px 0;
+    font-size: 13px;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+button:hover {
+    background: #333;
+    border-color: #555;
+}
+
+button:active {
+    background: #3a3a3a;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+code {
+    color: #ccc;
+    word-break: break-all;
+    white-space: normal;
+}
+
+a {
+    color: #8ab4f8;
+}
+
+.device {
+    max-width: 900px;
+}
+
+.device table {
+    margin-top: 20px;
+}
+
+.device td:first-child {
+    width: 220px;
+    color: #999;
+}
+
+input[type="text"] {
+    background: #222;
+    color: #eee;
+    border: 1px solid #555;
+    padding: 8px;
+    width: 350px;
+    font-size: 14px;
+}
+
+button {
+    background: #333;
+    color: #eee;
+    border: 1px solid #666;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #444;
+}
+
+.back {
+    display: inline-block;
+    margin-bottom: 20px;
+}
+
+.system-pre {
+    margin: 0;
+    padding: 14px;
+    overflow-x: auto;
+    white-space: pre;
+    font-family: monospace;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.mono {
+    font-family: monospace;
+}
+
+.device-block {
+    padding: 12px 0;
+    border-top: 1px solid rgba(128,128,128,.18);
+}
+
+.device-block:first-of-type {
+    border-top: 0;
+}
+
+.device-block h3 {
+    margin: 0 0 10px 0;
+}
+
+.subsection-title {
+    margin-top: 14px;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    opacity: .7;
+}
+
+</style>
+</head>
+
+<body>
+
+<body>
+
+<div class="header">
+
+<div>
+<h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="35" height="35" style="vertical-align:middle; margin-right:6px;">
+<path d="M50 5 C55 5, 60 8, 62 12 L58 18 C56 14, 53 12, 50 12 C47 12, 44 14, 42 18 L38 12 C40 8, 45 5, 50 5Z" fill="#7cb342"/>
+<path d="M58 8 C62 5, 68 4, 72 6 L66 14 C63 12, 60 11, 58 12Z" fill="#9ccc65"/>
+<path d="M50 15 C68 15, 85 32, 85 50 C85 68, 68 85, 50 85 C32 85, 15 68, 15 50 C15 32, 32 15, 50 15Z" fill="#ffa726"/>
+<path d="M50 15 C68 15, 85 32, 85 50 C85 68, 68 85, 50 85 C32 85, 15 68, 15 50 C15 32, 32 15, 50 15Z" fill="none" stroke="#f57c00" stroke-width="2"/>
+<path d="M50 22 C64 22, 78 36, 78 50 C78 64, 64 78, 50 78 C36 78, 22 64, 22 50 C22 36, 36 22, 50 22Z" fill="#fff9c4"/>
+<path d="M50 30 L50 70" stroke="#ffcc02" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M50 30 L30 55" stroke="#ffcc02" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M50 30 L70 55" stroke="#ffcc02" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M50 30 L35 42" stroke="#ffcc02" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M50 30 L65 42" stroke="#ffcc02" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M50 30 L40 65" stroke="#ffcc02" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M50 30 L60 65" stroke="#ffcc02" stroke-width="2.5" stroke-linecap="round"/>
+<circle cx="50" cy="30" r="3" fill="#ffcc02"/>
+</svg>LAN Discovery</h1>
+
+<div class="tabs">
+<a href="/" class="{{ 'active' if page == 'devices' else '' }}">
+Устройства
+</a>
+
+<a href="/inventory" class="{{ 'active' if page == 'inventory' else '' }}">
+Инвентаризация
+</a>
+
+<a href="/monitoring" class="{{ 'active' if page == 'monitoring' else '' }}">
+Мониторинг
+</a>
+
+<a href="/torrent" class="{{ 'active' if page == 'torrent' else '' }}">
+Торрент
+</a>
+
+<a href="/currencies" class="{{ 'active' if page == 'currencies' else '' }}">
+Валюты
+</a>
+
+<a href="/weather" class="{{ 'active' if page == 'weather' else '' }}">
+Погода
+</a>
+
+<a href="/apps" class="{{ 'active' if page == 'apps' else '' }}">
+Приложения
+</a>
+
+<a href="/system" class="{{ 'active' if page == 'system' else '' }}">
+Система
+</a>
+
+<a href="/about" class="{{ 'active' if page == 'about' else '' }}">
+О системе
+</a>
+
+<a href="/help" class="{{ 'active' if page == 'help' else '' }}">
+Справка
+</a>
+</div>
+</div>
+
+<div class="clock">
+
+<div id="clock"><span id="clock-date">--.--.----</span> <span id="clock-time">--:--:--</span></div>
+
+<div id="weather-status" style="font-size:13px; color:#8ab4f8; margin:2px 0;"></div>
+
+<div class="internet {{ 'online' if internet else 'offline' }}">
+● Интернет: {{ 'доступен' if internet else 'нет доступа' }}
+</div>
+
+<div id="health-widget" style="margin-top:4px; font-size:13px; cursor:pointer;" onclick="toggleHealthDetail()">● Загрузка...</div>
+<div id="health-detail"></div>
+
+</div>
+
+</div>
+
+{% block content %}{% endblock %}
+
+<script>
+var USER_ROLE = "{{ current_user.role }}";
+function updateClock() {
+    const now = new Date();
+
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    const dateEl = document.getElementById("clock-date");
+    const timeEl = document.getElementById("clock-time");
+    if (dateEl) dateEl.textContent = day + "." + month + "." + year;
+    if (timeEl) timeEl.textContent = hours + ":" + minutes + ":" + seconds;
+}
+
+function weatherIcon(code) {
+    if (code === null || code === undefined) return "🌡";
+    if (code >= 0 && code <= 1) return "☀";
+    if (code >= 2 && code <= 3) return "⛅";
+    if (code >= 45 && code <= 48) return "🌫";
+    if (code >= 51 && code <= 67) return "🌧";
+    if (code >= 71 && code <= 77) return "❄";
+    if (code >= 80 && code <= 82) return "🌧";
+    if (code >= 85 && code <= 86) return "❄";
+    if (code >= 95) return "⛈";
+    return "🌡";
+}
+
+function windDirName(dir) {
+    if (dir === null || dir === undefined) return "";
+    const dirs = ["С","ССВ","СВ","ВСВ","В","ВЮВ","ЮВ","ЮЮВ","Ю","ЮЮЗ","ЮЗ","ЗЮЗ","З","ЗСЗ","СЗ","ССЗ"];
+    return dirs[Math.round(dir / 22.5) % 16] || "";
+}
+
+let prevTemp = null;
+
+function updateWeatherStatus() {
+    fetch("/api/weather-status")
+        .then(r => r.json())
+        .then(d => {
+            const el = document.getElementById("weather-status");
+            if (!el || d.temp === null) return;
+
+            let arrow = "";
+            if (d.trend > 0) arrow = " <span style='color:#ff6b6b'>↑</span>";
+            else if (d.trend < 0) arrow = " <span style='color:#6bcb77'>↓</span>";
+
+            const icon = weatherIcon(d.code);
+            const wdir = windDirName(d.wind_dir);
+            const wspd = d.wind_speed ? (d.wind_speed / 3.6).toFixed(0) : "0";
+
+            el.innerHTML = icon + " " + d.temp.toFixed(1) + " °C" + arrow +
+                " · <span style='color:#aaa'>" + wdir + "</span> <span style='color:#6ba3d6'>" + wspd + " м/с</span>";
+        })
+        .catch(() => {});
+}
+
+updateClock();
+setInterval(updateClock, 1000);
+updateWeatherStatus();
+setInterval(updateWeatherStatus, 60000);
+
+/* Auto-check network on system page */
+if (document.getElementById("net-internet")) {
+    checkAllNet();
+}
+
+/* ========== Disk Replacement ========== */
+
+let diskTarget = null;
+
+function diskCheck() {
+    const btn = document.getElementById("disk-check-btn");
+    const result = document.getElementById("disk-check-result");
+    btn.disabled = true;
+    btn.textContent = "Проверка...";
+    result.style.display = "block";
+    result.innerHTML = "<span style='color:#888;'>Поиск диска...</span>";
+
+    fetch("/api/disk/check")
+        .then(r => r.json())
+        .then(d => {
+            btn.disabled = false;
+            btn.textContent = "Проверить подключение нового диска";
+
+            if (d.found) {
+                diskTarget = d.disk.name;
+                result.innerHTML =
+                    "<div style='border:1px solid #e74c3c; border-radius:8px; padding:12px; margin-top:8px;'>" +
+                    "<div style='color:#e74c3c; font-weight:bold; margin-bottom:8px;'>⚠ Обнаружен новый диск</div>" +
+                    "<div class='info-row'><span class='info-label'>Диск:</span> " + d.disk.name + "</div>" +
+                    "<div class='info-row'><span class='info-label'>Размер:</span> " + d.disk.size + "</div>" +
+                    "<div class='info-row'><span class='info-label'>Модель:</span> " + (d.disk.model || "—") + "</div>" +
+                    "<div style='margin-top:12px; color:#e74c3c; font-weight:bold;'>" +
+                    "⚠ ВНИМАНИЕ: Все данные на целевом диске будут уничтожены!" +
+                    "</div>" +
+                    "<div style='display:flex; gap:8px; margin-top:12px;'>" +
+                    "<button type='button' onclick='diskProceed()'>Продолжить</button>" +
+                    "<button type='button' onclick='diskCancel()' style='background:#555;'>Отмена</button>" +
+                    "</div>" +
+                    "</div>";
+            } else {
+                result.innerHTML =
+                    "<div style='border:1px solid #333; border-radius:8px; padding:12px; margin-top:8px;'>" +
+                    "<div style='color:#888;'>Новый жёсткий диск не обнаружен.</div>" +
+                    "<div style='color:#888; font-size:12px; margin-top:4px;'>Подключите новый диск и нажмите проверку ещё раз.</div>" +
+                    "</div>";
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.textContent = "Проверить подключение нового диска";
+            result.innerHTML = "<span style='color:#e74c3c;'>Ошибка: " + err + "</span>";
+        });
+}
+
+function diskCancel() {
+    diskTarget = null;
+    document.getElementById("disk-check-result").style.display = "none";
+}
+
+function diskProceed() {
+    if (!diskTarget) return;
+
+    const result = document.getElementById("disk-check-result");
+    result.innerHTML =
+        "<div style='border:1px solid #f39c12; border-radius:8px; padding:12px;'>" +
+        "<div style='color:#f39c12; font-weight:bold;'>⚙ Подготовка диска...</div>" +
+        "<div id='disk-progress' style='margin-top:8px; color:#888;'>Создание раздела и файловой системы</div>" +
+        "</div>";
+
+    fetch("/api/disk/prepare", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({target: diskTarget})
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            diskTarget = d.partition;
+            diskTransfer();
+        } else {
+            result.innerHTML =
+                "<div style='border:1px solid #e74c3c; border-radius:8px; padding:12px;'>" +
+                "<div style='color:#e74c3c; font-weight:bold;'>❌ Ошибка подготовки диска</div>" +
+                "</div>";
+        }
+    })
+    .catch(err => {
+        result.innerHTML = "<span style='color:#e74c3c;'>Ошибка: " + err + "</span>";
+    });
+}
+
+function diskTransfer() {
+    const result = document.getElementById("disk-check-result");
+    result.innerHTML =
+        "<div style='border:1px solid #f39c12; border-radius:8px; padding:12px;'>" +
+        "<div style='color:#f39c12; font-weight:bold;'>⚙ Копирование данных...</div>" +
+        "<div id='disk-progress' style='margin-top:8px; color:#888;'>Это может занять длительное время в зависимости от объёма данных</div>" +
+        "</div>";
+
+    fetch("/api/disk/transfer", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({target: diskTarget})
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            diskVerify();
+        } else {
+            result.innerHTML =
+                "<div style='border:1px solid #e74c3c; border-radius:8px; padding:12px;'>" +
+                "<div style='color:#e74c3c; font-weight:bold;'>❌ Ошибка копирования данных</div>" +
+                "</div>";
+        }
+    })
+    .catch(err => {
+        result.innerHTML = "<span style='color:#e74c3c;'>Ошибка: " + err + "</span>";
+    });
+}
+
+function diskVerify() {
+    const result = document.getElementById("disk-check-result");
+    result.innerHTML =
+        "<div style='border:1px solid #f39c12; border-radius:8px; padding:12px;'>" +
+        "<div style='color:#f39c12; font-weight:bold;'>⚙ Проверка целостности...</div>" +
+        "</div>";
+
+    fetch("/api/disk/verify", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({target: diskTarget})
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.match) {
+            result.innerHTML =
+                "<div style='border:1px solid #27ae60; border-radius:8px; padding:12px;'>" +
+                "<div style='color:#27ae60; font-weight:bold;'>✅ Данные успешно скопированы и проверены</div>" +
+                "<div class='info-row'><span class='info-label'>Файлов:</span> " + d.target_files + " (источник: " + d.source_files + ")</div>" +
+                "<div class='info-row'><span class='info-label'>Размер:</span> " + d.target_size + " (источник: " + d.source_size + ")</div>" +
+                "<div style='margin-top:12px; color:#f39c12;'>" +
+                "Теперь выключите питание, отключите старый диск и подключите на его место новый." +
+                "</div>" +
+                "<div style='display:flex; gap:8px; margin-top:12px;'>" +
+                "<button type='button' onclick='diskPowerOff()' style='background:#e74c3c;'>Выключить питание</button>" +
+                "</div>" +
+                "</div>";
+        } else {
+            result.innerHTML =
+                "<div style='border:1px solid #e74c3c; border-radius:8px; padding:12px;'>" +
+                "<div style='color:#e74c3c; font-weight:bold;'>❌ Ошибка проверки целостности</div>" +
+                "<div>Файлов на целевом: " + d.target_files + " (ожидается: " + d.source_files + ")</div>" +
+                "<div>Размер на целевом: " + d.target_size + " (ожидается: " + d.source_size + ")</div>" +
+                "</div>";
+        }
+    })
+    .catch(err => {
+        result.innerHTML = "<span style='color:#e74c3c;'>Ошибка: " + err + "</span>";
+    });
+}
+
+/* ========== Network Check ========== */
+
+function dismissNew(ip, cb) {
+    cb.disabled = true;
+    fetch('/api/device/' + ip + '/dismiss-new', {method: 'POST'})
+    .then(function() { var row = cb.closest('tr'); if (row) row.remove(); })
+    .catch(function() { cb.disabled = false; });
+}
+
+function setNetStatus(id, online) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (online) {
+        el.className = "internet online";
+        el.textContent = "● " + el.textContent.split(":")[0].trim() + ": доступен";
+    } else {
+        el.className = "internet offline";
+        el.textContent = "● " + el.textContent.split(":")[0].trim() + ": недоступен";
+    }
+}
+
+function checkAllNet() {
+    document.getElementById("net-internet").textContent = "● Интернет: проверка...";
+    document.getElementById("net-internet").className = "internet";
+    document.getElementById("net-ru").textContent = "● Зона RU: проверка...";
+    document.getElementById("net-ru").className = "internet";
+    document.getElementById("net-provider").textContent = "● Провайдер: проверка...";
+    document.getElementById("net-provider").className = "internet";
+
+    fetch("/api/network/check")
+        .then(r => r.json())
+        .then(d => {
+            setNetStatus("net-internet", d.internet);
+            setNetStatus("net-ru", d.ru_zone);
+            /* Check provider using first test address */
+            const host1 = getNetHost(1);
+            if (host1) {
+                return fetch("/api/network/check_host", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({host: host1})
+                }).then(r => r.json()).then(pd => {
+                    setNetStatus("net-provider", pd.online);
+                });
+            } else {
+                setNetStatus("net-provider", false);
+            }
+        })
+        .catch(() => {
+            setNetStatus("net-internet", false);
+            setNetStatus("net-ru", false);
+            setNetStatus("net-provider", false);
+        });
+}
+
+let netEditNum = 0;
+
+function editNetHost(num) {
+    netEditNum = num;
+    const display = document.getElementById("net-host" + num + "-display");
+    const modal = document.getElementById("net-edit-modal");
+    const input = document.getElementById("net-edit-input");
+    const numLabel = document.getElementById("net-edit-num");
+    
+    input.value = display.textContent;
+    numLabel.textContent = num;
+    modal.style.display = "flex";
+    input.focus();
+}
+
+function closeNetEdit() {
+    document.getElementById("net-edit-modal").style.display = "none";
+}
+
+function saveNetHost() {
+    const input = document.getElementById("net-edit-input");
+    const display = document.getElementById("net-host" + netEditNum + "-display");
+    const val = input.value.trim();
+    
+    if (val) {
+        display.textContent = val;
+    }
+    closeNetEdit();
+    
+    /* Save all hosts to server */
+    const hosts = [
+        getNetHost(1),
+        getNetHost(2),
+        getNetHost(3)
+    ];
+    fetch("/api/network/config", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({hosts: hosts})
+    }).catch(() => {});
+}
+
+function getNetHost(num) {
+    return document.getElementById("net-host" + num + "-display").textContent.trim();
+}
+
+function checkNetHost(num) {
+    const host = getNetHost(num);
+    if (!host) return;
+
+    const result = document.getElementById("net-host-result");
+    result.textContent = "Проверка " + host + "...";
+    result.style.color = "#888";
+
+    fetch("/api/network/check_host", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({host: host})
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.online) {
+            result.textContent = "✅ " + host + " — доступен";
+            result.style.color = "#65d46e";
+        } else {
+            result.textContent = "❌ " + host + " — недоступен";
+            result.style.color = "#ff6666";
+        }
+    })
+    .catch(err => {
+        result.textContent = "❌ Ошибка: " + err;
+        result.style.color = "#ff6666";
+    });
+}
+
+/* ========== Backup Buttons ========== */
+
+var _backupPollTimer = null;
+
+function startBackup() {
+    var btn = document.getElementById("btn-backup-create");
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = "Создается backup...";
+    
+    var prog = document.getElementById("emmc-backup-progress");
+    var bar = document.getElementById("emmc-backup-progress-bar");
+    var txt = document.getElementById("emmc-backup-progress-text");
+    if (prog) prog.style.display = "block";
+    if (bar) bar.style.width = "30%";
+    if (txt) txt.textContent = "Создание backup eMMC...";
+    
+    fetch("/system/backup", {method: "POST"})
+        .then(function() {
+            pollBackupProgress();
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.textContent = "Создать backup сейчас";
+            if (prog) prog.style.display = "none";
+        });
+}
+
+function pollBackupProgress() {
+    if (_backupPollTimer) clearInterval(_backupPollTimer);
+    var btn = document.getElementById("btn-backup-create");
+    var bar = document.getElementById("emmc-backup-progress-bar");
+    var txt = document.getElementById("emmc-backup-progress-text");
+    var prog = document.getElementById("emmc-backup-progress");
+    var step = 0;
+    
+    _backupPollTimer = setInterval(function() {
+        fetch("/api/backup-status").then(function(r) { return r.json(); }).then(function(d) {
+            step++;
+            if (d.emmc_running) {
+                var pct = Math.min(30 + step * 5, 90);
+                if (bar) bar.style.width = pct + "%";
+                if (txt) txt.textContent = "Создание backup eMMC... " + pct + "%";
+            } else {
+                clearInterval(_backupPollTimer);
+                _backupPollTimer = null;
+                if (bar) bar.style.width = "100%";
+                if (txt) txt.textContent = d.emmc_ok ? "Backup завершён успешно" : "Backup завершён с ошибкой";
+                if (btn) { btn.disabled = false; btn.textContent = "Создать backup сейчас"; }
+                setTimeout(function() { if (prog) prog.style.display = "none"; }, 3000);
+            }
+        }).catch(function() {
+            clearInterval(_backupPollTimer);
+            _backupPollTimer = null;
+            if (btn) { btn.disabled = false; btn.textContent = "Создать backup сейчас"; }
+            if (prog) prog.style.display = "none";
+        });
+    }, 3000);
+}
+
+function testBackup() {
+    var btn = document.getElementById("btn-backup-test");
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = "Проверка backup...";
+    
+    fetch("/system/backup-test", {method: "POST"})
+        .then(function() {
+            setTimeout(function() { btn.disabled = false; btn.textContent = "Проверить backup"; }, 5000);
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.textContent = "Проверить backup";
+        });
+}
+
+function startEmmcRestore() {
+    if (!confirm("Восстановить eMMC из backup? Это перезапишет системный раздел!")) return;
+    if (!confirm("Вы УВЕРЕНЫ? Все данные на eMMC будут заменены!")) return;
+    
+    var btn = document.getElementById("btn-emmc-restore");
+    if (btn) { btn.disabled = true; btn.textContent = "Восстановление..."; }
+    
+    fetch("/system/emmc-restore", {method: "POST"})
+        .then(function() {
+            if (btn) btn.textContent = "Восстановление запущено...";
+        })
+        .catch(function() {
+            if (btn) { btn.disabled = false; btn.textContent = "Восстановить из backup"; }
+        });
+}
+
+/* ========== Database Backup Buttons ========== */
+
+var _dbBackupPollTimer = null;
+
+function startDbBackup() {
+    var btn = document.getElementById("btn-db-backup-create");
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = "Создается backup...";
+    
+    var prog = document.getElementById("db-backup-progress");
+    var bar = document.getElementById("db-backup-progress-bar");
+    var txt = document.getElementById("db-backup-progress-text");
+    if (prog) prog.style.display = "block";
+    if (bar) bar.style.width = "30%";
+    if (txt) txt.textContent = "Создание backup БД...";
+    
+    fetch("/system/db-backup", {method: "POST"})
+        .then(function() {
+            pollDbBackupProgress();
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.textContent = "Создать backup сейчас";
+            if (prog) prog.style.display = "none";
+        });
+}
+
+function pollDbBackupProgress() {
+    if (_dbBackupPollTimer) clearInterval(_dbBackupPollTimer);
+    var btn = document.getElementById("btn-db-backup-create");
+    var bar = document.getElementById("db-backup-progress-bar");
+    var txt = document.getElementById("db-backup-progress-text");
+    var prog = document.getElementById("db-backup-progress");
+    var step = 0;
+    
+    _dbBackupPollTimer = setInterval(function() {
+        fetch("/api/backup-status").then(function(r) { return r.json(); }).then(function(d) {
+            step++;
+            if (d.db_running) {
+                var pct = Math.min(30 + step * 10, 90);
+                if (bar) bar.style.width = pct + "%";
+                if (txt) txt.textContent = "Создание backup БД... " + pct + "%";
+            } else {
+                clearInterval(_dbBackupPollTimer);
+                _dbBackupPollTimer = null;
+                if (bar) bar.style.width = "100%";
+                if (txt) txt.textContent = d.db_ok ? "Backup БД завершён" : "Ошибка backup БД";
+                if (btn) { btn.disabled = false; btn.textContent = "Создать backup сейчас"; }
+                setTimeout(function() {
+                    if (prog) prog.style.display = "none";
+                    location.reload();
+                }, 2000);
+            }
+        }).catch(function() {
+            clearInterval(_dbBackupPollTimer);
+            _dbBackupPollTimer = null;
+            if (btn) { btn.disabled = false; btn.textContent = "Создать backup сейчас"; }
+            if (prog) prog.style.display = "none";
+        });
+    }, 1500);
+}
+
+function showDbRestore() {
+    var sec = document.getElementById("db-restore-section");
+    if (sec) sec.style.display = sec.style.display === "none" ? "block" : "none";
+}
+
+function hideDbRestore() {
+    var sec = document.getElementById("db-restore-section");
+    if (sec) sec.style.display = "none";
+}
+
+function doDbRestore() {
+    var sel = document.getElementById("db-restore-select");
+    if (!sel || !sel.value) return;
+    if (!confirm("Восстановить БД из копии " + sel.value + "? " + "Текущая база данных будет заменена!")) return;
+    
+    var btn = document.getElementById("btn-db-restore");
+    if (btn) { btn.disabled = true; btn.textContent = "Восстановление..."; }
+    
+    var prog = document.getElementById("db-restore-progress");
+    var bar = document.getElementById("db-restore-progress-bar");
+    var txt = document.getElementById("db-restore-progress-text");
+    if (prog) prog.style.display = "block";
+    if (bar) bar.style.width = "50%";
+    if (txt) txt.textContent = "Восстановление БД...";
+    
+    fetch("/system/db-restore", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({file: sel.value})
+    }).then(function(r) { return r.json(); }).then(function(d) {
+        if (bar) bar.style.width = "100%";
+        if (txt) txt.textContent = d.ok ? "Восстановление завершено" : "Ошибка: " + (d.error || "неизвестная");
+        if (btn) { btn.disabled = false; btn.textContent = "Восстановить"; }
+        if (d.ok) setTimeout(function() { location.reload(); }, 1500);
+        else setTimeout(function() { if (prog) prog.style.display = "none"; }, 3000);
+    }).catch(function(e) {
+        if (txt) txt.textContent = "Ошибка сети";
+        if (btn) { btn.disabled = false; btn.textContent = "Восстановить"; }
+        setTimeout(function() { if (prog) prog.style.display = "none"; }, 3000);
+    });
+}
+
+function pollDbRestoreProgress() {
+    var prog = document.getElementById("db-restore-progress");
+    if (!prog) return;
+    prog.style.display = "block";
+    var bar = document.getElementById("db-restore-progress-bar");
+    var txt = document.getElementById("db-restore-progress-text");
+    var step = 0;
+    
+    var timer = setInterval(function() {
+        fetch("/api/backup-status").then(function(r) { return r.json(); }).then(function(d) {
+            step++;
+            if (d.db_restore_running) {
+                var pct = Math.min(step * 15, 90);
+                if (bar) bar.style.width = pct + "%";
+                if (txt) txt.textContent = "Восстановление БД... " + pct + "%";
+            } else {
+                clearInterval(timer);
+                if (bar) bar.style.width = "100%";
+                if (txt) txt.textContent = "Восстановление завершено";
+                setTimeout(function() { location.reload(); }, 1500);
+            }
+        });
+    }, 1000);
+}
+
+function diskPowerOff() {
+    if (!confirm("Выключить питание Orange Pi?")) return;
+
+    fetch("/api/disk/poweroff", {method: "POST"})
+        .then(r => r.json())
+        .then(d => {
+            document.body.innerHTML =
+                "<div style='display:flex; justify-content:center; align-items:center; height:100vh; background:#1a1a2e; color:#fff; font-family:sans-serif;'>" +
+                "<div style='text-align:center;'>" +
+                "<h1>⚡ Питание отключается</h1>" +
+                "<p>Можно отключить кабель питания</p>" +
+                "</div></div>";
+        })
+        .catch(() => {
+            alert("Команда на выключение отправлена. Отключите кабель питания вручную.");
+        });
+}
+
+function powerOff() {
+    diskPowerOff();
+}
+
+function checkSd() {
+    var btn = document.getElementById("sd-check-btn");
+    var result = document.getElementById("sd-check-result");
+    var info = document.getElementById("sd-info");
+    btn.disabled = true;
+    btn.textContent = "Проверка...";
+    info.textContent = "определение...";
+    info.style.color = "#888";
+    result.style.display = "none";
+
+    fetch("/api/sd-info")
+        .then(r => r.json())
+        .then(d => {
+            btn.disabled = false;
+            btn.textContent = "Проверить SD";
+            if (d.found) {
+                info.textContent = d.model ? d.model + " (" + d.size + ")" : d.size;
+                info.style.color = "#6bcb77";
+                var html = "<div class='info-row'><span class='info-label'>Устройство:</span> <code>" + d.device + "</code></div>";
+                html += "<div class='info-row'><span class='info-label'>Размер:</span> " + d.size + "</div>";
+                if (d.model) html += "<div class='info-row'><span class='info-label'>Модель:</span> " + d.model + "</div>";
+                if (d.mountpoint) html += "<div class='info-row'><span class='info-label'>Точка монтирования:</span> <code>" + d.mountpoint + "</code></div>";
+                if (d.fs) html += "<div class='info-row'><span class='info-label'>Файловая система:</span> " + d.fs + "</div>";
+                if (d.used != null && d.total != null && d.total > 0) {
+                    var usedGB = (d.used / 1073741824).toFixed(1);
+                    var totalGB = (d.total / 1073741824).toFixed(1);
+                    var pct = Math.round(d.used / d.total * 100);
+                    html += "<div class='info-row'><span class='info-label'>Использование:</span> " + usedGB + " / " + totalGB + " ГБ (" + pct + "%)</div>";
+                }
+                if (!d.mountpoint) {
+                    html += "<div class='info-row'><span class='info-label'>Монтирование:</span> не смонтирована</div>";
+                }
+                result.innerHTML = html;
+                result.style.display = "block";
+            } else {
+                info.textContent = "не обнаружена";
+                info.style.color = "#e74c3c";
+                result.innerHTML = "";
+                result.style.display = "none";
+            }
+        })
+        .catch(e => {
+            btn.disabled = false;
+            btn.textContent = "Проверить SD";
+            info.textContent = "ошибка";
+            info.style.color = "#e74c3c";
+            result.innerHTML = "<span style='color:#e74c3c;'>Ошибка: " + e.message + "</span>";
+            result.style.display = "block";
+        });
+}
+
+var cloneInterval = null;
+
+function startClone() {
+    if (!confirm("Клонировать eMMC на SD-карту? Все данные на SD будут уничтожены!")) return;
+    var btn = document.getElementById("clone-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "Клонирование..."; }
+    var prog = document.getElementById("clone-progress");
+    var bar = document.getElementById("clone-bar");
+    var txt = document.getElementById("clone-text");
+    if (prog) prog.style.display = "block";
+    if (bar) bar.style.width = "10%";
+    if (txt) txt.textContent = "Запуск клонирования...";
+    fetch("/api/clone/start", {method: "POST"})
+        .then(r => r.json())
+        .then(d => {
+            if (d.error) {
+                if (txt) txt.textContent = "Ошибка: " + d.error;
+                if (btn) { btn.disabled = false; btn.textContent = "Клонировать eMMC → SD"; }
+                return;
+            }
+            pollClone();
+        })
+        .catch(e => {
+            if (txt) txt.textContent = "Ошибка: " + e.message;
+            if (btn) { btn.disabled = false; btn.textContent = "Клонировать eMMC → SD"; }
+        });
+}
+
+function pollClone() {
+    if (cloneInterval) return;
+    cloneInterval = setInterval(function() {
+        fetch("/api/clone/status")
+            .then(r => r.json())
+            .then(d => {
+                var bar = document.getElementById("clone-bar");
+                var txt = document.getElementById("clone-text");
+                var status = document.getElementById("clone-status");
+                if (bar) bar.style.width = (d.percent || 0) + "%";
+                if (txt) txt.textContent = d.text || "";
+                if (status) status.textContent = d.running ? "● ВЫПОЛНЯЕТСЯ" : (d.ok ? "● OK" : (d.error ? "● ОШИБКА" : "—"));
+                if (!d.running) {
+                    clearInterval(cloneInterval);
+                    cloneInterval = null;
+                    var btn = document.getElementById("clone-btn");
+                    if (btn) { btn.disabled = false; btn.textContent = "Клонировать eMMC → SD"; }
+                    if (d.ok && txt) txt.textContent = "Клонирование завершено!";
+                } else {
+                    var runningBtn = document.getElementById("clone-btn");
+                    if (runningBtn) {
+                        runningBtn.disabled = true;
+                        runningBtn.textContent = "Клонирование...";
+                    }
+                }
+            })
+            .catch(() => {});
+    }, 2000);
+}
+
+function updateHeaderHeight() {
+    const header = document.querySelector(".header");
+
+    if (header) {
+        document.documentElement.style.setProperty(
+            "--header-height",
+            header.offsetHeight + "px"
+        );
+    }
+}
+
+updateHeaderHeight();
+window.addEventListener("resize", updateHeaderHeight);
+
+let previousRx = null;
+let previousTx = null;
+let previousTime = null;
+
+let previousWifiRx = null;
+let previousWifiTx = null;
+
+let previousCpuTimes = null;
+let previousEmmcIoTicks = null;
+let previousHddIoTicks = null;
+
+function formatSpeed(bytesPerSecond) {
+
+    if (bytesPerSecond >= 1024 * 1024) {
+        return (bytesPerSecond / 1024 / 1024).toFixed(1) + " МБ/с";
+    }
+
+    if (bytesPerSecond >= 1024) {
+        return (bytesPerSecond / 1024).toFixed(1) + " КБ/с";
+    }
+
+    return Math.round(bytesPerSecond) + " Б/с";
+}
+
+async function controlService(service, action) {
+
+    let message = "Выполнить операцию?";
+
+    if (action === "restart") {
+        message = "Перезапустить сервис?";
+    } else if (action === "start") {
+        message = "Запустить сервис?";
+    } else if (action === "stop") {
+        message = "Остановить сервис?";
+    }
+
+    if (!confirm(message)) {
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            "/api/service/" + service + "/" + action,
+            {
+                method: "POST",
+                cache: "no-store"
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(
+                data.error || "Ошибка операции"
+            );
+        }
+
+        await updateOrangePiStatus();
+
+    } catch (error) {
+
+        alert(
+            "Не удалось выполнить операцию: " +
+            error.message
+        );
+    }
+}
+
+async function updateSystemStatus() {
+
+    try {
+
+        const response = await fetch(
+            "/api/status",
+            { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+
+        const data = await response.json();
+
+        const now = Date.now();
+
+        let rxSpeed = null;
+        let txSpeed = null;
+        let wifiRxSpeed = null;
+        let wifiTxSpeed = null;
+
+        let cpuPercent = null;
+        let emmcActive = null;
+        let hddActive = null;
+
+        if (previousTime !== null) {
+
+            const seconds =
+                (now - previousTime) / 1000;
+
+            if (seconds > 0) {
+
+                if (
+                    previousRx !== null &&
+                    previousTx !== null
+                ) {
+
+                    rxSpeed = Math.max(
+                        0,
+                        (data.lan_rx_bytes - previousRx) / seconds
+                    );
+
+                    txSpeed = Math.max(
+                        0,
+                        (data.lan_tx_bytes - previousTx) / seconds
+                    );
+                }
+
+                if (
+                    data.wifi_rx_bytes !== null &&
+                    data.wifi_tx_bytes !== null &&
+                    previousWifiRx !== null &&
+                    previousWifiTx !== null
+                ) {
+
+                    wifiRxSpeed = Math.max(
+                        0,
+                        (data.wifi_rx_bytes - previousWifiRx) / seconds
+                    );
+
+                    wifiTxSpeed = Math.max(
+                        0,
+                        (data.wifi_tx_bytes - previousWifiTx) / seconds
+                    );
+                }
+
+                if (
+                    Array.isArray(data.cpu_times) &&
+                    Array.isArray(previousCpuTimes) &&
+                    data.cpu_times.length === previousCpuTimes.length
+                ) {
+
+                    let totalDelta = 0;
+                    let idleDelta = 0;
+
+                    for (
+                        let i = 0;
+                        i < data.cpu_times.length;
+                        i++
+                    ) {
+
+                        const delta =
+                            data.cpu_times[i] -
+                            previousCpuTimes[i];
+
+                        totalDelta += delta;
+
+                        if (i === 3 || i === 4) {
+                            idleDelta += delta;
+                        }
+                    }
+
+                    if (totalDelta > 0) {
+
+                        cpuPercent = Math.max(
+                            0,
+                            Math.min(
+                                100,
+                                (1 - idleDelta / totalDelta) * 100
+                            )
+                        );
+                    }
+                }
+
+                if (
+                    data.emmc_io_ticks !== null &&
+                    previousEmmcIoTicks !== null
+                ) {
+
+                    emmcActive = Math.max(
+                        0,
+                        Math.min(
+                            100,
+                            (
+                                (data.emmc_io_ticks -
+                                 previousEmmcIoTicks) /
+                                (seconds * 1000)
+                            ) * 100
+                        )
+                    );
+                }
+
+                if (
+                    data.hdd_io_ticks !== null &&
+                    previousHddIoTicks !== null
+                ) {
+
+                    hddActive = Math.max(
+                        0,
+                        Math.min(
+                            100,
+                            (
+                                (data.hdd_io_ticks -
+                                 previousHddIoTicks) /
+                                (seconds * 1000)
+                            ) * 100
+                        )
+                    );
+                }
+            }
+        }
+
+        previousRx = data.lan_rx_bytes;
+        previousTx = data.lan_tx_bytes;
+
+        previousWifiRx = data.wifi_rx_bytes;
+        previousWifiTx = data.wifi_tx_bytes;
+
+        previousCpuTimes = data.cpu_times;
+
+        previousEmmcIoTicks = data.emmc_io_ticks;
+        previousHddIoTicks = data.hdd_io_ticks;
+
+        previousTime = now;
+
+        const element =
+            document.getElementById("system-status");
+
+        if (!element) {
+            return;
+        }
+
+        const temperature =
+            data.temperature !== null
+                ? data.temperature.toFixed(1) + "°C"
+                : "--";
+
+        const cpu =
+            cpuPercent !== null
+                ? Math.round(cpuPercent) + "%"
+                : "--";
+
+        const ram =
+            data.ram_percent !== null
+                ? data.ram_percent + "%"
+                : "--";
+
+        function formatStorage(free, total) {
+
+            if (
+                free === null ||
+                total === null
+            ) {
+                return "--/-- ГБ";
+            }
+
+            return (
+                (free / 1024 / 1024 / 1024).toFixed(1) +
+                "/" +
+                (total / 1024 / 1024 / 1024).toFixed(1) +
+                " ГБ"
+            );
+        }
+
+        const emmc =
+            formatStorage(
+                data.root_free,
+                data.root_total
+            );
+
+        const hdd =
+            formatStorage(
+                data.srv_free,
+                data.srv_total
+            );
+
+        const sd = (function () {
+            if (data.sd_free != null && data.sd_total != null) {
+                return formatStorage(data.sd_free, data.sd_total);
+            }
+            if (!data.sd_present) {
+                return "извлечена";
+            }
+            var sdGiB = data.sd_size
+                ? (data.sd_size / 1073741824).toFixed(1) + " ГБ"
+                : "установлена";
+            return sdGiB + (data.sd_writing ? " (идёт запись)" : " (не смонтирована)");
+        })();
+
+        const emmcLoad =
+            emmcActive !== null
+                ? Math.round(emmcActive) + "%"
+                : "--";
+
+        const hddLoad =
+            hddActive !== null
+                ? Math.round(hddActive) + "%"
+                : "--";
+
+        const rx =
+            rxSpeed !== null
+                ? formatSpeed(rxSpeed)
+                : "--";
+
+        const tx =
+            txSpeed !== null
+                ? formatSpeed(txSpeed)
+                : "--";
+
+        const wifiRx =
+            wifiRxSpeed !== null
+                ? formatSpeed(wifiRxSpeed)
+                : "--";
+
+        const wifiTx =
+            wifiTxSpeed !== null
+                ? formatSpeed(wifiTxSpeed)
+                : "--";
+
+        function si(label, val, wide, cls) {
+            var vcls = wide ? 'status-value status-wide' : 'status-value';
+            var lcls = 'status-label' + (cls ? ' ' + cls : '');
+            return '<span class="status-item">' +
+                '<span class="' + lcls + '">' + label + '</span> ' +
+                '<span class="' + vcls + '">' + val + '</span></span>';
+        }
+
+        element.innerHTML =
+            si('CPU', temperature, false, 'sl-temp') + ' · ' +
+            si('CPU', cpu, false, 'sl-cpu') + ' · ' +
+            si('RAM', ram, false, 'sl-ram') + ' · ' +
+            si('eMMC', emmc, true, 'sl-emmc') + ' · ' +
+            si('eMMC', emmcLoad, false, 'sl-emmc') + ' · ' +
+            si('HDD', hdd, true, 'sl-hdd') + ' · ' +
+            si('HDD', hddLoad, false, 'sl-hdd') + ' · ' +
+            si('SD', sd, true, 'sl-sd') + ' · ' +
+            '<span class="status-item"><span class="status-label sl-lan">LAN</span> ↓ ' +
+            '<span class="status-value">' + rx + '</span>' +
+            ' ↑ <span class="status-value">' + tx + '</span></span> · ' +
+            '<span class="status-item"><span class="status-label sl-wifi">Wi-Fi</span> ↓ ' +
+            '<span class="status-value">' + wifiRx + '</span>' +
+            ' ↑ <span class="status-value">' + wifiTx + '</span></span>';
+
+        element.classList.remove(
+            "status-warn",
+            "status-critical"
+        );
+
+        if (data.temperature >= 80) {
+
+            element.classList.add(
+                "status-critical"
+            );
+
+        } else if (data.temperature >= 70) {
+
+            element.classList.add(
+                "status-warn"
+            );
+        }
+
+    } catch (error) {
+
+        const element =
+            document.getElementById("system-status");
+
+        if (element) {
+
+            element.textContent =
+                "CPU --°C · CPU --% · RAM --% · " +
+                "eMMC --/-- ГБ · eMMC --% · " +
+                "HDD --/-- ГБ · HDD --% · " +
+                "SD --/-- ГБ · " +
+                "LAN ↓ -- ↑ -- · Wi-Fi ↓ -- ↑ --";
+        }
+    }
+}
+
+updateSystemStatus();
+setInterval(updateSystemStatus, 3000);
+
+function initCloneStatus() {
+    var prog = document.getElementById("clone-progress");
+    if (!prog) return;
+    fetch("/api/clone/status")
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d.running) {
+                prog.style.display = "block";
+                var btn = document.getElementById("clone-btn");
+                if (btn) { btn.disabled = true; btn.textContent = "Клонирование..."; }
+                pollClone();
+                return;
+            }
+            var status = document.getElementById("clone-status");
+            if (!status) return;
+            if (d.ok) {
+                prog.style.display = "block";
+                var bar = document.getElementById("clone-bar");
+                var txt = document.getElementById("clone-text");
+                if (bar) bar.style.width = "100%";
+                if (txt) txt.textContent = "Клонирование завершено!";
+                status.textContent = "\u25cf OK";
+            } else if (d.error) {
+                status.textContent = "\u25cf ОШИБКА: " + d.error;
+            }
+        })
+        .catch(function () {});
+}
+
+initCloneStatus();
+
+function formatUptime(seconds) {
+
+    if (seconds === null || seconds === undefined) {
+        return "--";
+    }
+
+    seconds = Math.floor(seconds);
+
+    const days = Math.floor(
+        seconds / 86400
+    );
+
+    seconds %= 86400;
+
+    const hours = Math.floor(
+        seconds / 3600
+    );
+
+    seconds %= 3600;
+
+    const minutes = Math.floor(
+        seconds / 60
+    );
+
+    if (days > 0) {
+        return days + " дн. " +
+               hours + " ч. " +
+               minutes + " мин.";
+    }
+
+    if (hours > 0) {
+        return hours + " ч. " +
+               minutes + " мин.";
+    }
+
+    return minutes + " мин.";
+}
+
+function setServiceStatus(id, state) {
+
+    const element =
+        document.getElementById(id);
+
+    if (!element) {
+        return;
+    }
+
+    element.classList.remove(
+        "status-ok",
+        "status-error"
+    );
+
+    if (state === true) {
+
+        element.textContent = "● работает";
+        element.classList.add("status-ok");
+
+    } else {
+
+        element.textContent = "● остановлен";
+        element.classList.add("status-error");
+    }
+
+    let service =
+        id.replace("service-", "");
+
+    if (service === "smbd") {
+        service = "smb";
+    }
+
+    const startButton =
+        document.getElementById(
+            "service-" + service + "-start"
+        );
+
+    const restartButton =
+        document.getElementById(
+            "service-" + service + "-restart"
+        );
+
+    const stopButton =
+        document.getElementById(
+            "service-" + service + "-stop"
+        );
+
+    if (startButton) {
+        startButton.style.display =
+            state === true ? "none" : "";
+    }
+
+    if (restartButton) {
+        restartButton.style.display =
+            state === true ? "" : "none";
+    }
+
+    if (stopButton) {
+        stopButton.style.display =
+            state === true ? "" : "none";
+    }
+}
+
+async function updateOrangePiStatus() {
+
+    try {
+
+        const response = await fetch(
+            "/api/status",
+            { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                "HTTP " + response.status
+            );
+        }
+
+        const data =
+            await response.json();
+
+        const uptime =
+            document.getElementById(
+                "pi-uptime"
+            );
+
+        if (uptime) {
+            uptime.textContent =
+                formatUptime(data.uptime);
+        }
+
+        const load =
+            document.getElementById(
+                "pi-load"
+            );
+
+        if (load) {
+
+            if (
+                data.load1 !== null &&
+                data.load5 !== null &&
+                data.load15 !== null
+            ) {
+
+                load.textContent =
+                    data.load1.toFixed(2) +
+                    " / " +
+                    data.load5.toFixed(2) +
+                    " / " +
+                    data.load15.toFixed(2);
+
+            } else {
+
+                load.textContent = "--";
+            }
+        }
+
+        const temperature =
+            document.getElementById(
+                "pi-temperature"
+            );
+
+        if (temperature) {
+
+            temperature.textContent =
+                data.temperature !== null
+                    ? data.temperature.toFixed(1) + " °C"
+                    : "--";
+        }
+
+        const ram =
+            document.getElementById(
+                "pi-ram"
+            );
+
+        if (ram) {
+
+            ram.textContent =
+                data.ram_percent !== null
+                    ? data.ram_percent + "%"
+                    : "--";
+        }
+
+        const emmc =
+            document.getElementById(
+                "pi-emmc"
+            );
+
+        if (emmc) {
+
+            emmc.textContent =
+                data.root_percent !== null
+                    ? data.root_percent + "%"
+                    : "--";
+        }
+
+        const hdd =
+            document.getElementById(
+                "pi-hdd"
+            );
+
+        if (hdd) {
+
+            hdd.textContent =
+                data.srv_percent !== null
+                    ? data.srv_percent + "%"
+                    : "--";
+        }
+
+        const services =
+            data.services || {};
+
+        setServiceStatus(
+            "service-transmission",
+            services["transmission-daemon"]
+        );
+
+        setServiceStatus(
+            "service-minidlna",
+            services["minidlna"]
+        );
+
+        setServiceStatus(
+            "service-smbd",
+            services["smbd"]
+        );
+
+        setServiceStatus(
+            "service-lan-discovery",
+            services["lan-discovery"]
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Orange Pi status:",
+            error
+        );
+    }
+}
+
+var healthOpen = false;
+function toggleHealthDetail() {
+    var el = document.getElementById('health-detail');
+    healthOpen = !healthOpen;
+    el.style.display = healthOpen ? 'block' : 'none';
+}
+function checkHealth() {
+    fetch('/api/system/health', {cache:'no-store'})
+    .then(function(r){return r.json()})
+    .then(function(d){
+        var w = document.getElementById('health-widget');
+        var det = document.getElementById('health-detail');
+        if (d.ok) {
+            w.style.color = '#65d46e';
+            w.innerHTML = '● Система OK';
+            det.innerHTML = '<div style="padding:4px 0;font-size:13px;color:#bbb;">Все проверки пройдены</div><div style="font-size:11px;color:#484f58;margin-top:6px;">Проверено: ' + d.checked_at + '</div>';
+        } else {
+            w.style.color = '#f85149';
+            w.innerHTML = '● Проблемы (' + d.warnings.length + ')';
+            var detHtml = '';
+            d.warnings.forEach(function(x){
+                detHtml += '<div style="padding:4px 0;font-size:13px;color:#bbb;">' + x.icon + ' ' + x.text + '</div>';
+            });
+            detHtml += '<div style="font-size:11px;color:#484f58;margin-top:6px;">Проверено: ' + d.checked_at + '</div>';
+            det.innerHTML = detHtml;
+        }
+    })
+    .catch(function(){});
+}
+document.addEventListener('click', function(e) {
+    var w = document.getElementById('health-widget');
+    var d = document.getElementById('health-detail');
+    if (w && d && !w.contains(e.target) && !d.contains(e.target)) {
+        d.style.display = 'none';
+        healthOpen = false;
+    }
+});
+checkHealth();
+setInterval(checkHealth, 60000);
+
+updateOrangePiStatus();
+setInterval(
+    updateOrangePiStatus,
+    3000
+);
+
+</script>
+
+<div class="system-status-bar">
+<div id="system-status" class="system-status">
+CPU --°C · RAM --% · eMMC --% · HDD --% · ↓ -- · ↑ --
+</div>
+<div style="font-size:12px; color:#888; white-space:nowrap; display:flex; align-items:center; gap:10px;">
+<a href="http://{{ request.host.split(':')[0] }}:8081" target="_blank" style="color:#ff9800; text-decoration:none; font-size:11px; opacity:0.7;" title="Emergency Restore Server — работает даже если app упал">⚠ Restore</a>
+<span>{{ current_user.display_name or current_username }} ({{ current_user.role }})</span>
+<a href="/logout" style="color:#e74c3c; text-decoration:none;">выйти</a>
+</div>
+</div>
+
+</body>
+</html>

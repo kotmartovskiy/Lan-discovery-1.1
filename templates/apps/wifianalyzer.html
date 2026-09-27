@@ -1,0 +1,247 @@
+{% extends "base_app.html" %}
+{% block content %}
+
+<h1 style="margin-bottom:16px;">📡 Wi-Fi Анализатор</h1>
+
+<style>
+.wifi-status { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+.wifi-status .status-text { color:#888; font-size:14px; }
+.wifi-status .status-text.scanning { color:#f39c12; }
+.wifi-status .status-text.scanning::after { content:''; animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity:0; } }
+
+.scan-btn { background:#2563eb; color:#fff; border:none; border-radius:6px; padding:8px 20px; cursor:pointer; font-size:13px; }
+.scan-btn:hover { background:#1d4ed8; }
+.scan-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+.auto-toggle { display:flex; align-items:center; gap:6px; font-size:13px; color:#888; margin-left:auto; }
+.auto-toggle input { accent-color:#2563eb; }
+
+.wifi-cards { display:flex; gap:12px; margin-bottom:16px; }
+.wifi-card { flex:1; background:#111; border-radius:8px; padding:16px; text-align:center; }
+.wifi-card-value { font-size:28px; font-weight:bold; color:#fff; }
+.wifi-card-label { font-size:12px; color:#888; margin-top:4px; }
+
+.wifi-table-wrap { max-height:400px; overflow-y:auto; border:1px solid #222; border-radius:6px; }
+.wifi-table { width:100%; border-collapse:collapse; font-size:13px; }
+.wifi-table th { background:#0a0a1a; color:#8ab4f8; padding:8px; text-align:left; position:sticky; top:0; z-index:1; }
+.wifi-table td { padding:6px 8px; border-bottom:1px solid #222; }
+.wifi-table tr:hover td { background:#1a1a2e; }
+.wifi-table .mono { font-family:monospace; font-size:12px; }
+
+.signal-bar-bg { height:8px; border-radius:4px; background:#222; width:100%; position:relative; min-width:60px; }
+.signal-bar-fill { height:100%; border-radius:4px; transition:width 0.3s; }
+.signal-strong { background:#2ecc71; }
+.signal-medium { background:#f39c12; }
+.signal-weak { background:#e74c3c; }
+.signal-label { font-size:11px; color:#888; margin-top:2px; }
+
+.chart-container { background:#111; border-radius:8px; padding:16px; margin-top:16px; }
+.chart-title { font-size:14px; font-weight:bold; color:#e0e0e0; margin-bottom:12px; }
+.chart-section-label { font-size:12px; color:#888; margin-bottom:8px; margin-top:8px; }
+.chart-row { display:flex; align-items:center; margin-bottom:4px; gap:8px; }
+.chart-ch-label { width:32px; text-align:right; font-size:12px; color:#888; font-family:monospace; }
+.chart-bar-bg { flex:1; height:22px; background:#222; border-radius:4px; overflow:hidden; position:relative; }
+.chart-bar-fill { height:100%; background:#2563eb; border-radius:4px; display:flex; align-items:center; padding-left:8px; font-size:11px; color:#fff; min-width:20px; transition:width 0.3s; }
+.chart-bar-fill:hover { background:#1d4ed8; }
+.chart-bar-count { font-size:11px; color:#888; width:20px; text-align:left; }
+</style>
+
+<div class="wifi-status">
+  <span id="wifi-status-text" class="status-text">Ожидание...</span>
+  <button id="scan-btn" class="scan-btn" onclick="doScan()">Сканировать</button>
+  <div class="auto-toggle">
+    <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()">
+    <label for="auto-refresh">Авто-обновление (30с)</label>
+  </div>
+</div>
+
+<div class="wifi-cards">
+  <div class="wifi-card">
+    <div class="wifi-card-value" id="card-count">--</div>
+    <div class="wifi-card-label">Количество сетей</div>
+  </div>
+  <div class="wifi-card">
+    <div class="wifi-card-value" id="card-best">--</div>
+    <div class="wifi-card-label">Лучший сигнал</div>
+  </div>
+  <div class="wifi-card">
+    <div class="wifi-card-value" id="card-channels">--</div>
+    <div class="wifi-card-label">Каналы в использовании</div>
+  </div>
+</div>
+
+<div class="wifi-table-wrap">
+<table class="wifi-table">
+<thead>
+<tr>
+  <th>SSID</th>
+  <th>MAC</th>
+  <th>Канал</th>
+  <th>Частота</th>
+  <th>Сигнал</th>
+  <th>Шифрование</th>
+  <th>Ширина</th>
+</tr>
+</thead>
+<tbody id="wifi-tbody">
+<tr><td colspan="7" style="color:#888;text-align:center;padding:20px;">Нажмите «Сканировать»</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="chart-container">
+  <div class="chart-title">📊 Каналы</div>
+  <div id="chart-24ghz"></div>
+  <div id="chart-5ghz"></div>
+</div>
+
+<script>
+var autoTimer = null;
+
+function doScan() {
+  var btn = document.getElementById('scan-btn');
+  var status = document.getElementById('wifi-status-text');
+  btn.disabled = true;
+  btn.textContent = 'Сканирование...';
+  status.textContent = 'Сканирование...';
+  status.classList.add('scanning');
+
+  fetch('/api/wifi/scan')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      btn.disabled = false;
+      btn.textContent = 'Сканировать';
+      status.classList.remove('scanning');
+
+      if (d.ok && d.networks) {
+        status.textContent = 'Найдено: ' + d.networks.length + ' · ' + new Date().toLocaleTimeString('ru-RU');
+        renderNetworks(d.networks);
+        renderChart(d.networks);
+      } else {
+        status.textContent = 'Ошибка: ' + (d.error || 'неизвестная');
+        status.style.color = '#e74c3c';
+        setTimeout(function() { status.style.color = ''; }, 3000);
+      }
+    })
+    .catch(function(e) {
+      btn.disabled = false;
+      btn.textContent = 'Сканировать';
+      status.textContent = 'Ошибка сети: ' + e.message;
+      status.classList.remove('scanning');
+      status.style.color = '#e74c3c';
+      setTimeout(function() { status.style.color = ''; }, 3000);
+    });
+}
+
+function renderNetworks(networks) {
+  var tbody = document.getElementById('wifi-tbody');
+  var count = networks.length;
+  var best = -100;
+  var channels = {};
+  var strong = 0, medium = 0, weak = 0;
+
+  networks.forEach(function(n) {
+    if (n.signal > best) best = n.signal;
+    channels[n.channel] = true;
+    if (n.signal_pct > 70) strong++;
+    else if (n.signal_pct >= 40) medium++;
+    else weak++;
+  });
+
+  document.getElementById('card-count').textContent = count;
+  var bestPct = networks.length > 0 ? Math.max.apply(null, networks.map(function(n) { return n.signal_pct || 0; })) : 0;
+  document.getElementById('card-best').textContent = bestPct + '%';
+  document.getElementById('card-channels').textContent = Object.keys(channels).length;
+
+  tbody.innerHTML = '';
+  if (count === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:#888;text-align:center;padding:20px;">Сети не найдены</td></tr>';
+    return;
+  }
+
+  networks.sort(function(a, b) { return (b.signal_pct || 0) - (a.signal_pct || 0); });
+
+  networks.forEach(function(n) {
+    var pct = n.signal_pct || 0;
+    var colorClass = pct > 70 ? 'signal-strong' : (pct >= 40 ? 'signal-medium' : 'signal-weak');
+    var freq = n.frequency || '';
+    var band = freq >= 5000 ? '5 GHz' : '2.4 GHz';
+
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + escHtml(n.ssid || '(скрытая)') + '</td>' +
+      '<td class="mono">' + escHtml(n.bssid || '') + '</td>' +
+      '<td>' + (n.channel || '--') + '</td>' +
+      '<td>' + freq + ' <span style="color:#888;font-size:11px;">' + band + '</span></td>' +
+      '<td>' +
+        '<div class="signal-bar-bg"><div class="signal-bar-fill ' + colorClass + '" style="width:' + pct + '%"></div></div>' +
+        '<div class="signal-label">' + (n.signal || '--') + ' dBm · ' + pct + '%</div>' +
+      '</td>' +
+      '<td>' + escHtml(n.encryption || '--') + '</td>' +
+      '<td>' + escHtml(n.bandwidth || '--') + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function renderChart(networks) {
+  var ch24 = {};
+  var ch5 = {};
+
+  networks.forEach(function(n) {
+    var ch = n.channel;
+    var freq = n.frequency || 0;
+    if (freq >= 5000) {
+      ch5[ch] = (ch5[ch] || 0) + 1;
+    } else {
+      ch24[ch] = (ch24[ch] || 0) + 1;
+    }
+  });
+
+  var maxCount = 1;
+  for (var k in ch24) { if (ch24[k] > maxCount) maxCount = ch24[k]; }
+  for (var k in ch5) { if (ch5[k] > maxCount) maxCount = ch5[k]; }
+
+  var html24 = '<div class="chart-section-label">2.4 GHz</div>';
+  var channels24 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14];
+  channels24.forEach(function(ch) {
+    var count = ch24[ch] || 0;
+    var widthPct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+    html24 += '<div class="chart-row">' +
+      '<span class="chart-ch-label">' + ch + '</span>' +
+      '<div class="chart-bar-bg"><div class="chart-bar-fill" style="width:' + (count > 0 ? Math.max(widthPct, 8) : 0) + '%">' +
+      (count > 0 ? count : '') + '</div></div>' +
+      '<span class="chart-bar-count">' + count + '</span></div>';
+  });
+  document.getElementById('chart-24ghz').innerHTML = html24;
+
+  var html5 = '<div class="chart-section-label">5 GHz</div>';
+  var channels5 = [36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140,144,149,153,157,161,165];
+  channels5.forEach(function(ch) {
+    var count = ch5[ch] || 0;
+    var widthPct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+    html5 += '<div class="chart-row">' +
+      '<span class="chart-ch-label">' + ch + '</span>' +
+      '<div class="chart-bar-bg"><div class="chart-bar-fill" style="width:' + (count > 0 ? Math.max(widthPct, 8) : 0) + '%">' +
+      (count > 0 ? count : '') + '</div></div>' +
+      '<span class="chart-bar-count">' + count + '</span></div>';
+  });
+  document.getElementById('chart-5ghz').innerHTML = html5;
+}
+
+function escHtml(s) {
+  var d = document.createElement('div');
+  d.appendChild(document.createTextNode(s));
+  return d.innerHTML;
+}
+
+function toggleAutoRefresh() {
+  var on = document.getElementById('auto-refresh').checked;
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  if (on) { autoTimer = setInterval(doScan, 30000); }
+}
+
+doScan();
+</script>
+
+{% endblock %}

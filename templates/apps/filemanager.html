@@ -1,0 +1,429 @@
+{% extends "base_app.html" %}
+
+{% block content %}
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+.fm-container{display:flex;flex-direction:column;height:calc(100vh - 80px);padding:8px}
+.fm-path-bar{display:flex;gap:4px;margin-bottom:8px}
+.fm-path-input{flex:1;background:#111;border:1px solid #333;border-radius:4px;color:#fff;padding:8px;font-family:monospace;font-size:13px;outline:none}
+.fm-path-input:focus{border-color:#2563eb}
+.fm-breadcrumb{display:flex;align-items:center;gap:2px;margin-bottom:8px;flex-wrap:wrap}
+.fm-breadcrumb span{color:#888;font-size:13px}
+.fm-breadcrumb a{color:#8ab4f8;text-decoration:none;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:3px}
+.fm-breadcrumb a:hover{background:#2563eb;color:#fff}
+.fm-panels{display:flex;flex:1;gap:4px;min-height:0}
+.fm-panel{flex:1;display:flex;flex-direction:column;background:#111;border-radius:8px;overflow:hidden;min-width:0}
+.fm-panel-header{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#0a0a1a;border-bottom:1px solid #333}
+.fm-panel-header span{font-size:12px;color:#888;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fm-btn{background:#1a1a2e;color:#ccc;border:1px solid #333;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;transition:all .15s}
+.fm-btn:hover{background:#2563eb;color:#fff;border-color:#2563eb}
+.fm-file-list{flex:1;overflow-y:auto;overflow-x:auto}
+.fm-table{width:100%;border-collapse:collapse;font-size:13px}
+.fm-table th{background:#0a0a1a;color:#888;position:sticky;top:0;text-align:left;padding:6px 8px;border-bottom:1px solid #333;white-space:nowrap;cursor:pointer;user-select:none}
+.fm-table th:hover{color:#ccc}
+.fm-table td{padding:4px 8px;border-bottom:1px solid #1a1a2e;white-space:nowrap}
+.fm-table tr{cursor:pointer;transition:background .1s}
+.fm-table tr:hover{background:#1a1a2e}
+.fm-table tr.fm-selected{background:#1e3a5f}
+.fm-icon{margin-right:6px;font-style:normal}
+.fm-name{color:#ccc}
+.fm-dir .fm-name{color:#8ab4f8}
+.fm-size{color:#888;text-align:right}
+.fm-date{color:#888}
+.fm-perms{color:#666;font-family:monospace;font-size:12px}
+.fm-empty{display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:14px}
+.fm-context-menu{position:fixed;background:#1a1a2e;border:1px solid #333;border-radius:6px;padding:4px 0;z-index:9999;min-width:160px;display:none;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.fm-context-item{padding:8px 16px;cursor:pointer;font-size:13px;color:#ccc;transition:all .1s}
+.fm-context-item:hover{background:#2563eb;color:#fff}
+.fm-context-sep{height:1px;background:#333;margin:4px 0}
+.fm-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9998;display:none}
+.fm-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center}
+.fm-modal{background:#111;border:1px solid #333;border-radius:8px;padding:20px;min-width:350px;max-width:500px}
+.fm-modal h3{color:#ccc;margin-bottom:12px;font-size:15px}
+.fm-modal input{width:100%;background:#1a1a2e;border:1px solid #333;border-radius:4px;color:#fff;padding:8px;font-size:13px;font-family:monospace;outline:none;margin-bottom:12px}
+.fm-modal input:focus{border-color:#2563eb}
+.fm-modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.fm-modal-btn{padding:6px 14px;border-radius:4px;border:1px solid #333;background:#1a1a2e;color:#ccc;cursor:pointer;font-size:13px;transition:all .15s}
+.fm-modal-btn:hover{background:#2563eb;color:#fff;border-color:#2563eb}
+.fm-modal-btn.danger:hover{background:#dc2626;border-color:#dc2626}
+.fm-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid #333;border-radius:6px;padding:10px 20px;font-size:13px;z-index:10001;display:none;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.fm-toast.fm-ok{border-color:#16a34a}
+.fm-toast.fm-err{border-color:#dc2626}
+.fm-status{font-size:11px;color:#666;padding:4px 8px;border-top:1px solid #333;background:#0a0a1a}
+</style>
+
+<div class="fm-container">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <div class="fm-breadcrumb" id="bcLeft" style="flex:1"></div>
+  </div>
+  <div id="fmHelp" style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#8b949e;line-height:1.5;display:flex;gap:16px;flex-wrap:wrap">
+    <span>📂 <b style="color:#c9d1d9">Двойной клик</b> — открыть папку</span>
+    <span>📋 <b style="color:#c9d1d9">Правый клик</b> — меню (копировать/удалить/переименовать/скачать)</span>
+    <span>⬆ <b style="color:#c9d1d9">↑</b> — родительская папка</span>
+    <span>📊 <b style="color:#c9d1d9">Клик по столбцу</b> — сортировка</span>
+  </div>
+  <div class="fm-panels">
+    <div class="fm-panel" id="panelLeft">
+      <div class="fm-panel-header">
+        <span id="pathLeft">/</span>
+        <button class="fm-btn" onclick="refreshPanel('left')" title="Обновить">&#8635;</button>
+        <button class="fm-btn" onclick="goUp('left')" title="Назад">&#9650;</button>
+      </div>
+      <div class="fm-file-list" id="listLeft"></div>
+      <div class="fm-status" id="statusLeft">Загрузка...</div>
+    </div>
+    <div class="fm-panel" id="panelRight">
+      <div class="fm-panel-header">
+        <span id="pathRight">/</span>
+        <button class="fm-btn" onclick="refreshPanel('right')" title="Обновить">&#8635;</button>
+        <button class="fm-btn" onclick="goUp('right')" title="Назад">&#9650;</button>
+      </div>
+      <div class="fm-file-list" id="listRight"></div>
+      <div class="fm-status" id="statusRight">Загрузка...</div>
+    </div>
+  </div>
+</div>
+
+<div class="fm-overlay" id="overlay" onclick="hideContext()"></div>
+<div class="fm-context-menu" id="ctxMenu"></div>
+
+<div id="modalContainer"></div>
+<div class="fm-toast" id="toast"></div>
+
+<script>
+(function(){
+const panels={left:{path:'/',files:[],selected:null},right:{path:'/',files:[],selected:null}};
+let activePanel='left';
+let sortCol='name';
+let sortAsc=true;
+const bcEl=document.getElementById('bcLeft');
+
+function formatSize(b){if(b===0||b==null)return '-';if(b<1024)return b+' Б';if(b<1048576)return(b/1024).toFixed(1)+' КБ';if(b<1073741824)return(b/1048576).toFixed(1)+' МБ';return(b/1073741824).toFixed(1)+' ГБ'}
+function formatDate(d){if(!d)return '-';const p=d.split(/[-T\s]/);if(p.length<2)return d;const[t]=p[1]?p[1].split('Z'):[''];const[hh,mm]=t.split(':');return`${p[2]||p[0]}.${p[1]||'01'}.${(p[0]&&p[0].length===4?p[0]:(p[2]||'01'))} ${hh||'00'}:${mm||'00'}`}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+function renderBreadcrumbs(){
+  const p=panels[activePanel].path;
+  const parts=p.split('/').filter(Boolean);
+  let html='<a onclick="navigateTo(\'/\',\'${activePanel}\')">/</a>';
+  let cum='';
+  parts.forEach((seg,i)=>{
+    cum+='/'+seg;
+    const cp=cum;
+    html+=`<span>›</span><a onclick="navigateTo('${esc(cp)}','${activePanel}')">${esc(seg)}</a>`;
+  });
+  bcEl.innerHTML=html;
+}
+
+async function loadDir(side,dirPath){
+  const el=document.getElementById(side==='left'?'listLeft':'listRight');
+  const st=document.getElementById(side==='left'?'statusLeft':'statusRight');
+  el.innerHTML='<div class="fm-empty">Загрузка...</div>';
+  try{
+    const r=await fetch('/api/filemanager/list?path='+encodeURIComponent(dirPath));
+    const j=await r.json();
+    if(!j.ok)throw new Error(j.error||'Ошибка');
+    panels[side].path=j.path||dirPath;
+    panels[side].files=j.files||[];
+    panels[side].selected=null;
+    document.getElementById(side==='left'?'pathLeft':'pathRight').textContent=panels[side].path;
+    renderFiles(side);
+    st.textContent=`${panels[side].files.length} элементов`;
+  }catch(e){
+    el.innerHTML='<div class="fm-empty">Ошибка загрузки</div>';
+    st.textContent='Ошибка: '+e.message;
+  }
+}
+
+function renderFiles(side){
+  const el=document.getElementById(side==='left'?'listLeft':'listRight');
+  const files=panels[side].files;
+  let sorted=[...files];
+  sorted.sort((a,b)=>{
+    if(a.is_dir&&!b.is_dir)return -1;
+    if(!a.is_dir&&b.is_dir)return 1;
+    const cmp=a.name.localeCompare(b.name,'ru');
+    return sortAsc?cmp:-cmp;
+  });
+  if(!sorted.length){
+    el.innerHTML='<div class="fm-empty">Папка пуста</div>';
+    return;
+  }
+  let html='<table class="fm-table"><thead><tr>';
+  html+='<th onclick="toggleSort(\'name\')">Имя</th>';
+  html+='<th onclick="toggleSort(\'size\')" style="text-align:right">Размер</th>';
+  html+='<th onclick="toggleSort(\'date\')">Дата</th>';
+  html+='<th onclick="toggleSort(\'perms\')">Права</th>';
+  html+='</tr></thead><tbody>';
+  sorted.forEach((f,i)=>{
+    const cls=f.is_dir?'fm-dir':'fm-file';
+    const icon=f.is_dir?'📁':'📄';
+    const sel=panels[side].selected===i?' fm-selected':'';
+    const click=f.is_dir
+      ?`navigateTo('${esc(joinPath(panels[side].path,f.name))}','${side}')`
+      :`openFile('${esc(joinPath(panels[side].path,f.name))}','${esc(f.name)}')`;
+    html+=`<tr class="${cls}${sel}" data-idx="${i}" data-side="${side}" onclick="selectRow(this)" ondblclick="${click}" oncontextmenu="showCtx(event,${i},'${side}')">`;
+    html+=`<td><span class="fm-icon">${icon}</span><span class="fm-name">${esc(f.name)}</span></td>`;
+    html+=`<td class="fm-size">${f.is_dir?'-':formatSize(f.size)}</td>`;
+    html+=`<td class="fm-date">${formatDate(f.modified)}</td>`;
+    html+=`<td class="fm-perms">${esc(f.permissions||'-')}</td>`;
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+function joinPath(base,name){return base==='/'?'/'+name:base.replace(/\/$/,'')+'/'+name}
+
+window.selectRow=function(tr){
+  const side=tr.dataset.side;
+  const idx=parseInt(tr.dataset.idx);
+  panels[side].selected=idx;
+  activePanel=side;
+  renderFiles(side);
+  renderBreadcrumbs();
+};
+
+window.navigateTo=function(path,side){
+  side=side||activePanel;
+  activePanel=side;
+  loadDir(side,path);
+  renderBreadcrumbs();
+};
+
+window.openFile=function(path,name){
+  const ext=(name.split('.').pop()||'').toLowerCase();
+  const textExts=['txt','md','log','py','js','html','css','json','xml','yaml','yml','cfg','conf','ini','sh','bash','c','cpp','h','java','rb','php','sql','csv','tsv','env','gitignore','dockerfile','makefile','toml','lock','diff','patch'];
+  if(textExts.includes(ext)){
+    viewFile(path,name);
+  }else{
+    window.open('/api/filemanager/read?path='+encodeURIComponent(path)+'&download=1','_blank');
+  }
+};
+
+async function viewFile(path,name){
+  try{
+    const r=await fetch('/api/filemanager/read?path='+encodeURIComponent(path));
+    const j=await r.json();
+    if(!j.ok)throw new Error(j.error||'Ошибка чтения');
+    showModal(`📄 ${name}`,`<div style="max-height:60vh;overflow:auto"><pre style="white-space:pre-wrap;word-break:break-all;font-size:13px;font-family:monospace;color:#ccc;background:#0a0a1a;padding:12px;border-radius:4px;margin:0">${esc(j.content)}</pre></div>`,[
+      {text:'Закрыть',action:closeModal}
+    ]);
+  }catch(e){
+    showToast('Ошибка: '+e.message,true);
+  }
+}
+
+window.goUp=function(side){
+  const p=panels[side].path;
+  if(p==='/')return;
+  const parts=p.split('/').filter(Boolean);
+  parts.pop();
+  navigateTo(parts.length?'/'+parts.join('/'):'/',side);
+};
+
+window.refreshPanel=function(side){
+  loadDir(side,panels[side].path);
+};
+
+window.toggleSort=function(col){
+  if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true}
+  renderFiles('left');renderFiles('right');
+};
+
+window.showCtx=function(e,idx,side){
+  e.preventDefault();
+  e.stopPropagation();
+  activePanel=side;
+  panels[side].selected=idx;
+  renderFiles(side);
+  const f=panels[side].files[idx];
+  const isDir=f.is_dir;
+  const items=[];
+  items.push({label:'Открыть',action:()=>{
+    if(isDir)navigateTo(joinPath(panels[side].path,f.name),side);
+    else openFile(joinPath(panels[side].path,f.name),f.name);
+  }});
+  items.push({sep:true});
+  items.push({label:'Переименовать',action:()=>renameItem(side,idx)});
+  items.push({label:'Копировать',action:()=>copyItem(side,idx)});
+  items.push({label:'Переместить',action:()=>moveItem(side,idx)});
+  items.push({sep:true});
+  items.push({label:'Удалить',action:()=>deleteItem(side,idx),danger:true});
+  if(isDir){
+    items.push({sep:true});
+    items.push({label:'Создать папку...',action:()=>createDir(side)});
+  }
+  showContextMenu(e.clientX,e.clientY,items);
+};
+
+window.hideContext=function(){
+  document.getElementById('ctxMenu').style.display='none';
+  document.getElementById('overlay').style.display='none';
+};
+
+function showContextMenu(x,y,items){
+  const menu=document.getElementById('ctxMenu');
+  let html='';
+  items.forEach(it=>{
+    if(it.sep){html+='<div class="fm-context-sep"></div>';return;}
+    const cls=it.danger?'style="color:#f87171"':'';
+    html+=`<div class="fm-context-item" ${cls}>${it.label}</div>`;
+  });
+  menu.innerHTML=html;
+  const binds=menu.querySelectorAll('.fm-context-item');
+  let idx=0;
+  items.forEach(it=>{
+    if(it.sep)return;
+    binds[idx].onclick=()=>{hideContext();it.action()};
+    idx++;
+  });
+  menu.style.display='block';
+  document.getElementById('overlay').style.display='block';
+  const mw=menu.offsetWidth,mh=menu.offsetHeight;
+  if(x+mw>window.innerWidth)x=window.innerWidth-mw-4;
+  if(y+mh>window.innerHeight)y=window.innerHeight-mh-4;
+  menu.style.left=Math.max(0,x)+'px';
+  menu.style.top=Math.max(0,y)+'px';
+}
+
+function showModal(title,body,buttons){
+  const c=document.getElementById('modalContainer');
+  let html=`<div class="fm-modal-overlay" onclick="if(event.target===this)closeModal()"><div class="fm-modal"><h3>${title}</h3>${body}<div class="fm-modal-btns">`;
+  buttons.forEach(b=>{
+    const cls=b.danger?'fm-modal-btn danger':'fm-modal-btn';
+    html+=`<button class="${cls}">${b.text}</button>`;
+  });
+  html+='</div></div></div>';
+  c.innerHTML=html;
+  const btns=c.querySelectorAll('.fm-modal-btn');
+  buttons.forEach((b,i)=>{btns[i].onclick=b.action});
+}
+
+window.closeModal=function(){document.getElementById('modalContainer').innerHTML=''};
+
+function promptModal(title,label,cb){
+  showModal(title,`<input id="fmPromptInput" type="text" placeholder="${esc(label)}" autofocus>`,[
+    {text:'Отмена',action:closeModal},
+    {text:'OK',action:()=>{const v=document.getElementById('fmPromptInput').value.trim();closeModal();if(v)cb(v)}}
+  ]);
+  setTimeout(()=>{const inp=document.getElementById('fmPromptInput');if(inp){inp.focus();inp.onkeydown=e=>{if(e.key==='Enter')inp.closest('.fm-modal').querySelectorAll('.fm-modal-btn')[1].click()}}},50);
+}
+
+function confirmModal(title,text,cb){
+  showModal(title,`<p style="color:#ccc;font-size:13px;margin:0">${esc(text)}</p>`,[
+    {text:'Отмена',action:closeModal},
+    {text:'Удалить',action:()=>{closeModal();cb()},danger:true}
+  ]);
+}
+
+async function renameItem(side,idx){
+  const f=panels[side].files[idx];
+  promptModal('Переименовать','Новое имя',async(newName)=>{
+    const oldPath=joinPath(panels[side].path,f.name);
+    const newPath=joinPath(panels[side].path,newName);
+    try{
+      const r=await fetch('/api/filemanager/rename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old_path:oldPath,new_path:newPath})});
+      const j=await r.json();
+      if(!j.ok)throw new Error(j.error||'Ошибка');
+      showToast('Переименовано');
+      loadDir(side,panels[side].path);
+    }catch(e){showToast('Ошибка: '+e.message,true)}
+  });
+}
+
+async function deleteItem(side,idx){
+  const f=panels[side].files[idx];
+  const what=f.is_dir?'папку':'файл';
+  confirmModal('Удалить',`Удалить ${what} "${f.name}"?`,async()=>{
+    try{
+      const r=await fetch('/api/filemanager/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:joinPath(panels[side].path,f.name)})});
+      const j=await r.json();
+      if(!j.ok)throw new Error(j.error||'Ошибка');
+      showToast('Удалено');
+      loadDir(side,panels[side].path);
+    }catch(e){showToast('Ошибка: '+e.message,true)}
+  });
+}
+
+async function copyItem(side,idx){
+  const f=panels[side].files[idx];
+  const otherSide=side==='left'?'right':'left';
+  const dst=joinPath(panels[otherSide].path,f.name);
+  promptModal('Копировать в','Путь назначения',async(v)=>{
+    const dest=v||dst;
+    try{
+      const r=await fetch('/api/filemanager/copy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:joinPath(panels[side].path,f.name),dst:dest})});
+      const j=await r.json();
+      if(!j.ok)throw new Error(j.error||'Ошибка');
+      showToast('Скопировано');
+      loadDir(otherSide,panels[otherSide].path);
+    }catch(e){showToast('Ошибка: '+e.message,true)}
+  });
+}
+
+async function moveItem(side,idx){
+  const f=panels[side].files[idx];
+  const otherSide=side==='left'?'right':'left';
+  const dst=joinPath(panels[otherSide].path,f.name);
+  promptModal('Переместить в','Путь назначения',async(v)=>{
+    const dest=v||dst;
+    try{
+      const r=await fetch('/api/filemanager/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:joinPath(panels[side].path,f.name),dst:dest})});
+      const j=await r.json();
+      if(!j.ok)throw new Error(j.error||'Ошибка');
+      showToast('Перемещено');
+      loadDir(side,panels[side].path);
+      loadDir(otherSide,panels[otherSide].path);
+    }catch(e){showToast('Ошибка: '+e.message,true)}
+  });
+}
+
+function createDir(side){
+  promptModal('Новая папка','Имя папки',async(name)=>{
+    try{
+      const r=await fetch('/api/filemanager/mkdir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:joinPath(panels[side].path,name)})});
+      const j=await r.json();
+      if(!j.ok)throw new Error(j.error||'Ошибка');
+      showToast('Папка создана');
+      loadDir(side,panels[side].path);
+    }catch(e){showToast('Ошибка: '+e.message,true)}
+  });
+}
+
+function showToast(msg,isErr){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='fm-toast '+(isErr?'fm-err':'fm-ok');
+  t.style.display='block';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{t.style.display='none'},2500);
+}
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.fm-context-menu'))hideContext();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')hideContext();
+});
+
+document.querySelectorAll('.fm-path-input').forEach(el=>{
+  el.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){
+      const v=el.value.trim();
+      if(v)navigateTo(v,activePanel);
+    }
+  });
+  el.addEventListener('focus',()=>activePanel=el.closest('.fm-panel').id==='panelLeft'?'left':'right');
+});
+
+document.getElementById('listLeft').addEventListener('click',e=>{activePanel='left'});
+document.getElementById('listRight').addEventListener('click',e=>{activePanel='right'});
+
+loadDir('left','/');
+loadDir('right','/');
+renderBreadcrumbs();
+})();
+</script>
+{% endblock %}

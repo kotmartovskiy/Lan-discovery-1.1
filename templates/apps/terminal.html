@@ -1,0 +1,42 @@
+{% extends "base_app.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<div id="terminal-page" style="background:#000;min-height:calc(100vh - 100px);padding:10px;">
+    {% if current_user.role == 'admin' %}
+    <div id="terminal" style="width:100%;height:calc(100vh - 100px);background:#000;border-radius:8px;overflow:hidden;padding:4px;"></div>
+    <script>
+        var socket = io();
+        var term = new Terminal({
+            theme: { background: '#000000', foreground: '#00ff00', cursor: '#00ff00' },
+            fontSize: 14,
+            fontFamily: 'monospace',
+            cursorBlink: true
+        });
+        var fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal'));
+        fitAddon.fit();
+
+        socket.on('connect', function() {
+            socket.emit('terminal_start', {cols: 200, rows: 50});
+        });
+        socket.on('terminal_output', function(data) { term.write(data); });
+        socket.on('terminal_error', function(data) { term.writeln('\r\n\x1b[31m' + data + '\x1b[0m'); });
+
+        term.onData(function(data) { socket.emit('terminal_input', data); });
+        term.onResize(function(size) { socket.emit('terminal_resize', {cols: size.cols, rows: size.rows}); });
+
+        window.addEventListener('resize', function() { fitAddon.fit(); });
+    </script>
+    {% else %}
+    <div style="text-align:center;padding:40px;color:#f39c12;font-size:18px;background:#1a1a1a;border-radius:8px;margin:20px;">
+        ⚠️ Терминал доступен только для admin
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

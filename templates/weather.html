@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Погода</h2>
+
+{% if weather %}
+
+<div class="weather-grid">
+
+<div class="card" style="min-width:200px;">
+
+<h2>Сейчас</h2>
+
+<div style="font-size:16px;">
+
+<div class="info-row" style="display:flex; justify-content:space-between;">
+<span class="info-label">Темп.:</span>
+<span>{{ "%.1f"|format(weather.temperature) }} °C</span>
+</div>
+
+<div class="info-row" style="display:flex; justify-content:space-between;">
+<span class="info-label">Ощущ.:</span>
+<span>{{ "%.1f"|format(weather.apparent_temperature) }} °C</span>
+</div>
+
+<div class="info-row" style="display:flex; justify-content:space-between;">
+<span class="info-label">Влаж.:</span>
+<span>{{ "%.0f"|format(weather.humidity) }} %</span>
+</div>
+
+<div class="info-row" style="display:flex; justify-content:space-between;">
+<span class="info-label">Давл.:</span>
+<span>{{ "%.0f"|format(weather.pressure / 1.33322) }} мм</span>
+</div>
+
+<div class="info-row" style="display:flex; justify-content:space-between;">
+<span class="info-label">Осадки:</span>
+<span>{% if weather.precipitation > 0 %}{{ "%.1f"|format(weather.precipitation) }} мм{% else %}Нет{% endif %}</span>
+</div>
+
+<div class="info-row" style="display:flex; justify-content:space-between;">
+<span class="info-label">Ветер:</span>
+<span>{{ wind_direction_name(weather.wind_direction) }} {{ "%.0f"|format(weather.wind_speed / 3.6) }} м/с</span>
+</div>
+
+{% if weather.cloud_cover is not none %}
+<div class="info-row" style="display:flex; justify-content:space-between;">
+<span class="info-label">Обл.:</span>
+<span>{{ "%.0f"|format(weather.cloud_cover) }} %</span>
+</div>
+{% endif %}
+
+{% if weather_sunrise or weather_sunset %}
+<div class="info-row" style="display:flex; justify-content:space-between; font-size:14px; color:#888;">
+<span>↑ {{ weather_sunrise[11:16] if weather_sunrise else '--' }}</span>
+<span>↓ {{ weather_sunset[11:16] if weather_sunset else '--' }}</span>
+</div>
+{% endif %}</div>
+
+{% if weather_moon_phase is not none %}
+<div class="info-row" style="font-size:12px;">
+{% if weather_moon_phase < 0.06 or weather_moon_phase >= 0.94 %}🌑
+{% elif weather_moon_phase < 0.19 %}🌒
+{% elif weather_moon_phase < 0.31 %}🌓
+{% elif weather_moon_phase < 0.44 %}🌔
+{% elif weather_moon_phase < 0.56 %}🌕
+{% elif weather_moon_phase < 0.69 %}🌖
+{% elif weather_moon_phase < 0.81 %}🌗
+{% else %}🌘
+{% endif %}
+</div>
+{% endif %}
+
+</div>
+
+{% if weather_hourly_today %}
+
+{% set periods = [
+  ("Утро", [6,7,8,9,10,11]),
+  ("День", [12,13,14,15,16,17]),
+  ("Вечер", [18,19,20,21,22,23]),
+  ("Ночь", [0,1,2,3,4,5])
+] %}
+
+{% for pname, phours in periods %}
+{% set ns = namespace(t_min=99, t_max=-99, precip=0, wind=0, wind_dir=0, cloud=0, cnt=0, code=0) %}
+{% for h in weather_hourly_today %}
+{% if h[0] in phours %}
+{% if h[1] is not none %}{% set ns.t_min = [ns.t_min, h[1]]|min %}{% set ns.t_max = [ns.t_max, h[1]]|max %}{% endif %}
+{% if h[3] is not none %}{% set ns.precip = ns.precip + h[3] %}{% endif %}
+{% if h[5] is not none %}{% set ns.wind = [ns.wind, h[5]]|max %}{% set ns.wind_dir = h[5] %}{% endif %}
+{% if h[7] is not none %}{% set ns.cloud = ns.cloud + h[7] %}{% set ns.cnt = ns.cnt + 1 %}{% endif %}
+{% if h[2] is not none %}{% set ns.code = h[2] %}{% endif %}
+{% endif %}
+{% endfor %}
+
+<div class="card" style="min-width:120px;">
+<h2>{{ pname }}</h2>
+<div class="info-row" style="font-size:13px;">
+{{ weather_code_name(ns.code) }}
+</div>
+<div class="info-row" style="font-size:18px; font-weight:bold;">
+{{ "%.0f"|format(ns.t_min) }}…{{ "%.0f"|format(ns.t_max) }} °C
+</div>
+{% if ns.precip > 0 %}
+<div class="info-row" style="font-size:12px; color:#8ab4f8;">
+💧 {{ "%.1f"|format(ns.precip) }} мм
+</div>
+{% endif %}
+<div class="info-row" style="font-size:12px; color:#888;">
+{{ wind_direction_name(ns.wind_dir) }} {{ "%.0f"|format(ns.wind / 3.6) }} м/с
+{% if ns.cnt > 0 %} · ☁ {{ "%.0f"|format(ns.cloud / ns.cnt) }} %{% endif %}
+</div>
+</div>
+
+{% endfor %}
+
+{% if weather_hourly_tomorrow %}
+{% set t = weather_hourly_tomorrow %}
+{% set ns2 = namespace(t_min=99, t_max=-99, precip=0, wind=0, wind_dir=0, cloud=0, cnt=0, code=0) %}
+{% for h in t %}
+{% if h[1] is not none %}{% set ns2.t_min = [ns2.t_min, h[1]]|min %}{% set ns2.t_max = [ns2.t_max, h[1]]|max %}{% endif %}
+{% if h[3] is not none %}{% set ns2.precip = ns2.precip + h[3] %}{% endif %}
+{% if h[5] is not none %}{% set ns2.wind = [ns2.wind, h[5]]|max %}{% set ns2.wind_dir = h[5] %}{% endif %}
+{% if h[7] is not none %}{% set ns2.cloud = ns2.cloud + h[7] %}{% set ns2.cnt = ns2.cnt + 1 %}{% endif %}
+{% if h[2] is not none %}{% set ns2.code = h[2] %}{% endif %}
+{% endfor %}
+
+<div class="card" style="min-width:120px; border-left:2px solid #8ab4f8;">
+<h2>Завтра</h2>
+<div class="info-row" style="font-size:13px;">
+{{ weather_code_name(ns2.code) }}
+</div>
+<div class="info-row" style="font-size:18px; font-weight:bold;">
+{{ "%.0f"|format(ns2.t_min) }}…{{ "%.0f"|format(ns2.t_max) }} °C
+</div>
+{% if ns2.precip > 0 %}
+<div class="info-row" style="font-size:12px; color:#8ab4f8;">
+💧 {{ "%.1f"|format(ns2.precip) }} мм
+</div>
+{% endif %}
+<div class="info-row" style="font-size:12px; color:#888;">
+{{ wind_direction_name(ns2.wind_dir) }} {{ "%.0f"|format(ns2.wind / 3.6) }} м/с
+{% if ns2.cnt > 0 %} · ☁ {{ "%.0f"|format(ns2.cloud / ns2.cnt) }} %{% endif %}
+</div>
+{% if weather_moon_phase is not none %}
+<div class="info-row" style="font-size:12px;">
+{% if weather_moon_phase < 0.06 or weather_moon_phase >= 0.94 %}🌑
+{% elif weather_moon_phase < 0.19 %}🌒
+{% elif weather_moon_phase < 0.31 %}🌓
+{% elif weather_moon_phase < 0.44 %}🌔
+{% elif weather_moon_phase < 0.56 %}🌕
+{% elif weather_moon_phase < 0.69 %}🌖
+{% elif weather_moon_phase < 0.81 %}🌗
+{% else %}🌘
+{% endif %}
+</div>
+{% endif %}
+</div>
+{% endif %}
+
+{% endif %}
+
+</div>
+
+{% else %}
+
+<div class="info">
+Нет данных о погоде.
+</div>
+
+{% endif %}
+
+
+{% if weather_alerts %}
+<h2>Метеопредупреждения</h2>
+
+<div class="info">
+{% for alert in weather_alerts %}
+<div class="info-row">
+<span class="info-label">⚠️ {{ alert[2] }}</span>
+{{ alert[3] }}
+<span style="color:#888; margin-left:10px;">обновлено {{ alert[0][8:10] }}.{{ alert[0][5:7] }}.{{ alert[0][:4] }} {{ alert[0][11:] }}</span>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if mchs_alerts %}
+<h2>Экстренные предупреждения</h2>
+
+<div class="info">
+{% for alert in mchs_alerts %}
+<div class="info-row">
+<span class="info-label">🚨 МЧС России:</span>
+{{ alert[2] }}
+<span style="color:#888; margin-left:10px;">опубликовано {{ _format_dt(alert[1]) }}</span>
+</div>
+
+{% if alert[3] %}
+<div style="margin:8px 0 12px 0; color:#555;">
+{{ alert[3].split('Прогнозируется вероятность')[0] }}
+</div>
+{% endif %}
+
+<div style="font-size:0.9em; margin-bottom:8px;">
+<a href="{{ alert[4] }}" target="_blank">Источник: МЧС России</a>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if weather_forecast %}
+{% set today = weather_forecast[0] %}
+
+<div style="display:flex; gap:40px; flex-wrap:wrap; align-items:flex-start;">
+
+<div style="min-width:200px;">
+<h2>Прогноз на сегодня</h2>
+<div class="info">
+
+<div class="info-row">
+<span class="info-label">Погода:</span>
+{{ weather_code_name(today[1]) }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Температура:</span>
+{{ "%.1f"|format(today[2]) }} °C … {{ "%.1f"|format(today[3]) }} °C
+</div>
+
+<div class="info-row">
+<span class="info-label">Осадки:</span>
+{{ "%.1f"|format(today[4]) }} мм,
+вероятность {{ today[5] }} %
+</div>
+
+<div class="info-row">
+<span class="info-label">Ветер:</span>
+{{ "%.1f"|format(today[6] / 3.6) }} м/с,
+{{ wind_direction_name(today[7]) }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Солнце:</span>
+восход {{ today[8][11:16] }},
+закат {{ today[9][11:16] }}
+</div>
+
+</div>
+</div>
+
+<div style="min-width:200px;">
+<h2>Среда</h2>
+<div class="info">
+
+<div class="info-row">
+<span class="info-label">УФ индекс:</span>
+{{ "%.1f"|format(env_data.uv_index) if env_data and env_data.uv_index else "--" }}
+({{ env_data.uv_level if env_data else "--" }})
+</div>
+
+<div class="info-row">
+<span class="info-label">Качество воздуха:</span>
+{{ "%.0f"|format(env_data.aqi) if env_data and env_data.aqi else "--" }} EU AQI
+({{ env_data.aqi_level if env_data else "--" }})
+</div>
+
+<div class="info-row">
+<span class="info-label">PM2.5:</span>
+{{ "%.1f"|format(env_data.pm25) if env_data and env_data.pm25 else "--" }} мкг/м³
+</div>
+
+<div class="info-row">
+<span class="info-label">PM10:</span>
+{{ "%.1f"|format(env_data.pm10) if env_data and env_data.pm10 else "--" }} мкг/м³
+</div>
+
+<div class="info-row">
+<span class="info-label">Радиационный фон:</span>
+{{ "%.1f"|format(env_data.radiation) if env_data and env_data.radiation else "--" }} мкР/ч
+({{ env_data.radiation_level if env_data else "--" }})
+</div>
+
+</div>
+</div>
+
+</div>
+
+{% else %}
+
+<h2>Прогноз на сегодня</h2>
+<div class="info">
+Прогноз пока недоступен.
+</div>
+
+{% endif %}
+
+<h2>Прогноз по часам</h2>
+
+{% if weather_hourly_today %}
+
+<table>
+<thead>
+<tr>
+<th>Время</th>
+<th>Темп.</th>
+<th>Погода</th>
+<th>Осадки</th>
+<th>Вер.</th>
+<th>Ветер</th>
+<th>Обл.</th>
+</tr>
+</thead>
+<tbody>
+{% for h in weather_hourly_today %}
+{% if h[0] in [6,7,8,9,10,11] %}
+<tr style="background:rgba(255,200,50,0.05);">
+{% elif h[0] in [12,13,14,15,16,17] %}
+<tr style="background:rgba(255,100,50,0.05);">
+{% elif h[0] in [18,19,20,21,22,23] %}
+<tr style="background:rgba(100,100,255,0.05);">
+{% else %}
+<tr style="background:rgba(50,50,80,0.05);">
+{% endif %}
+<td>{{ "%02d"|format(h[0]) }}:00</td>
+<td>{{ "%.1f"|format(h[1]) if h[1] is not none else '--' }} °C</td>
+<td>{{ weather_code_name(h[2]) if h[2] is not none else '--' }}</td>
+<td>{{ "%.1f"|format(h[3]) if h[3] is not none else '0' }} мм</td>
+<td>{{ h[4] if h[4] is not none else '--' }} %</td>
+<td>{{ "%.1f"|format(h[5] / 3.6) if h[5] is not none else '--' }} м/с {{ wind_direction_name(h[6]) if h[6] is not none else '' }}</td>
+<td>{{ "%.0f"|format(h[7]) if h[7] is not none else '--' }} %</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+{% else %}
+<div class="info">Прогноз по часам недоступен.</div>
+{% endif %}
+
+<h2>Прогноз на 7 дней</h2>
+
+{% if weather_forecast %}
+
+<table>
+<thead>
+<tr>
+<th>Дата</th>
+<th>Погода</th>
+<th>Мин.</th>
+<th>Макс.</th>
+<th>Осадки</th>
+<th>Вер.</th>
+<th>Ветер</th>
+<th>Восход</th>
+<th>Закат</th>
+</tr>
+</thead>
+<tbody>
+{% for row in weather_forecast %}
+<tr>
+<td>{{ weather_date_name(row[0]) }}</td>
+<td>{{ weather_code_name(row[1]) }}</td>
+<td>{{ "%.1f"|format(row[2]) }} °C</td>
+<td>{{ "%.1f"|format(row[3]) }} °C</td>
+<td>{{ "%.1f"|format(row[4]) }} мм</td>
+<td>{{ row[5] }} %</td>
+<td>{{ "%.1f"|format(row[6] / 3.6) }} м/с {{ wind_direction_name(row[7]) }}</td>
+<td>{{ row[8][11:16] if row[8] else '--' }}</td>
+<td>{{ row[9][11:16] if row[9] else '--' }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+{% else %}
+
+<div class="info">
+Прогноз пока недоступен.
+</div>
+
+{% endif %}
+
+
+
+<h2>Статистика по дням</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>Дата</th>
+<th>Мин.</th>
+<th>Средняя</th>
+<th>Макс.</th>
+<th>Влажность</th>
+<th>Давление</th>
+<th>Ветер</th>
+<th>Осадки</th>
+<th>Замеров</th>
+</tr>
+</thead>
+
+<tbody>
+
+{% for row in weather_daily %}
+
+<tr>
+<td>{{ row[0] }}</td>
+<td>{{ "%.1f"|format(row[1]) }} °C</td>
+<td>{{ "%.1f"|format(row[3]) }} °C</td>
+<td>{{ "%.1f"|format(row[2]) }} °C</td>
+<td>{{ "%.0f"|format(row[4]) }} %</td>
+<td>{{ "%.1f"|format(row[5] / 1.33322) }} мм рт. ст.</td>
+<td>{{ "%.1f"|format(row[6] / 3.6) }} м/с</td>
+<td>{{ "%.1f"|format(row[7]) }} мм</td>
+<td>{{ row[8] }}</td>
+</tr>
+
+{% else %}
+
+<tr>
+<td colspan="9">Данных пока нет.</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+{% endblock %}

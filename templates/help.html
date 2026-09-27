@@ -1,0 +1,638 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.help-layout { display:flex; gap:24px; align-items:flex-start; }
+.help-sidebar { position:sticky; top:100px; flex:0 0 260px; background:#181818; border:1px solid #2a2a2a; border-radius:10px; padding:16px; max-height:calc(100vh - 130px); overflow-y:auto; }
+.help-sidebar a { color:#8ab4f8; text-decoration:none; display:block; padding:4px 8px; font-size:13px; border-radius:4px; margin-bottom:2px; }
+.help-sidebar a:hover { background:#1a1a2e; color:#fff; }
+.help-sidebar .toc-group { color:#888; font-size:11px; text-transform:uppercase; letter-spacing:1px; margin:12px 0 4px 8px; font-weight:600; }
+.help-main { flex:1; min-width:0; }
+.help-section { margin-bottom:28px; }
+.help-section h3 { color:#8ab4f8; border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:14px; font-size:16px; }
+.help-section h4 { color:#ccc; margin:16px 0 8px; font-size:14px; }
+.help-section p, .help-section li { color:#bbb; line-height:1.7; font-size:14px; }
+.help-section ul { padding-left:20px; }
+.help-section li { margin-bottom:4px; }
+.help-section code { background:#1a1a2e; padding:2px 6px; border-radius:4px; font-size:13px; color:#8ab4f8; }
+.help-table { width:100%; border-collapse:collapse; margin:12px 0; }
+.help-table th { text-align:left; padding:8px 12px; background:#1a1a2e; color:#8ab4f8; border:1px solid #333; font-size:13px; }
+.help-table td { padding:8px 12px; border:1px solid #333; font-size:13px; color:#bbb; }
+.help-badge { display:inline-block; background:#2563eb; color:#fff; padding:2px 8px; border-radius:4px; font-size:11px; margin-left:6px; }
+.help-badge.green { background:#2e7d32; }
+.help-badge.orange { background:#e65100; }
+.help-badge.purple { background:#6a1b9a; }
+
+@media (max-width: 900px) {
+    .help-layout { flex-direction:column; }
+    .help-sidebar { position:static; flex:none; width:100%; max-height:none; }
+}
+</style>
+
+<div class="page-title">
+    <h2>📖 Справка</h2>
+    <div class="muted">Полное руководство по панели управления LAN Discovery</div>
+</div>
+
+<div class="help-layout">
+
+<nav class="help-sidebar">
+    <div class="toc-group">Обзор</div>
+    <a href="#overview">1. Обзор проекта</a>
+    <a href="#hardware">2. Оборудование</a>
+    <a href="#pages">3. Страницы панели</a>
+    <div class="toc-group">Функции</div>
+    <a href="#weather">4. Погода и мониторинг</a>
+    <a href="#network">5. Сетевые функции</a>
+    <a href="#economics">6. Экономика</a>
+    <a href="#multimedia">7. Мультимедиа</a>
+    <a href="#apps">8. Приложения и утилиты</a>
+    <a href="#games">9. Игры</a>
+    <a href="#system-features">10. Системные функции</a>
+    <div class="toc-group">Справочник</div>
+    <a href="#api">11. API (JSON)</a>
+    <a href="#admin">12. Администрирование</a>
+    <a href="#troubleshoot">13. Решение проблем</a>
+    <a href="#faq">14. FAQ</a>
+</nav>
+
+<div class="help-main">
+
+<!-- 1. Обзор -->
+<div class="help-section" id="overview">
+<h3>1. Обзор проекта</h3>
+<p>
+Веб-панель управления домашней инфраструктурой на базе Orange Pi.
+Единое приложение (Flask + SQLite) для мониторинга сети, устройств, погоды, валют,
+управления мультимедией, встроенных утилит и игр.
+</p>
+
+<h4>Технологии</h4>
+<ul>
+<li><strong>Сервер:</strong> Python 3 + Flask (порт 8080)</li>
+<li><strong>База данных:</strong> SQLite (<code>/opt/lan-discovery/devices.db</code>)</li>
+<li><strong>Сканирование сети:</strong> nmap (ARP-сканирование)</li>
+<li><strong>Погода:</strong> Open-Meteo API (57.0°N, 41.0°E)</li>
+<li><strong>Валюты:</strong> CoinGecko + Frankfurter + Yahoo Finance</li>
+<li><strong>IPTV:</strong> Управление плейлистами (m3u)</li>
+<li><strong>Системный сервис:</strong> <code>lan-discovery.service</code> (systemd)</li>
+</ul>
+</div>
+
+<!-- 2. Оборудование -->
+<div class="help-section" id="hardware">
+<h3>2. Оборудование</h3>
+
+<h4>Основное устройство</h4>
+<table class="help-table">
+<tr><th>Параметр</th><th>Значение</th></tr>
+<tr><td>Плата</td><td>Orange Pi Plus (Allwinner H3)</td></tr>
+<tr><td>LAN IP</td><td><code>192.168.3.234</code></td></tr>
+<tr><td>WiFi AP IP</td><td><code>192.168.3.235</code></td></tr>
+<tr><td>SSH</td><td>root / 1234</td></tr>
+<tr><td>Веб-панель</td><td><code>http://192.168.3.234:8080</code></td></tr>
+</table>
+
+<h4>Накопители</h4>
+<table class="help-table">
+<tr><th>Устройство</th><th>Размер</th><th>Точка монтирования</th><th>Назначение</th></tr>
+<tr><td><code>/dev/mmcblk2</code></td><td>14.6 ГБ</td><td><code>/</code></td><td>eMMC — системный диск</td></tr>
+<tr><td><code>/dev/sda</code></td><td>232.9 ГБ</td><td><code>/srv</code></td><td>HDD — данные, torrent, резервные копии</td></tr>
+<tr><td><code>/dev/mmcblk0</code></td><td>~29 ГБ</td><td>—</td><td>SD-карта (для клонирования)</td></tr>
+</table>
+
+<h4>Сетевые устройства</h4>
+<table class="help-table">
+<tr><th>Устройство</th><th>IP</th><th>Описание</th></tr>
+<tr><td>Orange Pi (LAN)</td><td><code>192.168.3.234</code></td><td>Основной сервер</td></tr>
+<tr><td>Orange Pi (WiFi)</td><td><code>192.168.3.235</code></td><td>WiFi AP интерфейс</td></tr>
+<tr><td>ThinkPad T480</td><td><code>192.168.3.236</code> / <code>.239</code></td><td>Рабочая станция</td></tr>
+<tr><td>DNS-сервер</td><td><code>192.168.3.51</code></td><td>Локальный DNS</td></tr>
+</table>
+</div>
+
+<!-- 3. Страницы панели -->
+<div class="help-section" id="pages">
+<h3>3. Страницы панели</h3>
+
+<h4>🏠 Устройства (<code>/</code>)</h4>
+<p>Главная страница. Автоматическое сканирование сети (ARP via nmap).</p>
+<ul>
+<li>Список всех найденных устройств с IP, MAC, именем, статусом онлайн/офлайн</li>
+<li>Цветовая индикация: зелёный — онлайн, серый — оффлайн, жёлтый — новое устройство</li>
+<li>Клик по устройству → детальная страница с историей</li>
+<li>Возможность задать имя устройству</li>
+</ul>
+
+<h4>📊 Мониторинг (<code>/monitoring</code>)</h4>
+<p>Агрегация данных по хостам в реальном времени.</p>
+<ul>
+<li>CPU, RAM, диск, сеть, нагрузка — в реальном времени</li>
+<li>Аккордеон по хостам с детальными метриками</li>
+<li>Прогресс-бары с цветовой индикацией (норма/предупреждение/критично)</li>
+</ul>
+
+<h4>💱 Валюты (<code>/currencies</code>)</h4>
+<p>Курсы валют и драгоценных металлов.</p>
+<ul>
+<li>Фиатные: USD, EUR, GBP, CNY</li>
+<li>Драгоценные металлы: золото, серебро, платина, палладий</li>
+<li>Промышленные металлы: медь, алюминий, никель, олово, цинк, свинец</li>
+<li>Динамика цен (24h%, неделя, месяц)</li>
+<li>Графики истории курсов</li>
+</ul>
+
+<h4>🌤 Погода (<code>/weather</code>)</h4>
+<p>Погода для Иваново (57.0°N, 41.0°E).</p>
+<ul>
+<li>Текущая погода: температура, ветер, осадки, давление, UV</li>
+<li>Карточки: влажность, давление, ощущается как, видимость, UV-индекс</li>
+<li>Прогноз на 5 дней с иконками погоды</li>
+<li>Исторические данные (графики, сравнение влажности/температуры/давления за 24ч)</li>
+<li>Радиационный фон (мкЗв/ч)</li>
+<li>Качество воздуха AQI (PM2.5, PM10, CO, NO₂)</li>
+</ul>
+
+<h4>🖥 Система (<code>/system</code>)</h4>
+<p>Управление сервером Orange Pi.</p>
+<ul>
+<li>Карточки: uptime, нагрузка, температура, RAM, eMMC, HDD</li>
+<li>Управление сервисами (Transmission, MiniDLNA, Samba, LAN Discovery)</li>
+<li>Резервное копирование (eMMC, БД)</li>
+<li>Проверка сети, зоны RU, провайдера</li>
+<li>Замена HDD / Клонирование на SD</li>
+<li>IPTV: управление плейлистами</li>
+<li>Управление питанием (перезагрузка, выключение)</li>
+</ul>
+
+<h4>📱 Приложения (<code>/apps</code>)</h4>
+<p>Встроенные утилиты и игры — подробнее в разделах 8 и 9.</p>
+
+<h4>ℹ️ О системе (<code>/about</code>)</h4>
+<p>Подробная информация о сервере: плата, процессор, память, накопители, сеть, USB, файловые системы, ПО, сервисы.</p>
+
+<h4>📖 Справка (<code>/help</code>)</h4>
+<p>Эта страница.</p>
+</div>
+
+<!-- 4. Погода и мониторинг окружающей среды -->
+<div class="help-section" id="weather">
+<h3>4. Погода и мониторинг <span class="help-badge green">Стандарт</span></h3>
+
+<h4>Погода и прогноз</h4>
+<ul>
+<li>Карточки с температурой, осадками, влажностью, давлением, ветром</li>
+<li>UV-индекс, видимость, «ощущается как», время восхода/заката (sunrise/sunset)</li>
+<li>Прогноз на 5 дней с иконками погоды</li>
+<li>Обновление каждые 30 минут</li>
+</ul>
+
+<h4>UV-индекс</h4>
+<ul>
+<li>Шкала 0–11+ с цветовыми зонами</li>
+<li>Рекомендации по защите от ультрафиолета</li>
+</ul>
+
+<h4>Радиационный фон</h4>
+<ul>
+<li>Единицы: мкЗв/ч</li>
+<li>Статусы: Normal / Warning / Danger</li>
+<li>Норма: 0.05–0.1 мкЗв/ч</li>
+</ul>
+
+<h4>Качество воздуха (AQI)</h4>
+<ul>
+<li>Шкала 0–500</li>
+<li>Параметры: PM2.5, PM10, CO, NO₂</li>
+<li>Рекомендации по здоровью</li>
+</ul>
+
+<h4>Исторические данные</h4>
+<ul>
+<li>Графики за 24 часа</li>
+<li>Сравнение влажности, температуры, давления</li>
+</ul>
+
+<h4>Пульс сервера</h4>
+<ul>
+<li>Latency (задержка ответа)</li>
+<li>CPU, RAM, Disk, Uptime</li>
+</ul>
+
+<h4>Технические детали</h4>
+<ul>
+<li>Кэширование API-ответов: 15 минут</li>
+<li>Rate limiting для предотвращения злоупотреблений</li>
+<li>Дата/время с часовым поясом Europe/Moscow</li>
+</ul>
+</div>
+
+<!-- 5. Сетевые функции -->
+<div class="help-section" id="network">
+<h3>5. Сетевые функции <span class="help-badge">Сеть</span></h3>
+
+<h4>Сканирование LAN</h4>
+<ul>
+<li><code>nmap -sn</code> — быстрое сканирование (обнаружение хостов)</li>
+<li><code>nmap -sV</code> — полное сканирование (определение сервисов и версий)</li>
+<li>ARP-таблица для построения топологии сети</li>
+</ul>
+
+<h4>Топология и устройства</h4>
+<ul>
+<li>Количество устройств: online / offline</li>
+<li>История событий (за 24 часа)</li>
+<li>Цветовая индикация статусов</li>
+</ul>
+
+<h4>Информация о дисках</h4>
+<ul>
+<li><code>lsblk</code> — список блочных устройств</li>
+<li><code>df</code> — использование дискового пространства</li>
+<li>S.M.A.R.T. — состояние здоровья накопителей</li>
+</ul>
+
+<h4>Мониторинг Wi-Fi сетей</h4>
+<ul>
+<li>Сканер Wi-Fi сетей (<code>iw</code>)</li>
+<li>Каналы, RSSI (уровень сигнала), шум</li>
+<li>Список доступных сетей с параметрами</li>
+</ul>
+</div>
+
+<!-- 6. Экономика -->
+<div class="help-section" id="economics">
+<h3>6. Экономика <span class="help-badge orange">Валюты</span></h3>
+
+<h4>Курсы валют</h4>
+<ul>
+<li>Фиатные: USD, EUR, GBP, CNY</li>
+<li>Драгоценные металлы: Gold, Silver, Platinum, Palladium</li>
+<li>Промышленные металлы: Copper, Aluminum, Nickel, Tin, Zinc, Lead (Yahoo Finance)</li>
+</ul>
+
+<h4>Динамика цен</h4>
+<ul>
+<li>Изменение за 24 часа (%)</li>
+<li>Изменение за неделю</li>
+<li>Изменение за месяц</li>
+</ul>
+
+<h4>История курсов</h4>
+<ul>
+<li>Графики изменения цен за выбранный период</li>
+<li>Экспорт данных в JSON/CSV</li>
+</ul>
+
+<h4>Цены на переработку</h4>
+<ul>
+<li>Пластик, стекло, бумага, металл</li>
+<li>Актуальные цены приёмных пунктов</li>
+</ul>
+</div>
+
+<!-- 7. Мультимедиа -->
+<div class="help-section" id="multimedia">
+<h3>7. Мультимедиа <span class="help-badge purple">Медиа</span></h3>
+
+<h4>IPTV</h4>
+<ul>
+<li>Загрузка m3u-плейлистов по URL</li>
+<li>Добавление, удаление, редактирование плейлистов</li>
+<li>Автоматическое обновление по расписанию</li>
+</ul>
+
+<h4>Веб-камеры</h4>
+<ul>
+<li>Поддержка RTSP и HTTP потоков</li>
+<li>Добавление и удаление камер</li>
+<li>Просмотр в реальном времени</li>
+</ul>
+
+<h4>Плеер видео/аудио</h4>
+<ul>
+<li>Встроенный HTML5-плеер</li>
+<li>Полноэкранный режим</li>
+<li>Поддержка видео и аудио форматов</li>
+</ul>
+
+<h4>Radio</h4>
+<ul>
+<li>Онлайн-радио станции</li>
+<li>Добавление своих станций</li>
+<li>Прослушивание прямо из браузера</li>
+</ul>
+
+<h4>Радиационный мониторинг</h4>
+<ul>
+<li>Данные МЧС России</li>
+<li>API radiationweather.com</li>
+<li>Карта уровня радиации</li>
+</ul>
+</div>
+
+<!-- 8. Приложения и утилиты -->
+<div class="help-section" id="apps">
+<h3>8. Приложения и утилиты <span class="help-badge green">Утилиты</span></h3>
+
+<h4>🧮 Калькулятор</h4>
+<p>Обычный + инженерный режимы. Поддержка тригонометрии, логарифмов, степеней.</p>
+
+<h4>⏱ Таймер</h4>
+<p>Обратный отсчёт с настраиваемым временем. Звуковое оповещение по окончании.</p>
+
+<h4>⏳ Секундомер</h4>
+<p>Точный секундомер с функцией фиксации кругов (laps).</p>
+
+<h4>📅 Календарь</h4>
+<p>Ежедневные задачи с хранением в localStorage. Создание, редактирование, удаление задач.</p>
+
+<h4>⏰ Будильник</h4>
+<p>Выбор времени, настройка повторения (одноразовый / ежедневный / по дням недели), мелодия.</p>
+
+<h4>🔗 Сетевые инструменты</h4>
+<ul>
+<li><strong>Ping</strong> — проверка доступности хоста</li>
+<li><strong>DNS</strong> — разрешение имён (lookup)</li>
+<li><strong>Порты</strong> — сканирование открытых TCP-портов</li>
+<li><strong>Traceroute</strong> — маршрут до хоста</li>
+</ul>
+
+<h4>💾 Диски</h4>
+<ul>
+<li><code>lsblk</code> — список блочных устройств</li>
+<li><code>df</code> — использование дисков</li>
+<li>S.M.A.R.T. — диагностика состояния дисков</li>
+</ul>
+
+<h4>📝 Заметки</h4>
+<p>Двухпанельный Markdown-редактор. Предпросмотр результата в реальном времени.</p>
+
+<h4>🔐 Пароли</h4>
+<ul>
+<li>Генератор безопасных паролей (настройка длины, символов)</li>
+<li>Зашифрованное хранилище паролей</li>
+<li>Копирование в буфер обмена</li>
+</ul>
+
+<h4>📁 Файловый менеджер</h4>
+<p>Двухпанельный файловый менеджер. Загрузка файлов на сервер, просмотр содержимого.</p>
+
+<h4>📶 Wi-Fi</h4>
+<ul>
+<li>Сканер доступных Wi-Fi сетей</li>
+<li>Информация о каналах, RSSI, уровне шума</li>
+<li>Подробные характеристики сети</li>
+</ul>
+
+<h4>📦 Загрузки</h4>
+<p>Менеджер загрузок на базе Transmission RPC. Добавление торрентов, управление загрузками.</p>
+
+<h4>💻 Терминал</h4>
+<p>Веб-терминал с доступом к командной строке сервера (только admin).</p>
+
+<h4>📺 DLNA</h4>
+<p>Обнаружение UPnP/DLNA-устройств в сети. Просмотр доступных медиа-серверов.</p>
+
+<h4>📶 Bluetooth</h4>
+<p>Менеджер Bluetooth: поиск устройств, подключение, управление сопряжением.</p>
+
+<h4>📺 UPnP Control Point</h4>
+<ul>
+<li>Обнаружение UPnP-рендереров и медиа-серверов в сети (SSDP)</li>
+<li>Управление воспроизведением: Play, Pause, Stop, Next, Prev</li>
+<li>Регулировка громкости, Mute</li>
+<li>Просмотр контента медиа-серверов (MiniDLNA и др.)</li>
+<li>Воспроизведение файлов с сервера на найденный рендерер</li>
+</ul>
+</div>
+
+<!-- 9. Игры -->
+<div class="help-section" id="games">
+<h3>9. Игры <span class="help-badge purple">Игры</span></h3>
+
+<h4>🐍 Змейка</h4>
+<p>Классическая игра «Змейка». Управление: WASD или стрелки клавиатуры.</p>
+
+<h4>🟦 Тетрис</h4>
+<p>Фигуры, уровни сложности, удержание (hold) фигуры. Нарастающая скорость.</p>
+
+<h4>🟩 2048</h4>
+<p>Объединение чисел на поле 4×4. Цель — собрать плитку 2048.</p>
+
+<h4>🟪 Арканоид</h4>
+<p>Разрушение блоков мячом с ракеткой. Управление мышью или клавиатурой.</p>
+</div>
+
+<!-- 10. Системные функции -->
+<div class="help-section" id="system-features">
+<h3>10. Системные функции <span class="help-badge orange">Система</span></h3>
+
+<h4>Аутентификация и авторизация</h4>
+<ul>
+<li>Три роли: admin, user, guest</li>
+<li>Role-based access control (управление доступом по ролям)</li>
+<li>Система пользователей: добавление, удаление, изменение роли и пароля</li>
+</ul>
+
+<h4>Настройки</h4>
+<ul>
+<li>IP сервера, сетевые интерфейсы, порт</li>
+<li>Параметры сканирования сети</li>
+<li>Настройки погоды (координаты, интервал обновления)</li>
+<li>API-ключи</li>
+</ul>
+
+<h4>Резервное копирование и восстановление</h4>
+<ul>
+<li>Бэкап eMMC (ежедневно в 04:00)</li>
+<li>Backup БД (ежечасный, хранение 7 дней)</li>
+<li>Восстановление из backup</li>
+<li>Импорт настроек (JSON)</li>
+</ul>
+
+<h4>Экспорт данных</h4>
+<ul>
+<li>Экспорт в JSON и CSV</li>
+<li>Экспорт истории курсов, событий, настроек</li>
+</ul>
+
+<h4>Rate Limiting</h4>
+<p>Ограничение количества запросов для защиты от злоупотреблений API.</p>
+</div>
+
+<!-- 11. API -->
+<div class="help-section" id="api">
+<h3>11. API (JSON)</h3>
+<table class="help-table">
+<tr><th>Эндпоинт</th><th>Метод</th><th>Описание</th></tr>
+<tr><td><code>/api/status</code></td><td>GET</td><td>Общий статус системы</td></tr>
+<tr><td><code>/api/weather-status</code></td><td>GET</td><td>Статус обновления погоды</td></tr>
+<tr><td><code>/api/currencies</code></td><td>GET</td><td>Курсы валют</td></tr>
+<tr><td><code>/api/monitoring/&lt;ip&gt;</code></td><td>GET</td><td>Метрики хоста</td></tr>
+<tr><td><code>/api/inventory/&lt;ip&gt;</code></td><td>GET</td><td>Данные инвентаризации</td></tr>
+<tr><td><code>/api/disk/check</code></td><td>GET</td><td>Проверка нового диска</td></tr>
+<tr><td><code>/api/disk/info</code></td><td>GET</td><td>Информация о диске</td></tr>
+<tr><td><code>/api/disk/prepare</code></td><td>POST</td><td>Подготовка диска</td></tr>
+<tr><td><code>/api/disk/transfer</code></td><td>POST</td><td>Копирование данных</td></tr>
+<tr><td><code>/api/disk/verify</code></td><td>POST</td><td>Проверка целостности</td></tr>
+<tr><td><code>/api/disk/poweroff</code></td><td>POST</td><td>Выключение питания</td></tr>
+<tr><td><code>/api/reboot</code></td><td>POST</td><td>Перезагрузка</td></tr>
+<tr><td><code>/api/sd-info</code></td><td>GET</td><td>Информация о SD-карте</td></tr>
+<tr><td><code>/api/clone/start</code></td><td>POST</td><td>Запуск клонирования eMMC→SD</td></tr>
+<tr><td><code>/api/clone/status</code></td><td>GET</td><td>Статус клонирования</td></tr>
+<tr><td><code>/api/service/&lt;name&gt;/&lt;action&gt;</code></td><td>POST</td><td>Управление сервисом (start/stop/restart)</td></tr>
+<tr><td><code>/api/network/check</code></td><td>GET</td><td>Проверка сети</td></tr>
+<tr><td><code>/api/network/check_host</code></td><td>POST</td><td>Проверка конкретного хоста</td></tr>
+<tr><td><code>/api/network/config</code></td><td>GET/POST</td><td>Конфигурация тестовых хостов</td></tr>
+<tr><td><code>/api/backup-status</code></td><td>GET</td><td>Статус резервного копирования</td></tr>
+</table>
+</div>
+
+<!-- 12. Администрирование -->
+<div class="help-section" id="admin">
+<h3>12. Администрирование</h3>
+
+<h4>Структура файлов</h4>
+<table class="help-table">
+<tr><th>Путь</th><th>Описание</th></tr>
+<tr><td><code>/opt/lan-discovery/app.py</code></td><td>Основной Flask-сервер</td></tr>
+<tr><td><code>/opt/lan-discovery/devices.db</code></td><td>SQLite база данных</td></tr>
+<tr><td><code>/opt/lan-discovery/modules/</code></td><td>Модули: currencies, monitor, inventory</td></tr>
+<tr><td><code>/opt/lan-discovery/network_check.py</code></td><td>Проверка сетевой связности</td></tr>
+<tr><td><code>/opt/lan-discovery/env_data.py</code></td><td>Данные окружающей среды</td></tr>
+<tr><td><code>/srv/backup-system/</code></td><td>Backup eMMC (emmc.img.zst)</td></tr>
+<tr><td><code>/srv/backup-db/</code></td><td>Backup БД (ежечасный, 7 дней)</td></tr>
+<tr><td><code>/srv/</code></td><td>Данные HDD (torrent, медиа)</td></tr>
+</table>
+
+<h4>Systemd-сервисы</h4>
+<table class="help-table">
+<tr><th>Сервис</th><th>Описание</th></tr>
+<tr><td><code>lan-discovery</code></td><td>Веб-панель (Flask, порт 8080)</td></tr>
+<tr><td><code>backup-db.timer</code></td><td>Ежечасный backup БД</td></tr>
+<tr><td><code>backup-emmc-restore.service</code></td><td>Восстановление eMMC</td></tr>
+<tr><td><code>weather-update.timer</code></td><td>Обновление погоды</td></tr>
+</table>
+
+<h4>Полезные команды</h4>
+<table class="help-table">
+<tr><th>Команда</th><th>Описание</th></tr>
+<tr><td><code>systemctl status lan-discovery</code></td><td>Статус веб-панели</td></tr>
+<tr><td><code>systemctl restart lan-discovery</code></td><td>Рестарт панели</td></tr>
+<tr><td><code>journalctl -u lan-discovery -f</code></td><td>Логи в реальном времени</td></tr>
+<tr><td><code>nmap -sn -PR 192.168.3.0/24</code></td><td>Ручное сканирование сети</td></tr>
+<tr><td><code>python3 -c "import py_compile; py_compile.compile('/opt/lan-discovery/app.py', doraise=True)"</code></td><td>Проверка синтаксиса Python</td></tr>
+<tr><td><code>lsblk</code></td><td>Список блочных устройств</td></tr>
+<tr><td><code>df -h</code></td><td>Использование дисков</td></tr>
+</table>
+
+<h4>Резервные копии</h4>
+<p>Все бэкапы хранятся на HDD (<code>/srv/backup-*</code>). Рекомендации:</p>
+<ul>
+<li>Перед любым изменением <code>app.py</code> — бэкап: <code>cp /opt/lan-discovery/app.py /opt/lan-discovery/app.py.backup-$(date +%Y%m%d-%H%M%S)</code></li>
+<li>Ежечасный backup БД с автоматическим удалением старше 7 дней</li>
+<li>Ежедневный backup eMMC в 04:00</li>
+</ul>
+</div>
+
+<!-- 13. Решение проблем -->
+<div class="help-section" id="troubleshoot">
+<h3>13. Решение проблем</h3>
+
+<h4>Панель не открывается</h4>
+<ul>
+<li>Проверьте статус: <code>systemctl status lan-discovery</code></li>
+<li>Посмотрите логи: <code>journalctl -u lan-discovery -n 50</code></li>
+<li>Проверьте порт: <code>ss -tlnp | grep 8080</code></li>
+<li>Перезапустите: <code>systemctl restart lan-discovery</code></li>
+</ul>
+
+<h4>Устройства не обнаруживаются</h4>
+<ul>
+<li>Убедитесь что устройства в одной подсети (192.168.3.0/24)</li>
+<li>Проверьте nmap: <code>nmap -sn -PR 192.168.3.0/24</code></li>
+<li>Убедитесь что ARP-сканирование не блокируется файрволом</li>
+</ul>
+
+<h4>Погода не обновляется</h4>
+<ul>
+<li>Проверьте статус: <code>systemctl status weather-update.timer</code></li>
+<li>Ручной запуск: <code>systemctl start weather-update.service</code></li>
+<li>Проверьте подключение: <code>curl "https://api.open-meteo.com/v1/forecast?latitude=57&longitude=41&current_weather=true"</code></li>
+</ul>
+
+<h4>Backup не создаётся</h4>
+<ul>
+<li>Проверьте таймер: <code>systemctl status backup-db.timer</code></li>
+<li>Проверьте место: <code>df -h /srv</code></li>
+<li>Ручной запуск: <code>/usr/local/sbin/backup-db.sh</code></li>
+</ul>
+
+<h4>Ошибка синтаксиса Python</h4>
+<ul>
+<li>Проверка: <code>python3 -c "import py_compile; py_compile.compile('/opt/lan-discovery/app.py', doraise=True)"</code></li>
+<li>Восстановление из бэкапа: <code>cp /opt/lan-discovery/app.py.backup-XXXXXX /opt/lan-discovery/app.py</code></li>
+</ul>
+
+<h4>Клонирование не запускается</h4>
+<ul>
+<li>Проверьте наличие SD-карты: <code>lsblk | grep mmcblk0</code></li>
+<li>Убедитесь что SD не смонтирована: <code>umount /dev/mmcblk0*</code></li>
+<li>Проверьте свободное место на eMMC</li>
+</ul>
+</div>
+
+<!-- 14. FAQ -->
+<div class="help-section" id="faq">
+<h3>14. FAQ</h3>
+
+<h4>Как добавить IPTV-плейлист?</h4>
+<p>На странице «Система» → блок «IPTV» → введите URL m3u-файла → нажмите «Добавить».</p>
+
+<h4>Как добавить веб-камеру?</h4>
+<p>На странице «Система» или в разделе «Мультимедиа» → введите URL потока (RTSP/HTTP) → нажмите «Добавить».</p>
+
+<h4>Как добавить онлайн-радио?</h4>
+<p>В разделе «Приложения» → Radio → введите URL потока и название станции → «Добавить».</p>
+
+<h4>Как пользоваться калькулятором?</h4>
+<p>Откройте вкладку «Приложения» → Калькулятор. Переключайтесь между обычным и инженерным режимами кнопкой.</p>
+
+<h4>Как работает генератор паролей?</h4>
+<p>Откройте «Приложения» → Пароли → настройте длину и типы символов → нажмите «Сгенерировать». Пароли хранятся в зашифрованном виде.</p>
+
+<h4>Как добавить тестовый адрес для проверки сети?</h4>
+<p>На странице «Система» → блок «Сеть» → нажмите «Изменить» рядом с нужным адресом.</p>
+
+<h4>Как сделать полный backup системы?</h4>
+<p>Backup eMMC создаётся автоматически ежедневно в 04:00. Для ручного создания используйте утилиту на странице «Система».</p>
+
+<h4>Как восстановить систему из backup?</h4>
+<p>Запишите backup на SD-карту, загрузитесь с неё, следуйте инструкциям <code>emmc-restore.service</code>.</p>
+
+<h4>Как подключиться к серверу по SSH?</h4>
+<p><code>ssh root@192.168.3.234</code> (пароль: 1234). Рекомендуется настроить SSH-ключи для безопасности.</p>
+
+<h4>Как перезагрузить сервер через веб-панель?</h4>
+<p>Страница «Система» → «Управление питанием» → «Перезагрузить». Подтвердите действие.</p>
+
+<h4>Как выключить сервер?</h4>
+<p>Страница «Система» → «Управление питанием» → «Выключить питание». После команды можно отключить кабель питания.</p>
+
+<h4>Где хранятся данные torrent-клиента?</h4>
+<p>На HDD: <code>/srv/</code> — загруженные файлы, конфигурация Transmission.</p>
+
+<h4>Как обновить панель?</h4>
+<p>Отредактируйте <code>/opt/lan-discovery/app.py</code>, затем: <code>systemctl restart lan-discovery</code>. Перед изменением обязательно сделайте бэкап!</p>
+
+<h4>Как играть в Змейку?</h4>
+<p>Откройте «Приложения» → Змейка. Управление: клавиши WASD или стрелки.</p>
+
+<h4>Как работает секундомер?</h4>
+<p>Откройте «Приложения» → Секундомер. Нажмите «Старт» для запуска, «Круг» для фиксации промежуточного времени, «Стоп» для остановки.</p>
+</div>
+
+</div>
+</div>
+{% endblock %}

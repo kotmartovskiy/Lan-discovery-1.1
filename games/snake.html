@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Snake</title>
+<style>
+:root{color-scheme:dark}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0f14;color:#e6edf3;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:8px;overflow:hidden;height:100vh}
+.top{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;margin-bottom:6px}
+.pill{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:4px 10px;font-size:12px}
+.pill b{font-weight:800}
+.btns{display:flex;gap:6px}
+.btns button,.ctrl button{background:rgba(255,255,255,.06);color:#e6edf3;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.btns button:hover,.ctrl button:hover{border-color:rgba(255,255,255,.3)}
+canvas{border-radius:10px;display:block;touch-action:none;max-width:100%;max-height:65vh}
+.ctrl{display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:center;margin-top:6px}
+.ctrl input[type=range]{width:120px;accent-color:#a9d1ff}
+.hint{opacity:.7;font-size:11px;margin-top:4px;text-align:center}
+.touch{display:none;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;width:240px}
+.touch button{padding:12px;font-size:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#e6edf3}
+.touch button:active{background:rgba(255,255,255,.15)}
+.touch .sp{visibility:hidden}
+@media(pointer:coarse){.touch{display:grid}.hint{display:none}}
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:10}
+.modal{width:min(420px,90vw);background:rgba(10,14,20,.95);border:1px solid rgba(150,190,240,.2);border-radius:14px;padding:16px;text-align:center}
+.modal h2{margin:0 0 8px;font-size:18px}
+.modal p{margin:4px 0;font-size:13px;opacity:.9}
+.modal .acts{display:flex;gap:8px;justify-content:center;margin-top:12px}
+.modal .acts button{padding:8px 20px;font-size:13px;font-weight:700;border:none;border-radius:8px;cursor:pointer;color:#fff}
+.modal .acts .primary{background:#2563eb}
+.modal .acts .secondary{background:#555}
+</style>
+</head>
+<body>
+<div class="top">
+<div class="pill">Счёт: <b id="score">0</b></div>
+<div class="pill">Рекорд: <b id="hiscore">0</b></div>
+<div class="pill">Уровень: <b id="level">1</b></div>
+</div>
+<div class="btns">
+<button id="btnPause">Пауза (P)</button>
+<button id="btnRestart">Заново (R)</button>
+</div>
+<canvas id="c" width="480" height="480"></canvas>
+<div class="ctrl">
+<span style="font-size:12px;opacity:.7">Скорость</span>
+<input id="speed" type="range" min="2" max="20" value="5"/>
+<button id="btnWalls">Стены: <b id="wallsLabel">ВКЛ</b></button>
+<button id="btnSound">Звук: <b id="sndLabel">ВКЛ</b></button>
+</div>
+<div class="touch">
+<button class="sp"></button><button id="tUp">▲</button><button class="sp"></button>
+<button id="tLeft">◀</button><button id="tPause">⏸</button><button id="tRight">▶</button>
+<button class="sp"></button><button id="tDown">▼</button><button class="sp"></button>
+</div>
+<div class="hint">Стрелки / WASD · P — пауза · R — заново</div>
+
+<div class="overlay" id="overlay">
+<div class="modal">
+<h2 id="ovTitle">Змейка</h2>
+<p id="ovLine1"></p>
+<p id="ovLine2"></p>
+<div class="acts">
+<button class="primary" id="ovPrimary">Старт</button>
+<button class="secondary" id="ovSecondary">Закрыть</button>
+</div>
+</div>
+</div>
+
+<script>
+(function(){
+var canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
+var scoreEl=document.getElementById("score"),hiEl=document.getElementById("hiscore"),levelEl=document.getElementById("level");
+var speedEl=document.getElementById("speed");
+var btnPause=document.getElementById("btnPause"),btnRestart=document.getElementById("btnRestart");
+var btnWalls=document.getElementById("btnWalls"),wallsLabel=document.getElementById("wallsLabel");
+var btnSound=document.getElementById("btnSound"),sndLabel=document.getElementById("sndLabel");
+var overlay=document.getElementById("overlay"),ovTitle=document.getElementById("ovTitle");
+var ovLine1=document.getElementById("ovLine1"),ovLine2=document.getElementById("ovLine2");
+var ovPrimary=document.getElementById("ovPrimary"),ovSecondary=document.getElementById("ovSecondary");
+
+var GRID=20,CELL=canvas.width/GRID;
+var cfg={wallsOn:true,soundOn:true,speed:5};
+function rRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+var snake,dir,nextDir,food,score,hi=0,alive,paused,started,level=1,foodsEaten=0;
+var tickMs=1000/cfg.speed,lastTick=0;
+
+function randInt(n){return Math.floor(Math.random()*n)}
+function key(p){return p.x+","+p.y}
+
+function beep(f,d,v){
+if(!cfg.soundOn)return;
+try{var a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();
+o.type="sine";o.frequency.value=f;g.gain.value=v||0.04;o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+(d||0.05))}catch(e){}
+}
+
+function setSpeed(v){cfg.speed=v;tickMs=1000/v;speedEl.value=v}
+
+function updateUI(){
+scoreEl.textContent=score;hiEl.textContent=hi;levelEl.textContent=level;
+wallsLabel.textContent=cfg.wallsOn?"ВКЛ":"ВЫКЛ";sndLabel.textContent=cfg.soundOn?"ВКЛ":"ВЫКЛ";
+btnPause.textContent=paused?"Продолжить (P)":"Пауза (P)";
+}
+
+function reset(){
+var m=Math.floor(GRID/2);
+snake=[{x:m,y:m},{x:m-1,y:m},{x:m-2,y:m}];
+dir={x:1,y:0};nextDir={x:1,y:0};
+score=0;alive=true;paused=false;started=true;level=1;foodsEaten=0;
+placeFood();updateUI();hideOverlay();beep(520);
+}
+
+function placeFood(){
+var occ={};snake.forEach(function(p){occ[key(p)]=1});
+var p;do{p={x:randInt(GRID),y:randInt(GRID)}}while(occ[key(p)]);
+food=p;
+}
+
+function setDir(dx,dy){if(dx===-dir.x&&dy===-dir.y)return;nextDir={x:dx,y:dy}}
+
+function die(r){alive=false;paused=false;updateUI();
+showOverlay("Игра окончена","Причина: "+r,"Счёт: "+score+" · Рекорд: "+hi,"Заново","Закрыть");
+beep(160,.09,.05);beep(110,.12,.04);
+}
+
+function step(){
+if(!alive||paused||!started)return;
+dir=nextDir;
+var h=snake[0],nx=h.x+dir.x,ny=h.y+dir.y;
+if(!cfg.wallsOn){if(nx<0)nx=GRID-1;if(nx>=GRID)nx=0;if(ny<0)ny=GRID-1;if(ny>=GRID)ny=0}
+else{if(nx<0||nx>=GRID||ny<0||ny>=GRID){die("Стена");return}}
+var nh={x:nx,y:ny},ate=nx===food.x&&ny===food.y;
+var occ={};
+for(var i=0;i<snake.length;i++){if(!ate&&i===snake.length-1)continue;occ[key(snake[i])]=1}
+if(occ[key(nh)]){die("В себя");return}
+snake.unshift(nh);
+if(ate){score++;foodsEaten++;beep(620,.045,.045);
+if(score>hi){hi=score}if(foodsEaten%7===0){level++;beep(740,.06,.05)}
+placeFood()}else{snake.pop()}
+updateUI();
+}
+
+function draw(){
+ctx.fillStyle="#070a0f";ctx.fillRect(0,0,canvas.width,canvas.height);
+ctx.strokeStyle="rgba(200,230,255,0.04)";ctx.lineWidth=1;
+for(var i=1;i<GRID;i++){ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,canvas.height);ctx.stroke();
+ctx.beginPath();ctx.moveTo(0,i*CELL);ctx.lineTo(canvas.width,i*CELL);ctx.stroke()}
+
+var t=performance.now()*0.004,pulse=.5+.5*Math.sin(t);
+ctx.save();ctx.globalAlpha=.5;ctx.fillStyle="rgba(255,100,180,0.2)";
+ctx.beginPath();ctx.arc((food.x+.5)*CELL,(food.y+.5)*CELL,CELL*(.45+.08*pulse),0,Math.PI*2);ctx.fill();
+ctx.restore();
+ctx.fillStyle="#ff6ac0";ctx.beginPath();ctx.arc((food.x+.5)*CELL,(food.y+.5)*CELL,CELL*.28,0,Math.PI*2);ctx.fill();
+
+for(var i=snake.length-1;i>=0;i--){
+var p=snake[i],isH=i===0,pad=isH?CELL*.12:CELL*.15,sz=CELL-2*pad,px=p.x*CELL+pad,py=p.y*CELL+pad,r=CELL*.24;
+ctx.fillStyle="rgba(0,0,0,0.2)";rRect(px+2,py+3,sz,sz,r);ctx.fill();
+ctx.fillStyle=isH?"#e8f3ff":"#cfe2ff";rRect(px,py,sz,sz,r);ctx.fill();
+ctx.strokeStyle="rgba(255,255,255,0.2)";ctx.lineWidth=1.5;ctx.stroke();
+if(isH){ctx.fillStyle="#0b0f14";
+var ex1,ey1,ex2,ey2;
+if(dir.x===1){ex1=px+sz*.65;ey1=py+sz*.3;ex2=px+sz*.65;ey2=py+sz*.7}
+else if(dir.x===-1){ex1=px+sz*.35;ey1=py+sz*.3;ex2=px+sz*.35;ey2=py+sz*.7}
+else if(dir.y===1){ex1=px+sz*.3;ey1=py+sz*.65;ex2=px+sz*.7;ey2=py+sz*.65}
+else{ex1=px+sz*.3;ey1=py+sz*.35;ex2=px+sz*.7;ey2=py+sz*.35}
+ctx.beginPath();ctx.arc(ex1,ey1,2.5,0,Math.PI*2);ctx.fill();
+ctx.beginPath();ctx.arc(ex2,ey2,2.5,0,Math.PI*2);ctx.fill();
+}}
+
+if(!started||(paused&&alive)){
+ctx.save();ctx.globalAlpha=.7;ctx.fillStyle="rgba(0,0,0,0.55)";
+ctx.fillRect(0,canvas.height/2-25,canvas.width,50);
+ctx.globalAlpha=1;ctx.textAlign="center";ctx.textBaseline="middle";
+ctx.font="bold 16px system-ui";ctx.fillStyle="#e6edf3";
+ctx.fillText(!started?"Нажмите Старт":"ПАУЗА",canvas.width/2,canvas.height/2);
+ctx.restore()}
+}
+
+function loop(t){
+if(!lastTick)lastTick=t;
+var dt=t-lastTick;
+if(dt>=tickMs){var s=Math.min(3,Math.floor(dt/tickMs));for(var i=0;i<s;i++)step();lastTick+=s*tickMs}
+draw();requestAnimationFrame(loop);
+}
+
+function showOverlay(t,l1,l2,p,s){ovTitle.textContent=t;ovLine1.textContent=l1||"";ovLine2.textContent=l2||"";
+ovPrimary.textContent=p||"OK";ovSecondary.textContent=s||"Закрыть";overlay.style.display="flex"}
+function hideOverlay(){overlay.style.display="none"}
+
+function togglePause(){if(!started){started=true;hideOverlay();beep(520);return}if(!alive)return;paused=!paused;updateUI();beep(paused?320:520)}
+
+window.addEventListener("keydown",function(e){
+var k=e.key.toLowerCase();
+if(k==="arrowup"||k==="w")setDir(0,-1);
+else if(k==="arrowdown"||k==="s")setDir(0,1);
+else if(k==="arrowleft"||k==="a")setDir(-1,0);
+else if(k==="arrowright"||k==="d")setDir(1,0);
+else if(k==="p"||e.code==="Space"){e.preventDefault();togglePause()}
+else if(k==="r")reset();
+});
+
+function bind(id,fn){document.getElementById(id).addEventListener("click",fn)}
+bind("tUp",function(){setDir(0,-1)});bind("tDown",function(){setDir(0,1)});
+bind("tLeft",function(){setDir(-1,0)});bind("tRight",function(){setDir(1,0)});
+bind("tPause",function(){togglePause()});
+
+btnPause.addEventListener("click",togglePause);
+btnRestart.addEventListener("click",reset);
+btnWalls.addEventListener("click",function(){cfg.wallsOn=!cfg.wallsOn;updateUI();beep(420)});
+btnSound.addEventListener("click",function(){cfg.soundOn=!cfg.soundOn;updateUI();if(cfg.soundOn)beep(600,.06,.05)});
+speedEl.addEventListener("input",function(){setSpeed(+this.value)});
+
+ovPrimary.addEventListener("click",function(){if(!started){started=true;hideOverlay();beep(520);return}if(!alive)reset();else hideOverlay()});
+ovSecondary.addEventListener("click",hideOverlay);
+
+var m=Math.floor(GRID/2);
+snake=[{x:m,y:m},{x:m-1,y:m},{x:m-2,y:m}];dir={x:1,y:0};nextDir={x:1,y:0};
+alive=true;paused=false;started=false;score=0;level=1;foodsEaten=0;
+placeFood();updateUI();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
