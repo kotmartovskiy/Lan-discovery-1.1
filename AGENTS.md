@@ -32,16 +32,23 @@
 5. Если правки вносились на сервер (`/opt/lan-discovery/*`) — сначала подтянуть их в локальную копию (SFTP read → правка → commit), чтобы репозиторий соответствовал проду.
 
 ## Рабочее окружение
-- Orange Pi: IP `192.168.3.234` (LAN), SSH root/1234
+- **Web panel: `http://192.168.3.243:8080`** (X96 Max / Armbian, hostname `armbian`)
+  — lan-discovery **переехал сюда** 28.09.2026 (venv: `/opt/lan-discovery/venv`,
+  systemd `lan-discovery` enabled, данные `devices.db` перенесены)
+- X96 Max: IP `192.168.3.243`, SSH root/1234 (hostkey `SHA256:TpeCxMP+...`)
+- Orange Pi: `192.168.3.234` (LAN) **не отвечает** (кабель/интерфейс отвал),
+  доступен через WiFi AP `192.168.3.235` (hostkey `SHA256:fwnWkNuM+...`);
+  сервис `lan-discovery` на OP ещё активен — при необходимости остановить
+  (`systemctl disable --now lan-discovery`), чтобы не сканировали сеть дважды
 - Thinkpad T480: IP `192.168.3.236` (WiFi) / `192.168.3.239` (LAN)
-- Web panel: `http://192.168.3.234:8080`
-- Flask app: `/opt/lan-discovery/app.py`
+- Flask app: `/opt/lan-discovery/app.py` (на боксе — внутри venv)
 - Systemd service: `lan-discovery`
 
 ## Процесс редактирования app.py
 1. SFTP read → Python string replace → SFTP write → syntax check → `systemctl restart lan-discovery`
 2. Синтакс-проверка: `python3 -c "import py_compile; py_compile.compile('/opt/lan-discovery/app.py', doraise=True)"`
 3. Рестарт: `systemctl restart lan-discovery`
+4. venv-пакеты: `/opt/lan-discovery/venv/bin/pip install -r requirements.txt`
 
 ## Сетевые устройства
 - Known web ports: `{"192.168.3.234": 8080, "192.168.3.235": 8080, "192.168.3.51": 8080}`
