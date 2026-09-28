@@ -74,12 +74,12 @@
             {{ 'ONLINE' if host.netdata else 'OFFLINE' }}
         </span>
         {% if host.cpu_percent is not none %}
-        <span style="color:#{{ '65d46e' if host.cpu_percent < 60 else ('ffb84d' if host.cpu_percent < 80 else 'ff6666') }}">
+        <span style="color:#{{ '65d46e' if (host.cpu_percent or 0) < 60 else ('ffb84d' if (host.cpu_percent or 0) < 80 else 'ff6666') }}">
             CPU {{ host.cpu_percent }}%
         </span>
         {% endif %}
         {% if host.ram_percent is not none %}
-        <span style="color:#{{ '65d46e' if host.ram_percent < 60 else ('ffb84d' if host.ram_percent < 80 else 'ff6666') }}">
+        <span style="color:#{{ '65d46e' if (host.ram_percent or 0) < 60 else ('ffb84d' if (host.ram_percent or 0) < 80 else 'ff6666') }}">
             RAM {{ host.ram_percent }}%
         </span>
         {% endif %}
@@ -127,7 +127,7 @@
     <div class="metric-grid">
         <div class="metric-card">
             <div class="metric-label">CPU загрузка</div>
-            <div class="metric-value" style="color:#{{ '65d46e' if host.cpu_percent < 60 else ('ffb84d' if host.cpu_percent < 80 else 'ff6666') }}">
+            <div class="metric-value" style="color:#{{ '65d46e' if (host.cpu_percent or 0) < 60 else ('ffb84d' if (host.cpu_percent or 0) < 80 else 'ff6666') }}">
                 {{ host.cpu_percent or 0 }}%
             </div>
             <div class="metric-bar"><div class="metric-bar-fill {{ 'bar-ok' if (host.cpu_percent or 0) < 60 else ('bar-warn' if (host.cpu_percent or 0) < 80 else 'bar-crit') }}" style="width:{{ host.cpu_percent or 0 }}%"></div></div>
@@ -135,7 +135,7 @@
 
         <div class="metric-card">
             <div class="metric-label">RAM использование</div>
-            <div class="metric-value" style="color:#{{ '65d46e' if host.ram_percent < 60 else ('ffb84d' if host.ram_percent < 80 else 'ff6666') }}">
+            <div class="metric-value" style="color:#{{ '65d46e' if (host.ram_percent or 0) < 60 else ('ffb84d' if (host.ram_percent or 0) < 80 else 'ff6666') }}">
                 {{ host.ram_percent or 0 }}%
             </div>
             <div class="metric-bar"><div class="metric-bar-fill {{ 'bar-ok' if (host.ram_percent or 0) < 60 else ('bar-warn' if (host.ram_percent or 0) < 80 else 'bar-crit') }}" style="width:{{ host.ram_percent or 0 }}%"></div></div>

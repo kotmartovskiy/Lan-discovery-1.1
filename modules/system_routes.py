@@ -1278,8 +1278,12 @@ def register_routes(app):
 
         for interface, rx_key, tx_key in (
             ("end0", "lan_rx_bytes", "lan_tx_bytes"),
-            ("wlan1", "wifi_rx_bytes", "wifi_tx_bytes")
+            ("eth0", "lan_rx_bytes", "lan_tx_bytes"),
+            ("wlan1", "wifi_rx_bytes", "wifi_tx_bytes"),
+            ("wlan0", "wifi_rx_bytes", "wifi_tx_bytes")
         ):
+            if result.get(rx_key) is not None:
+                continue
             try:
                 with open(
                     f"/sys/class/net/{interface}/statistics/rx_bytes",
