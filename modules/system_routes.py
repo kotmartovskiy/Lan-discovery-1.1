@@ -837,6 +837,41 @@ def service_last_log(service, success_text):
         return None
 
 
+def emmc_backup_guard():
+    """Политика: бэкап eMMC выполняется только при загрузке с eMMC И подключённом HDD.
+
+    Загрузка с SD обычно означает проблемы с eMMC или тестовый запуск —
+    в этом случае eMMC бэкапить нельзя. Без HDD копию eMMC сохранять некуда.
+    """
+    root_dev = ""
+    try:
+        with open("/proc/mounts", "r", encoding="utf-8", errors="ignore") as fh:
+            for line in fh:
+                parts = line.split()
+                if len(parts) >= 2 and parts[1] == "/":
+                    root_dev = parts[0]
+                    break
+    except Exception:
+        pass
+
+    m = re.match(r"^(mmcblk\d+)", os.path.basename(root_dev))
+    if m:
+        try:
+            with open("/sys/block/%s/device/type" % m.group(1), "r") as fh:
+                if fh.read().strip() == "SD":
+                    return False, "система загружена с SD-карты (проблемы с eMMC или тестовый запуск)"
+        except Exception:
+            pass
+
+    try:
+        if any(name.startswith("sd") for name in os.listdir("/sys/block")):
+            return True, ""
+    except Exception:
+        pass
+
+    return False, "HDD не подключен — копию eMMC некуда сохранять"
+
+
 def backup_file_status(path):
     try:
         p = Path(path)
@@ -1709,12 +1744,16 @@ def register_routes(app):
 
         network_hosts = load_network_config().get("hosts", _cfg("network", "default_hosts", ["google.com", "ya.ru", "192.168.3.1"]))
 
+        emmc_backup_allowed, emmc_backup_reason = emmc_backup_guard()
+
         return render_template("system.html",
 
             boot_device=boot_device,
             hdd_size=hdd_size,
             sd_size=sd_size,
             network_hosts=network_hosts,
+            emmc_backup_allowed=emmc_backup_allowed,
+            emmc_backup_reason=emmc_backup_reason,
             backup_running=(backup_state == "active"),
             backup_status=(
                 "running"
@@ -1752,12 +1791,15 @@ def register_routes(app):
     @admin_required
     @login_required
     def system_backup():
+        allowed, reason = emmc_backup_guard()
+        if not allowed:
+            return jsonify({"ok": False, "reason": reason}), 409
 
         subprocess.Popen(
             ["systemctl", "start", "backup-emmc.service"]
         )
 
-        return redirect(url_for("system"))
+        return jsonify({"ok": True})
 
     @app.route("/system/backup-test", methods=["POST"])
     @admin_required
@@ -1843,9 +1885,13 @@ def register_routes(app):
     @login_required
     def api_backup_status():
 
+        emmc_allowed, emmc_reason = emmc_backup_guard()
+
         return jsonify({
             "emmc_running": service_state("backup-emmc.service") in ("active", "activating"),
             "emmc_ok": backup_file_status("/srv/backup-system/emmc.img.zst") == "ok",
+            "emmc_allowed": emmc_allowed,
+            "emmc_reason": emmc_reason,
             "db_running": db_backup_running(),
             "db_ok": db_backup_last() is not None,
             "db_restore_running": db_restore_running(),

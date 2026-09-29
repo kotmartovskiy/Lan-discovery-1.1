@@ -931,8 +931,19 @@ function startBackup() {
     if (bar) bar.style.width = "30%";
     if (txt) txt.textContent = "Создание backup eMMC...";
     
-    fetch("/system/backup", {method: "POST"})
-        .then(function() {
+    fetch("/system/backup", {
+        method: "POST",
+        headers: {"X-CSRFToken": (document.querySelector('meta[name="csrf-token"]') || {}).content || ""}
+    })
+        .then(function(r) { return r.json().catch(function() { return {ok: true}; }); })
+        .then(function(d) {
+            if (d && d.ok === false) {
+                if (txt) txt.textContent = d.reason || "Бэкап eMMC недоступен";
+                if (bar) bar.style.width = "0%";
+                if (btn) { btn.disabled = false; btn.textContent = "Создать backup сейчас"; }
+                setTimeout(function() { if (prog) prog.style.display = "none"; }, 6000);
+                return;
+            }
             pollBackupProgress();
         })
         .catch(function() {

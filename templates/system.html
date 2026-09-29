@@ -138,7 +138,9 @@
 
 <div class="info-row">
 <span class="info-label">Статус:</span>
-{% if backup_running %}
+{% if not emmc_backup_allowed %}
+<span class="status-error">● НЕДОСТУПЕН</span>
+{% elif backup_running %}
 <span class="status-running">● ВЫПОЛНЯЕТСЯ</span>
 {% elif backup_status == 'ok' %}
 <span class="status-ok">● OK</span>
@@ -146,6 +148,12 @@
 <span class="status-error">● ОШИБКА</span>
 {% endif %}
 </div>
+
+{% if not emmc_backup_allowed %}
+<div class="info-row">
+<span style="color:#e57373;">Бэкап eMMC отключён: {{ emmc_backup_reason }}</span>
+</div>
+{% endif %}
 
 <div class="info-row">
 <span class="info-label">Проверка backup:</span>
