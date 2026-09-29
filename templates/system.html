@@ -7,7 +7,7 @@
 
 <div class="card">
 
-<h2>🖥 Orange Pi</h2>
+<h2>🖥 {{ board_title }}</h2>
 
 <div class="info-row">
 <span class="info-label">Загрузка с:</span>
@@ -463,7 +463,7 @@
 <h2>⚡ Управление питанием</h2>
 
 <div class="info-row">
-<button type="button" onclick="if(confirm('Перезагрузить Orange Pi?')){fetch('/api/reboot',{method:'POST'}).then(()=>alert('Перезагрузка...'))}">
+<button type="button" onclick="if(confirm('Перезагрузить {{ board_title }}?')){fetch('/api/reboot',{method:'POST'}).then(()=>alert('Перезагрузка...'))}">
 Перезагрузить
 </button>
 <button type="button" onclick="powerOff()" style="background:#e74c3c;">

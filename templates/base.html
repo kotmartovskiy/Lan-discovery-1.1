@@ -1148,7 +1148,7 @@ function pollDbRestoreProgress() {
 }
 
 function diskPowerOff() {
-    if (!confirm("Выключить питание Orange Pi?")) return;
+    if (!confirm("Выключить питание {{ board_title }}?")) return;
 
     fetch("/api/disk/poweroff", {method: "POST"})
         .then(r => r.json())
@@ -1937,7 +1937,7 @@ async function updateOrangePiStatus() {
     } catch (error) {
 
         console.error(
-            "Orange Pi status:",
+            "{{ board_title }} status:",
             error
         );
     }

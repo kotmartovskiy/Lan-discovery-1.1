@@ -223,6 +223,20 @@ def playlist_info(item):
         }
 
 
+def board_title():
+    """Короткое имя платы для заголовков (напр. 'X96 Max')."""
+    m = (_read_file("/proc/device-tree/model") or "").replace("\x00", "").strip()
+    if not m:
+        return socket.gethostname()
+    if "," in m:
+        m = m.rsplit(",", 1)[-1].strip()
+    junk = {"ltd", "inc", "co", "llc", "gmbh", "sa", "ag", "corp", "corporation", "company", "limited"}
+    words = m.split()
+    while len(words) > 1 and words[0].lower().rstrip(".") in junk:
+        words = words[1:]
+    return " ".join(words) or m
+
+
 def about_data():
     now = time.time()
     if _about_cache["data"] is not None and now - _about_cache["ts"] < 60:
@@ -244,11 +258,11 @@ def about_data():
         "services": [],
     }
 
-    model = _read_file("/proc/device-tree/model")
+    model = (_read_file("/proc/device-tree/model") or "").replace("\x00", "").strip()
 
     data["board"] = {
         "model": model or "Unknown",
-        "device_tree": _read_file("/proc/device-tree/compatible"),
+        "device_tree": (_read_file("/proc/device-tree/compatible") or "").replace("\x00", " ").strip(),
     }
 
     os_release = {}
@@ -1141,6 +1155,10 @@ def _update_clone_state(**kwargs):
 def register_routes(app):
     from modules.auth import login_required, admin_required
 
+    @app.context_processor
+    def _inject_board_title():
+        return {"board_title": board_title()}
+
     def page_data():
         now = time.time()
         if _page_data_cache["data"] is not None and now - _page_data_cache["ts"] < 10:
@@ -1531,12 +1549,13 @@ def register_routes(app):
             pass
 
         try:
-            st = os.statvfs("/srv")
-            srv_pct = round((1 - st.f_bavail / st.f_blocks) * 100, 1) if st.f_blocks else 0
-            if srv_pct >= 95:
-                warnings.append({"level": "critical", "text": "HDD (/srv) заполнен на %.1f%%" % srv_pct, "icon": "💿"})
-            elif srv_pct >= 90:
-                warnings.append({"level": "warning", "text": "HDD (/srv): %.1f%%" % srv_pct, "icon": "💿"})
+            if os.stat("/srv").st_dev != os.stat("/").st_dev:
+                st = os.statvfs("/srv")
+                srv_pct = round((1 - st.f_bavail / st.f_blocks) * 100, 1) if st.f_blocks else 0
+                if srv_pct >= 95:
+                    warnings.append({"level": "critical", "text": "HDD (/srv) заполнен на %.1f%%" % srv_pct, "icon": "💿"})
+                elif srv_pct >= 90:
+                    warnings.append({"level": "warning", "text": "HDD (/srv): %.1f%%" % srv_pct, "icon": "💿"})
         except Exception:
             pass
 
@@ -1566,37 +1585,44 @@ def register_routes(app):
         except Exception:
             pass
 
+        hdd_disks = []
         try:
-            r = subprocess.run(
-                ["smartctl", "-H", "/dev/sda"],
-                capture_output=True, text=True, timeout=10
-            )
-            smart_out = r.stdout + r.stderr
-            if "FAILED" in smart_out.upper() or "PASSED" not in smart_out.upper():
-                warnings.append({"level": "critical", "text": "SMART: диск /dev/sda требует проверки", "icon": "🔧"})
+            hdd_disks = sorted(n for n in os.listdir("/sys/block") if re.match(r"^sd[a-z]$", n))
         except Exception:
             pass
 
-        try:
-            r = subprocess.run(
-                ["smartctl", "-A", "/dev/sda"],
-                capture_output=True, text=True, timeout=10
-            )
-            for line in r.stdout.splitlines():
-                if "Temperature" in line and "Celsius" in line:
-                    parts = line.split()
-                    raw_val = parts[-1] if parts else ""
-                    try:
-                        hdd_temp = int(raw_val.split("(")[0])
-                        if hdd_temp >= 55:
-                            warnings.append({"level": "critical", "text": "HDD перегрев: %d°C" % hdd_temp, "icon": "🔥"})
-                        elif hdd_temp >= 45:
-                            warnings.append({"level": "warning", "text": "HDD нагрев: %d°C" % hdd_temp, "icon": "⚠️"})
-                    except ValueError:
-                        pass
-                    break
-        except Exception:
-            pass
+        for _disk in hdd_disks:
+            try:
+                r = subprocess.run(
+                    ["smartctl", "-H", "/dev/" + _disk],
+                    capture_output=True, text=True, timeout=10
+                )
+                smart_out = r.stdout + r.stderr
+                if "FAILED" in smart_out.upper() or "PASSED" not in smart_out.upper():
+                    warnings.append({"level": "critical", "text": "SMART: диск /dev/%s требует проверки" % _disk, "icon": "🔧"})
+            except Exception:
+                pass
+
+            try:
+                r = subprocess.run(
+                    ["smartctl", "-A", "/dev/" + _disk],
+                    capture_output=True, text=True, timeout=10
+                )
+                for line in r.stdout.splitlines():
+                    if "Temperature" in line and "Celsius" in line:
+                        parts = line.split()
+                        raw_val = parts[-1] if parts else ""
+                        try:
+                            hdd_temp = int(raw_val.split("(")[0])
+                            if hdd_temp >= 55:
+                                warnings.append({"level": "critical", "text": "HDD перегрев: %d°C" % hdd_temp, "icon": "🔥"})
+                            elif hdd_temp >= 45:
+                                warnings.append({"level": "warning", "text": "HDD нагрев: %d°C" % hdd_temp, "icon": "⚠️"})
+                        except ValueError:
+                            pass
+                        break
+            except Exception:
+                pass
 
         result = {
             "ok": len(warnings) == 0,
