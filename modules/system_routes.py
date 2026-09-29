@@ -837,31 +837,84 @@ def service_last_log(service, success_text):
         return None
 
 
+def _root_mount_source():
+    try:
+        with open("/proc/mounts", "r", encoding="utf-8", errors="ignore") as fh:
+            for line in fh:
+                p = line.split()
+                if len(p) >= 2 and p[1] == "/":
+                    return p[0]
+    except Exception:
+        pass
+    return ""
+
+
+def _block_kind(disk_name):
+    """Тип блочного диска: SD / MMC (eMMC) / HDD / None."""
+    if re.match(r"^mmcblk\d+$", disk_name):
+        try:
+            with open("/sys/block/%s/device/type" % disk_name, "r") as fh:
+                t = fh.read().strip()
+            return t if t in ("SD", "MMC") else None
+        except Exception:
+            return None
+    if re.match(r"^sd[a-z]$", disk_name):
+        return "HDD"
+    return None
+
+
+def find_typed_block(kind):
+    """Первый блочный девайс типа kind (SD/MMC) — не зависит от номера mmcblk0/1/2."""
+    try:
+        for name in sorted(os.listdir("/sys/block")):
+            if re.match(r"^mmcblk\d+$", name) and _block_kind(name) == kind:
+                return name
+    except Exception:
+        pass
+    return None
+
+
+def root_on_sd():
+    m = re.match(r"(mmcblk\d+)", os.path.basename(_root_mount_source()))
+    return bool(m) and _block_kind(m.group(1)) == "SD"
+
+
+def fs_disk(path):
+    """Носитель точки монтирования → (dev, label, size)."""
+    src = None
+    try:
+        with open("/proc/mounts", "r", encoding="utf-8", errors="ignore") as fh:
+            for line in fh:
+                p = line.split()
+                if len(p) >= 2 and p[1] == path:
+                    src = p[0]
+    except Exception:
+        pass
+    if src is None and path != "/":
+        return fs_disk("/")
+    if not src:
+        return None, "", None
+    m = re.match(r"^(mmcblk\d+|sd[a-z])", os.path.basename(src))
+    if not m:
+        return None, "", None
+    disk = m.group(1)
+    label = {"SD": "SD-карта", "MMC": "eMMC", "HDD": "HDD"}.get(_block_kind(disk), "")
+    size = None
+    out = _cmd(["lsblk", "-dno", "SIZE", "/dev/" + disk], timeout=5)
+    lines = out.strip().splitlines()
+    if lines and lines[-1].strip():
+        size = lines[-1].strip()
+    return "/dev/" + disk, label, size
+
+
 def emmc_backup_guard():
     """Политика: бэкап eMMC выполняется только при загрузке с eMMC И подключённом HDD.
 
     Загрузка с SD обычно означает проблемы с eMMC или тестовый запуск —
     в этом случае eMMC бэкапить нельзя. Без HDD копию eMMC сохранять некуда.
     """
-    root_dev = ""
-    try:
-        with open("/proc/mounts", "r", encoding="utf-8", errors="ignore") as fh:
-            for line in fh:
-                parts = line.split()
-                if len(parts) >= 2 and parts[1] == "/":
-                    root_dev = parts[0]
-                    break
-    except Exception:
-        pass
-
-    m = re.match(r"^(mmcblk\d+)", os.path.basename(root_dev))
-    if m:
-        try:
-            with open("/sys/block/%s/device/type" % m.group(1), "r") as fh:
-                if fh.read().strip() == "SD":
-                    return False, "система загружена с SD-карты (проблемы с eMMC или тестовый запуск)"
-        except Exception:
-            pass
+    if root_on_sd():
+        return False, "система загружена с SD-карты (проблемы с eMMC или тестовый запуск)"
 
     try:
         if any(name.startswith("sd") for name in os.listdir("/sys/block")):
@@ -870,6 +923,17 @@ def emmc_backup_guard():
         pass
 
     return False, "HDD не подключен — копию eMMC некуда сохранять"
+
+
+def clone_guard():
+    """Клонирование eMMC→SD: нельзя при загрузке с SD — перезапишет работающую систему."""
+    if root_on_sd():
+        return False, "недоступно при загрузке с SD-карты"
+    if not find_typed_block("SD"):
+        return False, "SD-карта не обнаружена"
+    if not find_typed_block("MMC"):
+        return False, "eMMC не обнаружена"
+    return True, ""
 
 
 def backup_file_status(path):
@@ -1002,7 +1066,7 @@ def _clone_dd_alive():
                     cmd = f.read().replace(b"\0", b" ").decode("utf-8", "replace")
             except Exception:
                 continue
-            if cmd.startswith("dd ") and "of=/dev/mmcblk0" in cmd:
+            if cmd.startswith("dd ") and "of=/dev/mmcblk" in cmd:
                 return True
     except Exception:
         return True
@@ -1619,11 +1683,13 @@ def register_routes(app):
                     m = re.search(r'/dev/(\S+)', root_dev)
                     if m:
                         dev = m.group(1)
-                        if dev.startswith("mmcblk2"):
-                            boot_device = "eMMC (/dev/" + dev + ")"
-                        elif dev.startswith("mmcblk0"):
+                        bm = re.match(r"^(mmcblk\d+|sd[a-z])", dev)
+                        kind = _block_kind(bm.group(1)) if bm else None
+                        if kind == "SD":
                             boot_device = "SD-карта (/dev/" + dev + ")"
-                        elif dev.startswith("sda"):
+                        elif kind == "MMC":
+                            boot_device = "eMMC (/dev/" + dev + ")"
+                        elif kind == "HDD":
                             boot_device = "HDD (/dev/" + dev + ")"
                         else:
                             boot_device = "/dev/" + dev
@@ -1746,6 +1812,9 @@ def register_routes(app):
 
         emmc_backup_allowed, emmc_backup_reason = emmc_backup_guard()
 
+        current_disk, current_disk_label, current_disk_size = fs_disk("/srv")
+        clone_allowed, clone_reason = clone_guard()
+
         return render_template("system.html",
 
             boot_device=boot_device,
@@ -1754,6 +1823,11 @@ def register_routes(app):
             network_hosts=network_hosts,
             emmc_backup_allowed=emmc_backup_allowed,
             emmc_backup_reason=emmc_backup_reason,
+            current_disk=current_disk,
+            current_disk_label=current_disk_label,
+            current_disk_size=current_disk_size,
+            clone_allowed=clone_allowed,
+            clone_reason=clone_reason,
             backup_running=(backup_state == "active"),
             backup_status=(
                 "running"
@@ -2011,17 +2085,26 @@ def register_routes(app):
         state = _load_clone_state()
         if state.get("running"):
             return jsonify({"ok": True, "running": True})
+
+        allowed, reason = clone_guard()
+        if not allowed:
+            return jsonify({"ok": False, "error": reason}), 409
+
         if not _check_rate("clone", 3600):
             return jsonify({"error": "too fast, wait 1 hour"}), 429
-        sd_dev = "/dev/mmcblk0"
-        if not os.path.exists(sd_dev):
+        sd_name = find_typed_block("SD")
+        emmc_name = find_typed_block("MMC")
+        if not sd_name or not os.path.exists("/dev/" + sd_name):
             return jsonify({"error": "SD карта не обнаружена"})
+        if not emmc_name or not os.path.exists("/dev/" + emmc_name):
+            return jsonify({"error": "eMMC не обнаружена"})
+        sd_dev = "/dev/" + sd_name
         _update_clone_state(running=True, ok=False, error=None, percent=0, started=time.time(), text="Подготовка...")
         def do_clone():
             try:
                 _cmd(["sync"], timeout=10)
                 _update_clone_state(percent=5, text="Копирование eMMC...")
-                cmd = ["dd", "if=/dev/mmcblk2", "of=" + sd_dev, "bs=4M", "status=progress"]
+                cmd = ["dd", "if=/dev/" + emmc_name, "of=" + sd_dev, "bs=4M", "status=progress"]
                 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 watcher = threading.Thread(
                     target=_dd_progress_watcher,
@@ -2046,7 +2129,8 @@ def register_routes(app):
     @login_required
     def api_sd_info():
         result = {"found": False, "mountpoint": None, "used": None, "total": None}
-        for dev in ("/dev/mmcblk0",):
+        sd_name = find_typed_block("SD")
+        for dev in (["/dev/" + sd_name] if sd_name else []):
             if not os.path.exists(dev):
                 continue
             result["found"] = True
