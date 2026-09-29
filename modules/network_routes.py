@@ -257,14 +257,14 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
     @login_required
     def api_bluetooth_status():
         try:
-            r = subprocess.run(
-                ["hciconfig"],
-                capture_output=True, text=True, timeout=5
-            )
-            if "No such device" in r.stdout or not r.stdout.strip():
+            try:
+                adapters = os.listdir("/sys/class/bluetooth")
+            except Exception:
+                adapters = []
+            if not adapters:
                 return {"ok": True, "adapter": None, "name": "Нет адаптера", "mac": "", "powered": False, "discovering": False, "error": "Bluetooth adapter not found"}
             out = _bt_cmd("show")
-            info = {"adapter": "hci0", "name": "", "mac": "", "powered": False, "discovering": False, "discoverable": False}
+            info = {"adapter": adapters[0], "name": "", "mac": "", "powered": False, "discovering": False, "discoverable": False}
             for line in out.splitlines():
                 line = line.strip()
                 if line.startswith("Name:"):

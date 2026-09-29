@@ -6,5 +6,5 @@
   "help": false,
   "prefixes": ["/apps/bluetooth", "/api/bluetooth"],
   "app": {"title": "Bluetooth", "icon": "📶", "category": "Система и сеть", "order": 60},
-  "deps": {"apt": [], "ports": []}
+  "deps": {"apt": ["bluez"], "ports": []}
 }
