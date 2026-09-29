@@ -37,6 +37,57 @@
 в разделе «Справка» собирается только из включённых модулей.
 </p>
 
+{% if cat_ok %}<p class="mod-note" style="color:#7cb342;">● {{ cat_ok }}</p>{% endif %}
+{% if cat_err %}<p class="mod-note" style="color:#e57373;">● {{ cat_err }}</p>{% endif %}
+
+<div class="mod-card" style="margin-top:14px;">
+  <div class="mod-head">
+    <strong>Каталог модулей</strong>
+    <code>{{ catalog.repo ~ '@' ~ catalog.branch if catalog else 'недоступен' }}</code>
+    <form method="post" action="/modules/catalog/refresh" style="margin-left:auto;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button>Обновить каталог</button>
+    </form>
+  </div>
+  {% if catalog_error %}
+  <p class="mod-desc" style="color:#e57373;">Не удалось загрузить каталог: {{ catalog_error }}</p>
+  {% elif catalog %}
+  {% if catalog.updated %}<p class="mod-desc">Обновлён: {{ catalog.updated }}</p>{% endif %}
+  {% for cm in catalog.modules %}
+  <div class="mod-card" style="margin-top:10px; background:#111;">
+    <div class="mod-head">
+      <strong>{{ cm.name }}</strong><code>{{ cm.id }}</code>
+      {% if cm.type == 'block' %}<span class="badge badge-type">блок → {{ cm.slot or '?' }}</span>
+      {% elif cm.type == 'tab' %}<span class="badge badge-type">вкладка</span>
+      {% elif cm.type == 'app' %}<span class="badge badge-type">приложение</span>
+      {% endif %}
+      {% if cm.version %}<span class="badge badge-none">v{{ cm.version }}</span>{% endif %}
+      {% if cm.id in local_ids and cm.id not in catalog_ids %}<span class="badge badge-none">уже есть локально</span>{% endif %}
+    </div>
+    <p class="mod-desc">{{ cm.description }}</p>
+    <div class="mod-actions">
+      {% if cm.id in catalog_ids %}
+      <form method="post" action="/modules/{{ cm.id }}/catalog/update">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button>Обновить</button>
+      </form>
+      <form method="post" action="/modules/{{ cm.id }}/catalog/remove"
+            onsubmit="return confirm('Удалить модуль {{ cm.id }}?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button>Удалить</button>
+      </form>
+      {% elif cm.id not in local_ids %}
+      <form method="post" action="/modules/{{ cm.id }}/catalog/install">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="primary">Установить</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+
 <div class="mod-grid">
 {% for it in mods %}
 <div class="mod-card">

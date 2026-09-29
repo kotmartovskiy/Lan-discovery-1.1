@@ -11,9 +11,17 @@ import os
 import subprocess
 import sys
 import time
+import urllib.parse
 
 from flask import redirect, render_template, request
 
+from core.module_catalog import (
+    CatalogError,
+    catalog_module_ids,
+    fetch_index,
+    install_module,
+    remove_module,
+)
 from core.module_loader import (
     desktop_categories,
     discover_modules,
@@ -117,7 +125,60 @@ def register_routes(app, login_required, admin_required, page_data):
                 "enabled": enabled,
                 "last": (state.get(m["id"]) or {}).get("last"),
             })
-        return render_template("modules.html", mods=mods, **page_data())
+
+        catalog, catalog_error = None, None
+        try:
+            catalog = fetch_index()
+        except CatalogError as e:
+            catalog_error = str(e)
+
+        return render_template(
+            "modules.html",
+            mods=mods,
+            catalog=catalog,
+            catalog_error=catalog_error,
+            catalog_ids=catalog_module_ids(),
+            local_ids={m["id"] for m in discover_modules()},
+            cat_ok=request.args.get("ok") or "",
+            cat_err=request.args.get("err") or "",
+            **page_data(),
+        )
+
+    @app.route("/modules/catalog/refresh", methods=["POST"])
+    @admin_required
+    def modules_catalog_refresh():
+        try:
+            fetch_index(refresh=True)
+            return redirect("/modules?ok=" + urllib.parse.quote("Каталог обновлён"))
+        except CatalogError as e:
+            return redirect("/modules?err=" + urllib.parse.quote(str(e)))
+
+    @app.route("/modules/<mid>/catalog/install", methods=["POST"])
+    @admin_required
+    def modules_catalog_install(mid):
+        try:
+            install_module(mid)
+            return redirect("/modules?ok=" + urllib.parse.quote("Модуль «%s» установлен" % mid))
+        except CatalogError as e:
+            return redirect("/modules?err=" + urllib.parse.quote(str(e)))
+
+    @app.route("/modules/<mid>/catalog/update", methods=["POST"])
+    @admin_required
+    def modules_catalog_update(mid):
+        try:
+            install_module(mid, update=True)
+            return redirect("/modules?ok=" + urllib.parse.quote("Модуль «%s» обновлён" % mid))
+        except CatalogError as e:
+            return redirect("/modules?err=" + urllib.parse.quote(str(e)))
+
+    @app.route("/modules/<mid>/catalog/remove", methods=["POST"])
+    @admin_required
+    def modules_catalog_remove(mid):
+        try:
+            remove_module(mid)
+            return redirect("/modules?ok=" + urllib.parse.quote("Модуль «%s» удалён" % mid))
+        except CatalogError as e:
+            return redirect("/modules?err=" + urllib.parse.quote(str(e)))
 
     @app.route("/modules/<mid>/toggle", methods=["POST"])
     @admin_required
