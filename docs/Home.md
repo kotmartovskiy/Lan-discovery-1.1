@@ -1,10 +1,11 @@
 # LAN Discovery — веб-панель управления домашней сетью
 
-Веб-панель для одноплатного компьютера (Orange Pi Plus, ARM/Armbian), которая собирает в одном интерфейсе всё, что связано с домашней LAN: обнаружение устройств, мониторинг железа и сервисов, IPTV/радио/медиаплеер, сетевые инструменты, файлы, заметки и бэкапы.
+Веб-панель для одноплатного компьютера (X96 Max, ARM/Armbian, hostname `armbian`), которая собирает в одном интерфейсе всё, что связано с домашней LAN: обнаружение устройств, мониторинг железа и сервисов, IPTV/радио/медиаплеер, сетевые инструменты, файлы, заметки и бэкапы.
 
 - **Репозиторий:** https://github.com/kotmartovskiy/Lan-discovery-ARM
-- **Панель:** `http://<ip>:8080` (основной хост — `192.168.3.234`, WiFi AP — `192.168.3.235`)
-- **Стек:** Python 3.12, Flask 3, Flask-SocketIO, Flask-WTF (CSRF), bcrypt, SQLite, Jinja2
+- **Каталог модулей:** https://github.com/kotmartovskiy/Lan-discovery-modules
+- **Панель:** `http://192.168.3.243:8080` (X96 Max / Armbian; с 28.09.2026 панель переехала сюда с Orange Pi)
+- **Стек:** Python 3.11 (venv), Flask 3, Flask-SocketIO, Flask-WTF (CSRF), bcrypt, SQLite, Jinja2
 
 ## Что умеет
 
@@ -14,7 +15,8 @@
 | **Система** | CPU/RAM/диск/температура, health-check, перезагрузка, бэкапы БД и eMMC, клонирование eMMC → SD |
 | **Медиа** | IPTV-плейлисты, радио, локальный плеер, будильники, IP-камеры, Transmission, DLNA/UPnP |
 | **Инструменты** | ping / DNS / traceroute / скан портов, WiFi-анализатор, Bluetooth |
-| **Приложения** | Замотки, менеджер паролей, файловый менеджер, терминал, игры |
+| **Приложения** | Заметки, менеджер паролей, файловый менеджер, терминал, игры |
+| **Модули** | Вкл/выкл разделов (вкладки/блоки/плитки), установка зависимостей, каталог из GitHub-репозитория |
 | **Прочее** | Курсы валют, цены переработки, погода и МЧС-оповещения |
 
 ## Быстрый старт
@@ -28,7 +30,10 @@
 ## Ключевые файлы
 
 ```
-/opt/lan-discovery/app.py            # точка входа (и весь прод-код)
+/opt/lan-discovery/app.py            # точка входа: инициализация, фон, main
+/opt/lan-discovery/modules/          # роуты и логика разделов + модули-компоненты
+/opt/lan-discovery/core/             # module_loader (манифесты), module_catalog (каталог GitHub)
+/opt/lan-discovery/venv/             # виртуальное окружение Python
 /opt/lan-discovery/devices.db        # SQLite: устройства, погода, курсы, инвентарь
 /etc/lan-discovery/                  # users.json, settings.json, iptv-playlists.json, notes, secrets
 /usr/local/sbin/                     # update-iptv*.sh, weather-update.py, backup-*.sh
