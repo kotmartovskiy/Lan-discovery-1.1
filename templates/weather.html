@@ -4,6 +4,7 @@
 <style>
 .weekend td { color: #ff5f5f !important; }
 .days-scroll { max-height: 420px; overflow-y: auto; }
+.days-scroll th { position: static; }
 </style>
 
 <h2>Погода</h2>
@@ -364,7 +365,7 @@
 </thead>
 <tbody>
 {% for row in weather_forecast %}
-<tr{{ ' class="weekend"' if weather_is_weekend(row[0]) else '' }}>
+<tr{% if weather_is_weekend(row[0]) %} class="weekend"{% endif %}>
 <td>{{ weather_date_name(row[0]) }}</td>
 <td>{{ weather_code_name(row[1]) }}</td>
 <td>{{ "%.1f"|format(row[2]) }} °C</td>
