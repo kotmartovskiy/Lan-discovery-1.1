@@ -68,15 +68,29 @@ BARE12_RE = re.compile(
 MAC_MENTION_RE = re.compile(r"\(\s*мак[^)]{0,24}\)", re.I)
 NAME_KEYS = {"name", "title"}
 
+# персональные имена в именах устройств → нейтральные (приватность демо)
+NAME_OVERRIDES = {
+    "Телефон Света new": "Телефон 1",
+    "Телефон Света": "Телефон 2",
+    "Телефон Тима": "Телефон 3",
+    "Леся тел": "Телефон 4",
+}
+PERSON_RE = re.compile(
+    r"\b(?:Света|Светы|Свете|Леся|Леси|Лесе|Тима|Тимы|Тиме|Тиму)\b", re.I)
+
 
 def clean_name(s):
-    """Нейтральное имя устройства: убирает MAC-подстроки и упоминания «мак»."""
+    """Нейтральное имя: убирает MAC/«мак», персональные имена → оверрайды."""
     s = MAC_RE.sub(" ", s)
     s = BARE12_RE.sub(
         lambda m: " " if re.search(r"[a-fA-F]", m.group()) else m.group(), s)
     s = MAC_MENTION_RE.sub(" ", s)
     s = re.sub(r"\s{2,}", " ", s).strip()
     s = re.sub(r"\s+([.,;:!?)])", r"\1", s)
+    if s in NAME_OVERRIDES:
+        return NAME_OVERRIDES[s]
+    s = PERSON_RE.sub(" ", s)
+    s = re.sub(r"\s{2,}", " ", s).strip()
     return s if s else "Устройство"
 
 
@@ -120,7 +134,8 @@ def build_name_fixes():
 
 
 def apply_name_fixes(text, fixes):
-    for old, new in fixes.items():
+    # длинные первыми: «Телефон Света new…» ⊃ «Телефон Света»
+    for old, new in sorted(fixes.items(), key=lambda kv: -len(kv[0])):
         if old in text:
             text = text.replace(old, new)
     return text
@@ -480,7 +495,7 @@ def main():
                                   ensure_ascii=False)
             except Exception:
                 pass
-            for old, new in fixes.items():
+            for old, new in sorted(fixes.items(), key=lambda kv: -len(kv[0])):
                 text = text.replace(old, new)
             text = MAC_RE.sub(fake_mac, text)
             try:

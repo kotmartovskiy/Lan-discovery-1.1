@@ -29,6 +29,9 @@ EXT_ATTR_RE = re.compile(r'^https?://', re.I)
 MAC_RE = re.compile(r'(?:[0-9A-Fa-f]{2}(?::|-)){5}[0-9A-Fa-f]{2}')
 BARE12_RE = re.compile(
     r'(?<![0-9A-Za-z_-])[0-9A-Fa-f]{12}(?![0-9A-Za-z_-])')
+# персональные имена не должны попадать в публичный слепок
+PERSON_RE = re.compile(
+    r'(?<![А-Яа-яЁё])(?:Света|Светы|Леся|Леси|Тима|Тимы)(?![А-Яа-яЁё])', re.I)
 
 # вкладки главной (должны вести на страницы снимка, а не на заглушку)
 INDEX_TABS = (
@@ -129,6 +132,8 @@ def check_privacy():
                 tok = m.group()
                 if re.search(r"[a-fA-F]", tok):
                     err("%s: MAC-фрагмент в тексте/имени: %s" % (rel, tok))
+            for m in PERSON_RE.finditer(text):
+                err("%s: персональное имя в слепке: %s" % (rel, m.group()))
     print("macs checked:", n_macs)
 
 
