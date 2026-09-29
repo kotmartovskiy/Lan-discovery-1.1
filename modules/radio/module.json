@@ -3,7 +3,7 @@
   "name": "Радио",
   "description": "Онлайн-радиостанции: плейлисты m3u, управление воспроизведением на сервере",
   "builtin": true,
-  "help": false,
+  "help": true,
   "prefixes": ["/api/radio"],
   "app": {"title": "Радио", "icon": "📻", "category": "Медиа", "order": 10},
   "deps": {"apt": [], "ports": []}

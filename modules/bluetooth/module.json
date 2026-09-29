@@ -3,7 +3,7 @@
   "name": "Bluetooth",
   "description": "Менеджер Bluetooth: поиск, сопряжение, подключение устройств",
   "builtin": true,
-  "help": false,
+  "help": true,
   "prefixes": ["/apps/bluetooth", "/api/bluetooth"],
   "app": {"title": "Bluetooth", "icon": "📶", "category": "Система и сеть", "order": 60},
   "deps": {"apt": ["bluez"], "ports": []}

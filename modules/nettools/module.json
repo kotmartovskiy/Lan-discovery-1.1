@@ -3,7 +3,7 @@
   "name": "Сетевые инструменты",
   "description": "Ping, DNS-резолвер, скан TCP-портов, traceroute",
   "builtin": true,
-  "help": false,
+  "help": true,
   "prefixes": ["/apps/nettools", "/api/nettools"],
   "app": {"title": "Сеть", "icon": "🔌", "category": "Система и сеть", "order": 20},
   "deps": {"apt": [], "ports": []}
