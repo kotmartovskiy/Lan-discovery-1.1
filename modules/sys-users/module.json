@@ -1,0 +1,14 @@
+{
+  "id": "sys-users",
+  "name": "Пользователи",
+  "description": "Пароли, включение/выключение пользователей и RPC-пароль Transmission",
+  "builtin": true,
+  "type": "block",
+  "block": {
+    "slot": "system",
+    "order": 90,
+    "title": "Пользователи"
+  },
+  "help": false,
+  "prefixes": []
+}

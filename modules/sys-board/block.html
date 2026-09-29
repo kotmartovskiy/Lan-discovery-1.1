@@ -1,0 +1,126 @@
+<div class="card">
+
+<h2>🖥 {{ board_title }}</h2>
+
+<div class="info-row">
+<span class="info-label">Загрузка с:</span>
+<span id="pi-boot-device">{{ boot_device or '—' }}</span>
+</div>
+
+<div class="info-row">
+<span class="info-label">Uptime:</span>
+<span id="pi-uptime">--</span>
+</div>
+
+<div class="info-row">
+<span class="info-label">Load Average:</span>
+<span id="pi-load">-- / -- / --</span>
+</div>
+
+<div class="info-row">
+<span class="info-label">Температура CPU:</span>
+<span id="pi-temperature">--</span>
+</div>
+
+<div class="info-row">
+<span class="info-label">RAM:</span>
+<span id="pi-ram">--</span>
+</div>
+
+<div class="info-row">
+<span class="info-label">eMMC:</span>
+<span id="pi-emmc">--</span>
+</div>
+
+<div class="info-row">
+<span class="info-label">HDD:</span>
+<span id="pi-hdd">--</span>
+</div>
+
+<h3>Сервисы</h3>
+
+<div class="info-row service-row">
+<span>
+<span class="info-label">Transmission:</span>
+<span id="service-transmission">--</span>
+</span>
+{% if current_user.role != 'guest' %}
+<span class="service-buttons">
+<button id="service-transmission-start"
+        type="button"
+        onclick="controlService('transmission', 'start')">
+Запустить
+</button>
+<button id="service-transmission-restart"
+        type="button"
+        onclick="controlService('transmission', 'restart')">
+Перезапустить
+</button>
+<button id="service-transmission-stop"
+        type="button"
+        onclick="controlService('transmission', 'stop')">
+Остановить
+</button>
+</span>
+{% endif %}
+</div>
+
+<div class="info-row service-row">
+<span>
+<span class="info-label">MiniDLNA:</span>
+<span id="service-minidlna">--</span>
+</span>
+{% if current_user.role != 'guest' %}
+<span class="service-buttons">
+<button id="service-minidlna-start"
+        type="button"
+        onclick="controlService('minidlna', 'start')">
+Запустить
+</button>
+<button id="service-minidlna-restart"
+        type="button"
+        onclick="controlService('minidlna', 'restart')">
+Перезапустить
+</button>
+<button id="service-minidlna-stop"
+        type="button"
+        onclick="controlService('minidlna', 'stop')">
+Остановить
+</button>
+</span>
+{% endif %}
+</div>
+
+<div class="info-row service-row">
+<span>
+<span class="info-label">Samba:</span>
+<span id="service-smbd">--</span>
+</span>
+{% if current_user.role != 'guest' %}
+<span class="service-buttons">
+<button id="service-smb-start"
+        type="button"
+        onclick="controlService('smb', 'start')">
+Запустить
+</button>
+<button id="service-smb-restart"
+        type="button"
+        onclick="controlService('smb', 'restart')">
+Перезапустить
+</button>
+<button id="service-smb-stop"
+        type="button"
+        onclick="controlService('smb', 'stop')">
+Остановить
+</button>
+</span>
+{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">LAN Discovery:</span>
+<span id="service-lan-discovery">--</span>
+</div>
+
+</div>
+

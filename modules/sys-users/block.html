@@ -1,0 +1,108 @@
+<div class="card" id="users-card">
+
+<h2>👤 Пользователи</h2>
+
+<div id="users-status" style="margin-bottom:8px; color:#888; font-size:12px; min-height:16px;"></div>
+
+<table style="width:100%; font-size:13px; border-collapse:collapse;">
+<tr style="color:#888; border-bottom:1px solid #333;">
+<td style="padding:4px 0;">Пользователь</td>
+<td>Роль</td>
+<td>Пароль</td>
+<td></td>
+<td>Статус</td>
+<td></td>
+</tr>
+{% if current_user.role == 'admin' %}
+<tr style="border-bottom:1px solid #222;">
+<td style="padding:6px 0;">Admin <span style="color:#666;">(root)</span></td>
+<td><span style="color:#2ecc71;">admin</span></td>
+<td><input type="password" id="pw-admin" style="width:110px;" placeholder="Новый пароль"></td>
+<td><button style="padding:3px 8px; font-size:11px;" onclick="changePw('admin')">Сменить</button></td>
+<td><span style="color:#2ecc71;">вкл</span></td>
+<td></td>
+</tr>
+<tr style="border-bottom:1px solid #222;">
+<td style="padding:6px 0;">User</td>
+<td><span style="color:#f39c12;">user</span></td>
+<td><input type="password" id="pw-user" style="width:110px;" placeholder="Новый пароль"></td>
+<td><button style="padding:3px 8px; font-size:11px;" onclick="changePw('user')">Сменить</button></td>
+<td id="user-status">—</td>
+<td id="user-toggle"></td>
+</tr>
+<tr style="border-bottom:1px solid #222;">
+<td style="padding:6px 0;">Guest</td>
+<td><span style="color:#888;">guest</span></td>
+<td><input type="password" id="pw-guest" style="width:110px;" placeholder="Новый пароль"></td>
+<td><button style="padding:3px 8px; font-size:11px;" onclick="changePw('guest')">Сменить</button></td>
+<td id="guest-status">—</td>
+<td id="guest-toggle"></td>
+</tr>
+<tr style="border-bottom:1px solid #222;">
+<td style="padding:6px 0;">Transmission</td>
+<td><span style="color:#888;">rpc</span></td>
+<td><input type="password" id="pw-transmission" style="width:110px;" placeholder="Новый пароль"></td>
+<td><button style="padding:3px 8px; font-size:11px;" onclick="changeTransPw()">Сменить</button></td>
+<td id="trans-status-cell">—</td>
+<td></td>
+</tr>
+{% else %}
+<tr><td colspan="6" style="padding:6px 0; color:#666;">Только admin может управлять пользователями</td></tr>
+{% endif %}
+</table>
+</div>
+
+<script>
+{% if current_user.role == 'admin' %}
+fetch('/api/users').then(r=>r.json()).then(u=>{
+    ['user','guest'].forEach(name=>{
+        var d=u[name];
+        if(!d)return;
+        document.getElementById(name+'-status').innerHTML=
+            d.enabled?'<span style="color:#2ecc71;">вкл</span>':'<span style="color:#e74c3c;">выкл</span>';
+        document.getElementById(name+'-toggle').innerHTML=
+            '<button style="padding:3px 8px; font-size:11px;" onclick="toggleUser(\''+name+'\')">'+
+            (d.enabled?'Выключить':'Включить')+'</button>';
+    });
+});
+
+fetch('/api/transmission').then(r=>r.json()).then(d=>{
+    document.getElementById('trans-status-cell').innerHTML=
+        '<span style="color:#2ecc71;">rpc</span>';
+});
+{% endif %}
+
+function changePw(username){
+    var pw=document.getElementById('pw-'+username).value;
+    if(!pw){alert('Введите пароль');return;}
+    fetch('/api/users/'+username+'/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})})
+    .then(r=>r.json()).then(d=>{
+        var el=document.getElementById('users-status');
+        if(d.ok){el.textContent='Пароль '+username+' изменён';el.style.color='#2ecc71';}
+        else{el.textContent='Ошибка: '+(d.error||'');el.style.color='#e74c3c';}
+        document.getElementById('pw-'+username).value='';
+        setTimeout(()=>{el.textContent='';},3000);
+    });
+}
+
+function toggleUser(username){
+    fetch('/api/users/'+username+'/toggle',{method:'POST'})
+    .then(r=>r.json()).then(d=>{
+        if(d.ok)location.reload();
+    });
+}
+
+function changeTransPw(){
+    var pw=document.getElementById('pw-transmission').value;
+    if(!pw){alert('Введите пароль');return;}
+    fetch('/api/transmission',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})})
+    .then(r=>r.json()).then(d=>{
+        var el=document.getElementById('users-status');
+        if(d.ok){el.textContent='Пароль transmission изменён';el.style.color='#2ecc71';}
+        else{el.textContent='Ошибка';el.style.color='#e74c3c';}
+        document.getElementById('pw-transmission').value='';
+        setTimeout(()=>{el.textContent='';},3000);
+    });
+}
+</script>
+

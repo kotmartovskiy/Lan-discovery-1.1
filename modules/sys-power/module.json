@@ -1,0 +1,14 @@
+{
+  "id": "sys-power",
+  "name": "Управление питанием",
+  "description": "Перезагрузка и выключение питания панели",
+  "builtin": true,
+  "type": "block",
+  "block": {
+    "slot": "system",
+    "order": 70,
+    "title": "Управление питанием"
+  },
+  "help": false,
+  "prefixes": []
+}

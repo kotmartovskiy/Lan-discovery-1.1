@@ -1,0 +1,46 @@
+<div class="card">
+
+<h2>🌐 Сеть</h2>
+
+<div class="info-row">
+<span class="internet" id="net-internet" style="font-weight:bold;">● Интернет: проверка...</span>
+</div>
+
+<div class="info-row">
+<span class="internet" id="net-ru" style="font-weight:bold;">● Зона RU: проверка...</span>
+</div>
+
+<div class="info-row">
+<span class="internet" id="net-provider" style="font-weight:bold;">● Провайдер: проверка...</span>
+</div>
+
+<div style="margin-top:12px;">
+{% if current_user.role != 'guest' %}
+<div class="info-label" style="margin-bottom:8px;">Тестовые адреса:</div>
+
+<div class="info-row" style="display:flex; align-items:center; gap:8px;">
+<span style="flex:1; color:#ccc;">1. <span id="net-host1-display">{{ network_hosts[0] }}</span></span>
+<button type="button" onclick="editNetHost(1)" style="padding:3px 8px; font-size:12px;">Изменить</button>
+<button type="button" onclick="checkNetHost(1)" style="padding:3px 8px; font-size:12px;">Проверить</button>
+</div>
+
+<div class="info-row" style="display:flex; align-items:center; gap:8px;">
+<span style="flex:1; color:#ccc;">2. <span id="net-host2-display">{{ network_hosts[1] }}</span></span>
+<button type="button" onclick="editNetHost(2)" style="padding:3px 8px; font-size:12px;">Изменить</button>
+<button type="button" onclick="checkNetHost(2)" style="padding:3px 8px; font-size:12px;">Проверить</button>
+</div>
+
+<div class="info-row" style="display:flex; align-items:center; gap:8px;">
+<span style="flex:1; color:#ccc;">3. <span id="net-host3-display">{{ network_hosts[2] }}</span></span>
+<button type="button" onclick="editNetHost(3)" style="padding:3px 8px; font-size:12px;">Изменить</button>
+<button type="button" onclick="checkNetHost(3)" style="padding:3px 8px; font-size:12px;">Проверить</button>
+</div>
+
+<button type="button" onclick="checkAllNet()" style="margin-top:8px; background:#2563eb;">Проверить всё</button>
+{% endif %}
+
+<div id="net-host-result" style="margin-top:8px; font-size:13px; color:#888;"></div>
+</div>
+
+</div>
+

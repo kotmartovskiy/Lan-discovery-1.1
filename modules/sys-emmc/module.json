@@ -1,0 +1,14 @@
+{
+  "id": "sys-emmc",
+  "name": "eMMC Backup",
+  "description": "Бэкап образа eMMC: статус, проверки, запуск",
+  "builtin": true,
+  "type": "block",
+  "block": {
+    "slot": "system",
+    "order": 20,
+    "title": "eMMC Backup"
+  },
+  "help": false,
+  "prefixes": []
+}

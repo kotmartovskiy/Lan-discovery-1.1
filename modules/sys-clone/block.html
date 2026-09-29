@@ -1,0 +1,65 @@
+{% if current_user.role != 'guest' %}
+<div class="card">
+
+<h2>🔄 Замена HDD / Клонирование на SD</h2>
+
+<div style="border-bottom:1px solid #333; padding-bottom:12px; margin-bottom:12px;">
+<div class="info-row">
+<span class="info-label">Текущий диск:</span>
+<code>{{ current_disk or 'не определён' }}</code>{{ ' ' + current_disk_label if current_disk_label else '' }} ({{ current_disk_size or '?' }})
+</div>
+
+<div class="info-row">
+<span class="info-label">Точка монтирования:</span>
+<code>/srv</code>
+</div>
+
+<div id="disk-replace-section">
+<button id="disk-check-btn" type="button" onclick="diskCheck()">
+Проверить подключение нового диска
+</button>
+<div id="disk-check-result" style="display:none; margin-top:12px;"></div>
+</div>
+</div>
+
+<div style="margin-top:4px;">
+<div class="info-row">
+<span class="info-label">Цель клонирования:</span>
+<span>eMMC → SD ({{ sd_size or '?' }})</span>
+</div>
+
+{% if not clone_allowed %}
+<div class="info-row">
+<span style="color:#e57373;">Клонирование отключено: {{ clone_reason }}</span>
+</div>
+{% endif %}
+
+<div class="info-row">
+<span class="info-label">SD-карта:</span>
+<span id="sd-info">не проверена</span>
+</div>
+
+<div style="display:flex; gap:8px; margin-top:12px;">
+<button id="sd-check-btn" type="button" onclick="checkSd()">
+Проверить SD
+</button>
+<button id="clone-btn" type="button" onclick="startClone()"{% if not clone_allowed %} disabled title="{{ clone_reason }}"{% endif %}>
+Клонировать eMMC на SD
+</button>
+</div>
+
+<div id="sd-check-result" style="display:none; margin-top:12px;"></div>
+
+<div id="clone-progress" style="display:none; margin-top:12px;">
+<div style="font-size:13px; color:#8ab4f8; margin-bottom:4px;" id="clone-text">Подготовка...</div>
+<div style="background:#1a1a2e; border-radius:6px; overflow:hidden; height:20px;">
+<div id="clone-bar" style="height:100%; background:linear-gradient(90deg,#2563eb,#60a5fa); width:0%; transition:width 2s ease; border-radius:6px;"></div>
+</div>
+</div>
+
+<div id="clone-status" style="margin-top:8px; font-size:13px; color:#888;"></div>
+</div>
+
+</div>
+{% endif %}
+

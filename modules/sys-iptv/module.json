@@ -1,0 +1,14 @@
+{
+  "id": "sys-iptv",
+  "name": "IPTV",
+  "description": "Автообновление IPTV-плейлистов: список, добавление, вкл/выкл",
+  "builtin": true,
+  "type": "block",
+  "block": {
+    "slot": "system",
+    "order": 60,
+    "title": "IPTV"
+  },
+  "help": false,
+  "prefixes": []
+}

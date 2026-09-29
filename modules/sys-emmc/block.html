@@ -1,0 +1,72 @@
+{% if current_user.role != 'guest' %}
+<div class="card">
+
+<h2>💾 eMMC Backup</h2>
+
+<div class="info-row">
+<span class="info-label">Статус:</span>
+{% if not emmc_backup_allowed %}
+<span class="status-error">● НЕДОСТУПЕН</span>
+{% elif backup_running %}
+<span class="status-running">● ВЫПОЛНЯЕТСЯ</span>
+{% elif backup_status == 'ok' %}
+<span class="status-ok">● OK</span>
+{% else %}
+<span class="status-error">● ОШИБКА</span>
+{% endif %}
+</div>
+
+{% if not emmc_backup_allowed %}
+<div class="info-row">
+<span style="color:#e57373;">Бэкап eMMC отключён: {{ emmc_backup_reason }}</span>
+</div>
+{% endif %}
+
+<div class="info-row">
+<span class="info-label">Проверка backup:</span>
+{% if backup_test_state == 'running' %}
+<span class="status-running">● ПРОВЕРКА</span>
+{% elif backup_test_state == 'ok' %}
+<span class="status-ok">● OK</span>
+{% elif backup_test_state == 'error' %}
+<span class="status-error">● ОШИБКА</span>
+{% else %}
+<span>● НЕ ПРОВЕРЯЛСЯ</span>
+{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Последняя проверка:</span>
+{{ backup_test_time or '-' }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Последний backup:</span>
+{{ backup_time or '-' }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Размер:</span>
+{{ backup_size or '-' }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Следующий запуск:</span>
+{{ backup_next or '-' }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Файл:</span>
+<code>/srv/backup-system/emmc.img.zst</code>
+</div>
+
+<div id="emmc-backup-progress" style="display:none; margin-top:12px;">
+<div style="font-size:13px; color:#8ab4f8; margin-bottom:4px;" id="emmc-backup-progress-text">Создание backup...</div>
+<div style="background:#1a1a2e; border-radius:6px; overflow:hidden; height:20px;">
+<div id="emmc-backup-progress-bar" style="height:100%; background:linear-gradient(90deg,#2563eb,#60a5fa); width:0%; transition:width 2s ease; border-radius:6px;"></div>
+</div>
+</div>
+
+</div>
+{% endif %}
+

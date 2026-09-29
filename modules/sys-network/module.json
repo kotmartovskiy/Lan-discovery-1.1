@@ -1,0 +1,14 @@
+{
+  "id": "sys-network",
+  "name": "Сеть",
+  "description": "Интернет, зона RU, провайдер и проверка тестовых адресов",
+  "builtin": true,
+  "type": "block",
+  "block": {
+    "slot": "system",
+    "order": 40,
+    "title": "Сеть"
+  },
+  "help": false,
+  "prefixes": []
+}

@@ -1,0 +1,14 @@
+{
+  "id": "sys-clone",
+  "name": "Замена HDD / Клонирование",
+  "description": "Клонирование eMMC на SD-карту и проверка подключения диска",
+  "builtin": true,
+  "type": "block",
+  "block": {
+    "slot": "system",
+    "order": 50,
+    "title": "Замена HDD / Клонирование"
+  },
+  "help": false,
+  "prefixes": []
+}

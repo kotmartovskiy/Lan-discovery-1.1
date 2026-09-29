@@ -1,0 +1,14 @@
+{
+  "id": "sys-board",
+  "name": "X96 Max",
+  "description": "Статус платы, uptime, температура и управление сервисами",
+  "builtin": true,
+  "type": "block",
+  "block": {
+    "slot": "system",
+    "order": 10,
+    "title": "X96 Max"
+  },
+  "help": false,
+  "prefixes": []
+}

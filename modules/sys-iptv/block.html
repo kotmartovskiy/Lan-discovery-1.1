@@ -1,0 +1,143 @@
+<div class="card">
+
+<h2>📺 IPTV</h2>
+
+<div class="info-row">
+<span class="info-label">Автообновление:</span>
+
+{% if iptv_status == "running" %}
+<span class="status-running">● ОБНОВЛЕНИЕ</span>
+
+{% elif iptv_status == "ok" %}
+<span class="status-ok">● OK</span>
+
+{% elif iptv_status == "error" %}
+<span class="status-error">● ОШИБКА</span>
+
+{% else %}
+<span>● НЕ ЗАПУСКАЛОСЬ</span>
+{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Последнее обновление:</span>
+{{ iptv_time or '-' }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Следующий запуск:</span>
+{{ iptv_next or '-' }}
+</div>
+
+<h3>Плейлисты</h3>
+
+<div style="max-height: 320px; overflow-y: auto; border: 1px solid #333; border-radius: 6px; padding: 4px;">
+{% if playlists %}
+
+{% for playlist in playlists %}
+
+<div class="playlist">
+
+<div class="info-row">
+<strong>{{ playlist.name }}</strong>
+
+{% if playlist.enabled %}
+<span class="status-ok">● ВКЛ</span>
+{% else %}
+<span class="status-error">● ВЫКЛ</span>
+{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Файл:</span>
+<code>{{ playlist.file }}</code>
+</div>
+
+<div class="info-row">
+<span class="info-label">Размер:</span>
+{{ playlist.size }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Обновлён:</span>
+{{ playlist.mtime }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Ручное обновление:</span>
+
+{% if playlist.update_status == 'running' %}
+<span class="status-running">● ОБНОВЛЕНИЕ</span>
+
+{% elif playlist.update_status == 'ok' %}
+<span class="status-ok">● OK</span>
+
+{% elif playlist.update_status == 'error' %}
+<span class="status-error">● ОШИБКА</span>
+
+{% else %}
+<span>● НЕ ОБНОВЛЯЛСЯ</span>
+{% endif %}
+</div>
+
+{% if playlist.update_time %}
+<div class="info-row">
+<span class="info-label">Последнее ручное обновление:</span>
+{{ playlist.update_time }}
+</div>
+{% endif %}
+
+<div class="info-row">
+<span class="info-label">URL:</span>
+<code>{{ playlist.url }}</code>
+</div>
+
+<div class="button-row">
+
+<form method="post"
+      action="/system/iptv/toggle/{{ loop.index0 }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<button type="submit">
+{% if playlist.enabled %}
+Выключить
+{% else %}
+Включить
+{% endif %}
+</button>
+</form>
+
+{% if playlist.enabled %}
+<form method="post"
+      action="/system/iptv/update/{{ loop.index0 }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<button type="submit">Обновить</button>
+</form>
+{% endif %}
+
+<form method="post"
+      action="/system/iptv/delete/{{ loop.index0 }}"
+      onsubmit="return confirm('Удалить этот плейлист?');">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<button type="submit">Удалить</button>
+</form>
+
+</div>
+
+</div>
+
+{% endfor %}
+{% endif %}
+</div>
+
+{% if current_user.role != 'guest' %}
+<h3>Добавить плейлист</h3>
+<form method="post" action="/system/iptv/add" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="text" name="name" placeholder="Название" required style="width:140px;">
+<input type="url" name="url" placeholder="URL .m3u" required style="flex:1; min-width:200px;">
+<button type="submit">Добавить</button>
+</form>
+{% endif %}
+
+</div>
+

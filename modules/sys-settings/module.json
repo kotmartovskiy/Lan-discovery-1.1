@@ -1,0 +1,14 @@
+{
+  "id": "sys-settings",
+  "name": "Настройки",
+  "description": "Сеть, местоположение и предупреждения погоды",
+  "builtin": true,
+  "type": "block",
+  "block": {
+    "slot": "system",
+    "order": 80,
+    "title": "Настройки"
+  },
+  "help": false,
+  "prefixes": []
+}

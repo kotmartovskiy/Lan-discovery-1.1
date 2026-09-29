@@ -1,0 +1,128 @@
+{% if current_user.role == 'admin' %}
+<div class="card">
+
+<h2>⚙️ Настройки</h2>
+
+<div id="settings-status" style="margin-bottom:8px; color:#888; font-size:12px; min-height:16px;"></div>
+
+<div style="border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:8px;">
+<div style="color:#fff; font-size:12px; margin-bottom:6px;">Сеть</div>
+
+<div class="info-row">
+<span class="info-label">Подсеть:</span>
+<input type="text" id="cfg-subnet" style="width:150px;">
+</div>
+
+<div class="info-row">
+<span class="info-label">Интервал скана:</span>
+<input type="number" id="cfg-scan-interval" style="width:60px;" min="5" max="300">
+<span style="color:#666; font-size:12px; margin-left:4px;">сек</span>
+<span style="margin-left:12px;" class="info-label">Макс. пропусков:</span>
+<input type="number" id="cfg-max-misses" style="width:50px;" min="1" max="50">
+</div>
+</div>
+
+<div style="border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:8px;">
+<div style="color:#fff; font-size:12px; margin-bottom:6px;">Местоположение</div>
+
+<div class="info-row">
+<span class="info-label">Широта:</span>
+<input type="number" id="cfg-latitude" style="width:100px;" step="0.001" min="-90" max="90">
+<span style="margin-left:12px;" class="info-label">Долгота:</span>
+<input type="number" id="cfg-longitude" style="width:100px;" step="0.001" min="-180" max="180">
+</div>
+
+<div class="info-row">
+<span class="info-label">Часовой пояс:</span>
+<select id="cfg-timezone" style="width:180px;">
+<option value="Europe/Moscow">Europe/Moscow</option>
+<option value="Europe/Samara">Europe/Samara</option>
+<option value="Asia/Yekaterinburg">Asia/Yekaterinburg</option>
+<option value="Asia/Omsk">Asia/Omsk</option>
+<option value="Asia/Krasnoyarsk">Asia/Krasnoyarsk</option>
+<option value="Asia/Irkutsk">Asia/Irkutsk</option>
+<option value="Asia/Yakutsk">Asia/Yakutsk</option>
+<option value="Asia/Vladivostok">Asia/Vladivostok</option>
+<option value="Asia/Magadan">Asia/Magadan</option>
+<option value="Asia/Kamchatka">Asia/Kamchatka</option>
+</select>
+</div>
+</div>
+
+<div style="padding-bottom:4px;">
+<div style="color:#fff; font-size:12px; margin-bottom:6px;">Предупреждения</div>
+
+<div class="info-row">
+<span class="info-label">Регион:</span>
+<input type="text" id="cfg-region-name" style="width:180px;" placeholder="Иваново">
+</div>
+
+<div class="info-row">
+<span class="info-label">Код региона:</span>
+<input type="text" id="cfg-region-code" style="width:100px;" placeholder="ivanovo">
+<span style="margin-left:12px;" class="info-label">Страна:</span>
+<select id="cfg-country" style="width:120px;">
+<option value="RU">Россия</option>
+<option value="KZ">Казахстан</option>
+<option value="BY">Беларусь</option>
+<option value="UA">Украина</option>
+<option value="UZ">Узбекистан</option>
+<option value="OTHER">Другая</option>
+</select>
+</div>
+</div>
+
+<div style="margin-top:8px;">
+<button type="button" onclick="saveSettings()">Сохранить</button>
+</div>
+
+</div>
+{% else %}
+<div class="card">
+<h2>⚙️ Настройки</h2>
+<div style="color:#666; font-size:13px;">******</div>
+</div>
+{% endif %}
+
+<script>
+(function(){
+    fetch('/api/settings').then(r=>r.json()).then(s=>{
+        var n=s.network||{};
+        var w=s.weather||{};
+        document.getElementById('cfg-subnet').value=n.subnet||'192.168.3.0/24';
+        document.getElementById('cfg-scan-interval').value=n.scan_interval||30;
+        document.getElementById('cfg-max-misses').value=n.max_misses||6;
+        document.getElementById('cfg-latitude').value=w.latitude||57.0;
+        document.getElementById('cfg-longitude').value=w.longitude||41.0;
+        document.getElementById('cfg-timezone').value=w.timezone||'Europe/Moscow';
+        document.getElementById('cfg-region-name').value=w.region_name||'Иваново';
+        document.getElementById('cfg-region-code').value=w.region_code||'ivanovo';
+        document.getElementById('cfg-country').value=w.country||'RU';
+    });
+})();
+
+function saveSettings(){
+    var data={
+        network:{
+            subnet:document.getElementById('cfg-subnet').value,
+            scan_interval:parseInt(document.getElementById('cfg-scan-interval').value)||30,
+            max_misses:parseInt(document.getElementById('cfg-max-misses').value)||6
+        },
+        weather:{
+            latitude:parseFloat(document.getElementById('cfg-latitude').value)||57.0,
+            longitude:parseFloat(document.getElementById('cfg-longitude').value)||41.0,
+            timezone:document.getElementById('cfg-timezone').value,
+            region_name:document.getElementById('cfg-region-name').value,
+            region_code:document.getElementById('cfg-region-code').value,
+            country:document.getElementById('cfg-country').value
+        }
+    };
+    fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+    .then(r=>r.json()).then(d=>{
+        var el=document.getElementById('settings-status');
+        if(d.ok){el.textContent='Сохранено';el.style.color='#2ecc71';}
+        else{el.textContent='Ошибка';el.style.color='#e74c3c';}
+        setTimeout(()=>{el.textContent='';},3000);
+    });
+}
+</script>

@@ -1,0 +1,14 @@
+{
+  "id": "sys-db",
+  "name": "Backup БД",
+  "description": "Бэкап базы данных панели devices.db и восстановление из копий",
+  "builtin": true,
+  "type": "block",
+  "block": {
+    "slot": "system",
+    "order": 30,
+    "title": "Backup БД"
+  },
+  "help": false,
+  "prefixes": []
+}
