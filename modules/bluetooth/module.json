@@ -3,6 +3,7 @@
   "name": "Bluetooth",
   "description": "Менеджер Bluetooth: поиск, сопряжение, подключение устройств",
   "builtin": true,
+  "type": "app",
   "help": true,
   "prefixes": ["/apps/bluetooth", "/api/bluetooth"],
   "app": {"title": "Bluetooth", "icon": "📶", "category": "Система и сеть", "order": 60},

@@ -204,6 +204,35 @@ def app_items():
     return out
 
 
+def block_items(slot=None):
+    """Блоки включённых модулей для слота во вкладке (поле block в манифесте).
+
+    Манифест блока:
+        "type": "block",
+        "block": {"slot": "currencies", "order": 10, "title": "Fiat валюты",
+                  "template": "<id>/block.html"}   # template опционален
+    Возвращает [{id, title, order, slot, module, template}] отсортированное по order.
+    """
+    out = []
+    for m in discover_modules():
+        installed, enabled = module_status(m["id"])
+        blk = m.get("block")
+        if not (installed and enabled and isinstance(blk, dict)):
+            continue
+        s = blk.get("slot")
+        if slot is not None and s != slot:
+            continue
+        out.append({
+            "id": m["id"],
+            "title": blk.get("title") or m.get("name") or m["id"],
+            "order": int(blk.get("order", 500)),
+            "slot": s,
+            "module": m["id"],
+            "template": blk.get("template") or (m["id"] + "/block.html"),
+        })
+    return sorted(out, key=lambda x: x["order"])
+
+
 def desktop_categories():
     """Разделы рабочего стола /apps: ядровые плитки + плитки включённых модулей."""
     cats = {name: [] for name in APP_CATEGORY_ORDER}

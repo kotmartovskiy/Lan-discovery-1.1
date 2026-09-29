@@ -3,6 +3,7 @@
   "name": "Погода",
   "description": "Текущая погода и прогноз на неделю (Open-Meteo), статус в шапке панели",
   "builtin": true,
+  "type": "tab",
   "help": true,
   "url": "/weather",
   "prefixes": ["/weather", "/api/weather"],

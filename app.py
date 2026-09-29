@@ -209,6 +209,11 @@ app = Flask(__name__)
 app.secret_key = _load_or_create_secret_key()
 csrf = CSRFProtect(app)
 
+from core.module_loader import MODULES_DIR, block_items
+from jinja2 import ChoiceLoader, FileSystemLoader
+
+app.jinja_loader = ChoiceLoader([app.jinja_loader, FileSystemLoader([MODULES_DIR])])
+
 app.jinja_env.globals["currency_category_name"] = currency_category_name
 app.jinja_env.globals["recycling_category_name"] = recycling_category_name
 app.jinja_env.globals["_format_dt"] = _format_dt
@@ -228,7 +233,8 @@ def _inject_user():
     u = get_current_user()
     if not u:
         u = SimpleNamespace(username="", role="guest", enabled=False, display_name="Гость")
-    return {"current_user": u, "current_username": get_current_username()}
+    return {"current_user": u, "current_username": get_current_username(),
+            "blocks_for": block_items}
 
 
 # ==================== Auth ====================

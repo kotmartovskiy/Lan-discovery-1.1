@@ -1,0 +1,10 @@
+{
+  "id": "curr-industrial",
+  "name": "Промышленные металлы",
+  "description": "Таблица курсов промышленных металлов на вкладке «Курсы валют и металлов»",
+  "builtin": true,
+  "type": "block",
+  "block": {"slot": "currencies", "order": 40, "title": "Промышленные металлы"},
+  "help": false,
+  "prefixes": []
+}

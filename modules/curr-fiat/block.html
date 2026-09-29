@@ -1,0 +1,59 @@
+{% set items = currency_data.get("fiat", []) if currency_data else [] %}
+{% if items %}
+<div class="curr-section">
+<h3>{{ currency_category_name("fiat") }}</h3>
+
+<table class="curr-table">
+<thead>
+<tr>
+<th>Название</th>
+<th>Цена</th>
+<th>24ч</th>
+<th>Неделя</th>
+<th>Месяц</th>
+<th>Год</th>
+<th>Источник</th>
+</tr>
+</thead>
+<tbody>
+
+{% for item in items %}
+<tr>
+<td><strong>{{ item.name }}</strong></td>
+<td>{{ "%.2f"|format(item.value) if item.value else '-' }}</td>
+<td>
+{% if item.change_24h is not none %}
+<span class="{{ 'online' if item.change_24h > 0 else 'offline' }}">
+{{ "+" if item.change_24h > 0 else "" }}{{ "%.2f"|format(item.change_24h) }}%
+</span>
+{% else %}-{% endif %}
+</td>
+<td>
+{% if item.change_week is not none %}
+<span class="{{ 'online' if item.change_week > 0 else 'offline' }}">
+{{ "+" if item.change_week > 0 else "" }}{{ "%.2f"|format(item.change_week) }}%
+</span>
+{% else %}-{% endif %}
+</td>
+<td>
+{% if item.change_month is not none %}
+<span class="{{ 'online' if item.change_month > 0 else 'offline' }}">
+{{ "+" if item.change_month > 0 else "" }}{{ "%.2f"|format(item.change_month) }}%
+</span>
+{% else %}-{% endif %}
+</td>
+<td>
+{% if item.change_year is not none %}
+<span class="{{ 'online' if item.change_year > 0 else 'offline' }}">
+{{ "+" if item.change_year > 0 else "" }}{{ "%.2f"|format(item.change_year) }}%
+</span>
+{% else %}-{% endif %}
+</td>
+<td class="small">{{ item.source }}</td>
+</tr>
+{% endfor %}
+
+</tbody>
+</table>
+</div>
+{% endif %}

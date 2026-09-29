@@ -3,6 +3,7 @@
   "name": "Торренты",
   "description": "Встроенный торрент-клиент Transmission: очередь, веб-интерфейс v4, папка /srv/downloads",
   "builtin": true,
+  "type": "tab",
   "help": true,
   "url": "/torrent",
   "prefixes": ["/torrent", "/api/transmission"],

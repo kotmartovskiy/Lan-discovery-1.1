@@ -3,6 +3,7 @@
   "name": "Плеер",
   "description": "Медиаплеер сервера: плейлисты, воспроизведение файлов из /srv/media",
   "builtin": true,
+  "type": "app",
   "help": true,
   "prefixes": ["/api/player"],
   "app": {"title": "Плеер", "icon": "🎵", "category": "Медиа", "order": 20},

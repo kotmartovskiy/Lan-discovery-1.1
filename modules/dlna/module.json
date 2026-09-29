@@ -3,6 +3,7 @@
   "name": "DLNA",
   "description": "Браузер DLNA/UPnP-медиасерверов: контент, сканирование",
   "builtin": true,
+  "type": "app",
   "help": true,
   "prefixes": ["/apps/dlna", "/api/dlna"],
   "app": {"title": "DLNA", "icon": "📺", "category": "Система и сеть", "order": 70},

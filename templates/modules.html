@@ -11,6 +11,7 @@
 .mod-head strong { font-size:15px; }
 .mod-head code { color:#888; font-size:12px; }
 .badge { font-size:11px; padding:2px 7px; border-radius:10px; margin-left:auto; white-space:nowrap; }
+.badge-type { background:#0e2233; color:#8ab4f8; border:1px solid #1f4b6e; margin-left:0; margin-right:auto; }
 .badge-on { background:#1b3a1b; color:#7cb342; border:1px solid #2e5d2e; }
 .badge-off { background:#3a1b1b; color:#e57373; border:1px solid #5d2e2e; }
 .badge-none { background:#333; color:#aaa; border:1px solid #555; }
@@ -28,10 +29,12 @@
 </style>
 
 <p class="mod-note">
-Модуль — отдельный раздел панели со своим меню и страницей. Выключенный модуль скрывает
-вкладку и отдаёт 404 на своих маршрутах. «Установить зависимости» ставит пакеты (apt),
-Python-пакеты, сервисы и папки, указанные в манифесте модуля <code>module.json</code>,
-из репозитория ОС. Справка в разделе «Справка» собирается только из включённых модулей.
+Модуль — отдельный раздел панели. Три типа: <strong>вкладка</strong> (пункт верхнего меню),
+<strong>блок</strong> (вставляется внутрь вкладки, слот указывается в манифесте — включается и
+выключается здесь) и <strong>приложение</strong> (иконка на вкладке «Приложения»). Выключенный
+модуль скрывает вкладку/блок/плитку и отдаёт 404 на своих маршрутах. «Установить зависимости»
+ставит пакеты (apt), Python-пакеты, сервисы и папки из <code>module.json</code>. Справка
+в разделе «Справка» собирается только из включённых модулей.
 </p>
 
 <div class="mod-grid">
@@ -39,6 +42,11 @@ Python-пакеты, сервисы и папки, указанные в ман�
 <div class="mod-card">
   <div class="mod-head">
     <strong>{{ it.m.name }}</strong><code>{{ it.m.id }}</code>
+    {% set mtype = it.m.type if it.m.type else ('tab' if it.m.tab else ('app' if it.m.app else 'core')) %}
+    {% if mtype == 'tab' %}<span class="badge badge-type">вкладка</span>
+    {% elif mtype == 'block' %}<span class="badge badge-type">блок → {{ it.m.block.slot if it.m.block else '?' }}</span>
+    {% elif mtype == 'app' %}<span class="badge badge-type">приложение</span>
+    {% else %}<span class="badge badge-type">ядро</span>{% endif %}
     {% if not it.installed %}<span class="badge badge-none">не установлен</span>
     {% elif it.enabled %}<span class="badge badge-on">включен</span>
     {% else %}<span class="badge badge-off">выключен</span>{% endif %}

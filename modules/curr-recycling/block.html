@@ -1,0 +1,39 @@
+<h3>Приемные пункты (ЦФО)</h3>
+
+{% if recycling_data %}
+{% for category, items in recycling_data.items() %}
+
+<h4>{{ recycling_category_name(category) }}</h4>
+
+<table>
+<thead>
+<tr>
+<th>Материал</th>
+<th>Цена</th>
+<th>Ед.</th>
+<th>Регион</th>
+<th>Источник</th>
+</tr>
+</thead>
+<tbody>
+
+{% for item in items %}
+<tr>
+<td>{{ item.material }}</td>
+<td>{{ "%.2f"|format(item.price_min) if item.price_min else '-' }}</td>
+<td>{{ item.unit }}</td>
+<td class="small">{{ item.region }}</td>
+<td class="small">{{ item.source }}</td>
+</tr>
+{% endfor %}
+
+</tbody>
+</table>
+
+{% endfor %}
+
+{% else %}
+
+<div class="info">Данные о приемных пунктах пока недоступны.</div>
+
+{% endif %}

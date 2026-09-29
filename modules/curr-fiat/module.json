@@ -1,0 +1,10 @@
+{
+  "id": "curr-fiat",
+  "name": "Fiat валюты",
+  "description": "Таблица курсов fiat-валют (USD, EUR и др.) на вкладке «Курсы валют и металлов»",
+  "builtin": true,
+  "type": "block",
+  "block": {"slot": "currencies", "order": 10, "title": "Fiat валюты"},
+  "help": false,
+  "prefixes": []
+}

@@ -3,6 +3,7 @@
   "name": "Валюты",
   "description": "Курсы валют и драгоценных металлов, переработка (утилизация), история",
   "builtin": true,
+  "type": "tab",
   "help": true,
   "url": "/currencies",
   "prefixes": ["/currencies", "/api/currencies"],

@@ -3,6 +3,7 @@
   "name": "Камеры",
   "description": "IP-камеры: RTSP/HTTP-потоки, сетка просмотра, старт/стоп всех",
   "builtin": true,
+  "type": "app",
   "help": true,
   "prefixes": ["/api/cameras"],
   "app": {"title": "Камеры", "icon": "📷", "category": "Медиа", "order": 30},

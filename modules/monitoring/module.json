@@ -3,6 +3,7 @@
   "name": "Мониторинг",
   "description": "Статус хостов, CPU/память/диск/сеть через Netdata, история и оповещения",
   "builtin": true,
+  "type": "tab",
   "help": true,
   "url": "/monitoring",
   "prefixes": ["/monitoring", "/api/monitoring"],

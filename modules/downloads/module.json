@@ -3,6 +3,7 @@
   "name": "Загрузки",
   "description": "Менеджер загрузок: добавление торрентов и очередь (Transmission RPC)",
   "builtin": true,
+  "type": "app",
   "help": true,
   "prefixes": ["/apps/downloads"],
   "app": {"title": "Загрузки", "icon": "📦", "category": "Система и сеть", "order": 50},
