@@ -1,0 +1,9 @@
+**Где это:** вкладка «Мониторинг».
+
+- Список хостов панели: X96 Max (`192.168.3.243`) и остальные из `monitoring.hosts` (`/etc/lan-discovery/settings.json`).
+- Метрики (CPU, RAM, диск, сеть) читаются из Netdata каждого хоста — порт `19999`.
+- Хост помечен ONLINE/OFFLINE; клик по строке — детальные графики Netdata.
+- API: `GET /api/monitoring/<ip>` — метрики хоста (503, если хост недоступен).
+- Зависимости модуля: пакет `netdata` (apt), сервис `netdata`.
+  На X96 Max: `bind socket to IP = 0.0.0.0` в `/etc/netdata/netdata.conf`, чтобы хост был виден извне.
+- Выключенный модуль: вкладка скрыта, `/monitoring` и `/api/monitoring` → 404.

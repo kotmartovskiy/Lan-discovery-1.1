@@ -66,7 +66,7 @@
 <div class="help-section" id="overview">
 <h3>1. Обзор проекта</h3>
 <p>
-Веб-панель управления домашней инфраструктурой на базе Orange Pi.
+Веб-панель управления домашней инфраструктурой на базе X96 Max (Amlogic S905X, Armbian).
 Единое приложение (Flask + SQLite) для мониторинга сети, устройств, погоды, валют,
 управления мультимедией, встроенных утилит и игр.
 </p>
@@ -78,7 +78,7 @@
 <li><strong>Сканирование сети:</strong> nmap (ARP-сканирование)</li>
 <li><strong>Погода:</strong> Open-Meteo API (57.0°N, 41.0°E)</li>
 <li><strong>Валюты:</strong> CoinGecko + Frankfurter + Yahoo Finance</li>
-<li><strong>IPTV:</strong> Управление плейлистами (m3u)</li>
+<li><strong>Модули:</strong> вкл/выкл разделов, установка зависимостей — страница «Модули»</li>
 <li><strong>Системный сервис:</strong> <code>lan-discovery.service</code> (systemd)</li>
 </ul>
 </div>
@@ -90,27 +90,31 @@
 <h4>Основное устройство</h4>
 <table class="help-table">
 <tr><th>Параметр</th><th>Значение</th></tr>
-<tr><td>Плата</td><td>Orange Pi Plus (Allwinner H3)</td></tr>
-<tr><td>LAN IP</td><td><code>192.168.3.234</code></td></tr>
-<tr><td>WiFi AP IP</td><td><code>192.168.3.235</code></td></tr>
+<tr><td>Плата</td><td>X96 Max (Amlogic S905X), Armbian, hostname <code>armbian</code></td></tr>
+<tr><td>LAN IP</td><td><code>192.168.3.243</code></td></tr>
+<tr><td>WiFi IP</td><td><code>192.168.3.244</code></td></tr>
 <tr><td>SSH</td><td>root / 1234</td></tr>
-<tr><td>Веб-панель</td><td><code>http://192.168.3.234:8080</code></td></tr>
+<tr><td>Веб-панель</td><td><code>http://192.168.3.243:8080</code></td></tr>
+<tr><td>Аварийный restore-сервер</td><td><code>http://192.168.3.243:8081</code></td></tr>
 </table>
 
 <h4>Накопители</h4>
 <table class="help-table">
 <tr><th>Устройство</th><th>Размер</th><th>Точка монтирования</th><th>Назначение</th></tr>
-<tr><td><code>/dev/mmcblk2</code></td><td>14.6 ГБ</td><td><code>/</code></td><td>eMMC — системный диск</td></tr>
-<tr><td><code>/dev/sda</code></td><td>232.9 ГБ</td><td><code>/srv</code></td><td>HDD — данные, torrent, резервные копии</td></tr>
-<tr><td><code>/dev/mmcblk0</code></td><td>~29 ГБ</td><td>—</td><td>SD-карта (для клонирования)</td></tr>
+<tr><td><code>/dev/mmcblk1</code> (SD)</td><td>29 ГБ</td><td><code>/boot</code>, <code>/</code></td><td>SD-карта — системный диск (панель, данные)</td></tr>
+<tr><td><code>/dev/mmcblk2</code></td><td>29.1 ГБ</td><td>—</td><td>eMMC — пустая (не используется)</td></tr>
+<tr><td>HDD</td><td>—</td><td>—</td><td>отсутствует; <code>/srv</code> — на системном разделе SD</td></tr>
 </table>
 
 <h4>Сетевые устройства</h4>
 <table class="help-table">
 <tr><th>Устройство</th><th>IP</th><th>Описание</th></tr>
-<tr><td>Orange Pi (LAN)</td><td><code>192.168.3.234</code></td><td>Основной сервер</td></tr>
-<tr><td>Orange Pi (WiFi)</td><td><code>192.168.3.235</code></td><td>WiFi AP интерфейс</td></tr>
+<tr><td>X96 Max (панель)</td><td><code>192.168.3.243</code></td><td>Основной сервер, эта панель</td></tr>
+<tr><td>X96 Max (WiFi)</td><td><code>192.168.3.244</code></td><td>WiFi-интерфейс</td></tr>
+<tr><td>Orange Pi (LAN)</td><td><code>192.168.3.234</code></td><td>Удалённый сервер (кабель отвален — не отвечает)</td></tr>
+<tr><td>Orange Pi (WiFi AP)</td><td><code>192.168.3.235</code></td><td>Доступ к Orange Pi через его WiFi AP</td></tr>
 <tr><td>ThinkPad T480</td><td><code>192.168.3.236</code> / <code>.239</code></td><td>Рабочая станция</td></tr>
+<tr><td>Роутер</td><td><code>192.168.3.1</code></td><td>Шлюз, веб-интерфейс</td></tr>
 <tr><td>DNS-сервер</td><td><code>192.168.3.51</code></td><td>Локальный DNS</td></tr>
 </table>
 </div>
@@ -158,13 +162,13 @@
 </ul>
 
 <h4>🖥 Система (<code>/system</code>)</h4>
-<p>Управление сервером Orange Pi.</p>
+<p>Управление сервером X96 Max.</p>
 <ul>
-<li>Карточки: uptime, нагрузка, температура, RAM, eMMC, HDD</li>
-<li>Управление сервисами (Transmission, MiniDLNA, Samba, LAN Discovery)</li>
-<li>Резервное копирование (eMMC, БД)</li>
+<li>Карточки: uptime, нагрузка, температура, RAM, SD, eMMC</li>
+<li>Управление сервисами (Transmission, MiniDLNA, Samba, LAN Discovery, Netdata)</li>
+<li>Резервное копирование (файлы панели, база данных)</li>
 <li>Проверка сети, зоны RU, провайдера</li>
-<li>Замена HDD / Клонирование на SD</li>
+<li>Клонирование SD ↔ eMMC</li>
 <li>IPTV: управление плейлистами</li>
 <li>Управление питанием (перезагрузка, выключение)</li>
 </ul>
@@ -449,9 +453,9 @@
 
 <h4>Резервное копирование и восстановление</h4>
 <ul>
-<li>Бэкап eMMC (ежедневно в 04:00)</li>
-<li>Backup БД (ежечасный, хранение 7 дней)</li>
-<li>Восстановление из backup</li>
+<li>Файловые бэкапы — рядом с исходными файлами (<code>app.py.backup-*</code>, <code>devices.db.backup-*</code>)</li>
+<li>Бэкап/восстановление БД — страница «Система» (каталог <code>/srv/backup-db</code>)</li>
+<li>Аварийный доступ — <code>restore-server.service</code> (порт 8081)</li>
 <li>Импорт настроек (JSON)</li>
 </ul>
 
@@ -502,21 +506,24 @@
 <tr><th>Путь</th><th>Описание</th></tr>
 <tr><td><code>/opt/lan-discovery/app.py</code></td><td>Основной Flask-сервер</td></tr>
 <tr><td><code>/opt/lan-discovery/devices.db</code></td><td>SQLite база данных</td></tr>
-<tr><td><code>/opt/lan-discovery/modules/</code></td><td>Модули: currencies, monitor, inventory</td></tr>
+<tr><td><code>/opt/lan-discovery/modules/</code></td><td>Модули панели (роуты, парсеры)</td></tr>
+<tr><td><code>/opt/lan-discovery/modules/&lt;id&gt;/module.json</code></td><td>Манифесты модульной системы</td></tr>
+<tr><td><code>/opt/lan-discovery/core/</code></td><td>Загрузчик модулей (навигация, справка, состояние)</td></tr>
 <tr><td><code>/opt/lan-discovery/network_check.py</code></td><td>Проверка сетевой связности</td></tr>
-<tr><td><code>/opt/lan-discovery/env_data.py</code></td><td>Данные окружающей среды</td></tr>
-<tr><td><code>/srv/backup-system/</code></td><td>Backup eMMC (emmc.img.zst)</td></tr>
-<tr><td><code>/srv/backup-db/</code></td><td>Backup БД (ежечасный, 7 дней)</td></tr>
-<tr><td><code>/srv/</code></td><td>Данные HDD (torrent, медиа)</td></tr>
+<tr><td><code>/etc/lan-discovery/</code></td><td>Настройки: settings.json, users.json, modules.json</td></tr>
+<tr><td><code>/srv/downloads/</code></td><td>Загрузки Transmission</td></tr>
+<tr><td><code>/srv/backup-db/</code></td><td>Резервные копии БД</td></tr>
 </table>
 
 <h4>Systemd-сервисы</h4>
 <table class="help-table">
 <tr><th>Сервис</th><th>Описание</th></tr>
 <tr><td><code>lan-discovery</code></td><td>Веб-панель (Flask, порт 8080)</td></tr>
-<tr><td><code>backup-db.timer</code></td><td>Ежечасный backup БД</td></tr>
-<tr><td><code>backup-emmc-restore.service</code></td><td>Восстановление eMMC</td></tr>
-<tr><td><code>weather-update.timer</code></td><td>Обновление погоды</td></tr>
+<tr><td><code>restore-server</code></td><td>Аварийный HTTP-сервер (порт 8081)</td></tr>
+<tr><td><code>transmission-daemon</code></td><td>Торрент-клиент (web: 9091)</td></tr>
+<tr><td><code>minidlna</code></td><td>DLNA-сервер (порт 8200)</td></tr>
+<tr><td><code>smbd</code> / <code>nmbd</code></td><td>Samba-шары (порт 445)</td></tr>
+<tr><td><code>netdata</code></td><td>Мониторинг (порт 19999)</td></tr>
 </table>
 
 <h4>Полезные команды</h4>
@@ -532,11 +539,11 @@
 </table>
 
 <h4>Резервные копии</h4>
-<p>Все бэкапы хранятся на HDD (<code>/srv/backup-*</code>). Рекомендации:</p>
+<p>Бэкапы хранятся рядом с исходными файлами и в <code>/srv/backup-db</code> (системный раздел SD). Рекомендации:</p>
 <ul>
 <li>Перед любым изменением <code>app.py</code> — бэкап: <code>cp /opt/lan-discovery/app.py /opt/lan-discovery/app.py.backup-$(date +%Y%m%d-%H%M%S)</code></li>
-<li>Ежечасный backup БД с автоматическим удалением старше 7 дней</li>
-<li>Ежедневный backup eMMC в 04:00</li>
+<li>Бэкап БД вручную: <code>cp /opt/lan-discovery/devices.db /opt/lan-discovery/devices.db.backup-$(date +%Y%m%d-%H%M%S)</code></li>
+<li>Восстановление — из файлов <code>.backup-*</code> или через страницу «Система»</li>
 </ul>
 </div>
 
@@ -561,16 +568,16 @@
 
 <h4>Погода не обновляется</h4>
 <ul>
-<li>Проверьте статус: <code>systemctl status weather-update.timer</code></li>
-<li>Ручной запуск: <code>systemctl start weather-update.service</code></li>
-<li>Проверьте подключение: <code>curl "https://api.open-meteo.com/v1/forecast?latitude=57&longitude=41&current_weather=true"</code></li>
+<li>Кэш погоды — 15–30 минут, обновляется при обращении к странице/шапке</li>
+<li>Проверьте доступность API: <code>curl "https://api.open-meteo.com/v1/forecast?latitude=57&longitude=41&current_weather=true"</code></li>
+<li>Посмотрите логи панели: <code>journalctl -u lan-discovery -n 50</code></li>
 </ul>
 
-<h4>Backup не создаётся</h4>
+<h4>Бэкап БД не создаётся</h4>
 <ul>
-<li>Проверьте таймер: <code>systemctl status backup-db.timer</code></li>
-<li>Проверьте место: <code>df -h /srv</code></li>
-<li>Ручной запуск: <code>/usr/local/sbin/backup-db.sh</code></li>
+<li>Вручную: <code>cp /opt/lan-discovery/devices.db /opt/lan-discovery/devices.db.backup-$(date +%Y%m%d-%H%M%S)</code></li>
+<li>Проверьте место: <code>df -h /</code></li>
+<li>Бэкап со страницы «Система» пишет в <code>/srv/backup-db</code></li>
 </ul>
 
 <h4>Ошибка синтаксиса Python</h4>
@@ -581,9 +588,9 @@
 
 <h4>Клонирование не запускается</h4>
 <ul>
-<li>Проверьте наличие SD-карты: <code>lsblk | grep mmcblk0</code></li>
-<li>Убедитесь что SD не смонтирована: <code>umount /dev/mmcblk0*</code></li>
-<li>Проверьте свободное место на eMMC</li>
+<li>Проверьте наличие SD-карты: <code>lsblk | grep mmcblk1</code></li>
+<li>Убедитесь что разделы SD не смонтированы: <code>umount /dev/mmcblk1*</code></li>
+<li>Проверьте целевой диск: eMMC = <code>/dev/mmcblk2</code> (на этой панели она пустая, система живёт на SD)</li>
 </ul>
 </div>
 
@@ -610,13 +617,13 @@
 <p>На странице «Система» → блок «Сеть» → нажмите «Изменить» рядом с нужным адресом.</p>
 
 <h4>Как сделать полный backup системы?</h4>
-<p>Backup eMMC создаётся автоматически ежедневно в 04:00. Для ручного создания используйте утилиту на странице «Система».</p>
+<p>Файловые бэкапы создаются вручную (см. раздел 12, «Резервные копии»), БД — через страницу «Система» или <code>cp</code>. Образ SD можно сделать утилитой <code>dd</code> на другой диск.</p>
 
 <h4>Как восстановить систему из backup?</h4>
-<p>Запишите backup на SD-карту, загрузитесь с неё, следуйте инструкциям <code>emmc-restore.service</code>.</p>
+<p>Восстановление файлов — из <code>.backup-*</code> рядом с файлами; БД — через страницу «Система» («Восстановить БД»). Аварийный доступ — <code>restore-server.service</code> (порт 8081).</p>
 
 <h4>Как подключиться к серверу по SSH?</h4>
-<p><code>ssh root@192.168.3.234</code> (пароль: 1234). Рекомендуется настроить SSH-ключи для безопасности.</p>
+<p><code>ssh root@192.168.3.243</code> (пароль: 1234). Рекомендуется настроить SSH-ключи для безопасности.</p>
 
 <h4>Как перезагрузить сервер через веб-панель?</h4>
 <p>Страница «Система» → «Управление питанием» → «Перезагрузить». Подтвердите действие.</p>
@@ -625,7 +632,7 @@
 <p>Страница «Система» → «Управление питанием» → «Выключить питание». После команды можно отключить кабель питания.</p>
 
 <h4>Где хранятся данные torrent-клиента?</h4>
-<p>На HDD: <code>/srv/</code> — загруженные файлы, конфигурация Transmission.</p>
+<p><code>/srv/downloads/</code> — загруженные файлы (системный раздел SD); конфигурация Transmission — в <code>/etc/transmission-daemon/</code>.</p>
 
 <h4>Как обновить панель?</h4>
 <p>Отредактируйте <code>/opt/lan-discovery/app.py</code>, затем: <code>systemctl restart lan-discovery</code>. Перед изменением обязательно сделайте бэкап!</p>
