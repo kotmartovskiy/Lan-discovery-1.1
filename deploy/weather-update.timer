@@ -1,0 +1,9 @@
+[Unit]
+Description=Weather update every 15 min (+2 min after boot)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,6 @@
+[Unit]
+Description=Weather data fetch (Open-Meteo) into devices.db
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/weather-update.py

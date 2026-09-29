@@ -1,0 +1,6 @@
+[Unit]
+Description=IPTV playlist update (all enabled)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/update-iptv.sh

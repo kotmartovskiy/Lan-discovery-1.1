@@ -1,0 +1,6 @@
+[Unit]
+Description=Environment data (UV, air quality, radiation) into devices.db
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/lan-discovery/env_data.py
