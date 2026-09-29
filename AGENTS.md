@@ -20,6 +20,7 @@
 - **`Lan-discovery-ARM`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-ARM — код (`app.py`, `modules/`, `templates/`, `games/`, `static/`, `weather-monitor/`), документация `docs/`, `README.md`, `AGENTS.md`. Ветка `main`.
 - **`Lan-discovery-docs`** (публичный) — https://github.com/kotmartovskiy/Lan-discovery-docs — очищенная от рабочих IP/паролей копия `docs/`.
 - **`Lan-discovery-modules`** (публичный) — https://github.com/kotmartovskiy/Lan-discovery-modules — каталог модулей для вкладки «Модули» (`index.json` + `<id>/` с `module.json`); панель ставляет/обновляет модули из этой ветки (настройка `modules_catalog` в `/etc/lan-discovery/settings.json`).
+- **`Lan-discovery-demo`** (публичный) — https://github.com/kotmartovskiy/Lan-discovery-demo — **статичный демо-слепок панели** для показа извне, сайт: https://kotmartovskiy.github.io/Lan-discovery-demo/ (GitHub Pages, ветка `main`, корень). Генератор `tools/make_demo.py`, проверка `tools/demo_lint.py`.
 
 Порядок действий:
 1. `git status` → `git add <изменённые файлы>` (мусор типа `check_*`, `debug*`, `verify*`, `__pycache__` отфильтровывается `.gitignore`).
@@ -31,6 +32,13 @@
    cd <temp>/docs-public && git add -A && git commit -m "docs: ..." && git push
    ```
 5. Если правки вносились на сервер (`/opt/lan-discovery/*`) — сначала подтянуть их в локальную копию (SFTP read → правка → commit), чтобы репозиторий соответствовал проду.
+6. Обновление демо-сайта (по запросу):
+   ```
+   # на боксе: cd /opt/lan-discovery && venv/bin/python tools/make_demo.py /tmp/demo
+   # скачать /tmp/demo локально (pscp -r), затем:
+   python -X utf8 tools/demo_lint.py <папка-demo>    # exit 0 = чисто
+   # скопировать в клон Lan-discovery-demo → add -A → commit → push (Pages пересобирается сам)
+   ```
 
 ## Рабочее окружение
 - **Web panel: `http://192.168.3.243:8080`** (X96 Max / Armbian, hostname `armbian`)

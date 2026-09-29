@@ -1,0 +1,392 @@
+#!/usr/bin/env python3
+"""make_demo.py — статичный демо-слепок панели LAN Discovery для публикации.
+
+Собирает HTML-страницы и снимки GET-API через test_client() (без фоновых
+потоков — они стартуют только при __main__), выкладывает результат в OUT:
+
+  <страницы>.html, restore.html, api/* (без расширения), static/style.css,
+  demo.js, stub.html, 404.html  (заглушки для внешних/битых ссылок)
+
+Секреты вычищаются: api/notes и api/secrets → [], в api/settings вырезаются
+ключи token/password/secret и т.п., в wifi-скане — bssid.
+
+Использование (на хосте панели):
+  cd /opt/lan-discovery && venv/bin/python tools/make_demo.py /tmp/demo
+"""
+import json
+import os
+import re
+import shutil
+import sqlite3
+import sys
+import urllib.parse
+from datetime import datetime
+
+sys.path.insert(0, "/opt/lan-discovery")
+
+OUT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "/tmp/demo")
+DB = "/opt/lan-discovery/devices.db"
+SNAP = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+HTML_PAGES = [
+    "/", "/about", "/apps", "/apps/bluetooth", "/apps/disks", "/apps/dlna",
+    "/apps/downloads", "/apps/filemanager", "/apps/nettools", "/apps/notes",
+    "/apps/passwords", "/apps/terminal", "/apps/upnp", "/apps/wifianalyzer",
+    "/currencies", "/help", "/history", "/inventory", "/modules",
+    "/monitoring", "/system", "/torrent", "/weather",
+]
+
+DROP_KEYS = {
+    "token", "password", "password_hash", "secret", "secret_key",
+    "api_key", "access_token", "bssid",
+}
+EMPTY_JSON = {
+    "api/notes.json": "[]",
+    "api/secrets.json": "[]",
+}
+
+# GET-эндпоинты-действия: в демо не вызываем (запуск плеера, сканы, перезагрузка…)
+SKIP_API = (
+    "/load", "/play", "/stop", "/start", "/scan", "/pair", "/connect",
+    "/disconnect", "/remove", "/power", "/mute", "/next", "/prev", "/pause",
+    "/random", "/add", "/check", "/prepare", "/transfer", "/verify",
+    "/poweroff", "/reboot", "/delete", "/mkdir", "/copy", "/move", "/dismiss",
+    "/service/", "/nettools/", "/network/check", "/dns", "/ping", "/ports",
+    "/trace", "/file_url", "/discoverable", "/restart", "/read",
+)
+SKIP_ALLOW = ("/wifi/scan",)  # безопасные исключения
+
+BANNER = (
+    '<div style="position:fixed;left:0;right:0;bottom:0;background:#12203a;'
+    'color:#9fb6e8;font:11px/1.8 system-ui,sans-serif;padding:2px 8px;'
+    'z-index:99998;text-align:center">'
+    'Демо-режим · слепок от %s · данные не обновляются · '
+    '<a href="index.html" style="color:#ffd54f">главная</a></div>' % SNAP
+)
+
+STUB_HTML = """<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Заглушка — Демо LAN Discovery</title>
+<style>
+ body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background:#0e1626;color:#e8eefc;font:16px/1.5 system-ui,sans-serif}
+ .card{max-width:520px;padding:32px;background:#17223a;border:1px solid #2b3b5f;
+       border-radius:12px;text-align:center}
+ h1{font-size:20px;margin:0 0 12px}
+ p{color:#9fb6e8;font-size:14px;word-break:break-all}
+ code{display:block;margin:10px 0;padding:8px;background:#0e1626;border-radius:6px;
+      font-size:12px;color:#ffd54f;max-height:80px;overflow:auto}
+ .btn{display:inline-block;margin-top:14px;padding:10px 22px;background:#2f6fd6;
+      color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;
+      text-decoration:none}
+ .btn:hover{background:#3f7fe6}
+</style></head><body><div class="card">
+ <h1>🔒 Внешний ресурс недоступен в демо</h1>
+ <p>Вы находитесь в статичном демо-режиме: внешние ссылки и действия отключены.</p>
+ <code id="u"></code>
+ <button class="btn" onclick="back()">← Назад</button>
+ <a class="btn" href="index.html" style="background:#374a72">На главную</a>
+</div>
+<script>
+ function q(n){return (location.search.match(new RegExp(n+'=([^&]*)'))||[])[1]||'';}
+ var t=q('to'); if(t){document.getElementById('u').textContent=decodeURIComponent(t);}
+ else{document.getElementById('u').style.display='none';}
+ function back(){ if(history.length>1){history.back();} else {location.href='index.html';} }
+</script></body></html>
+"""
+
+DEMO_JS = r"""(function(){
+ 'use strict';
+ var STUB='stub.html?to=';
+ function toast(msg){
+  var d=document.createElement('div');
+  d.textContent=msg;
+  d.style.cssText='position:fixed;left:50%;bottom:34px;transform:translateX(-50%);'+
+   'background:#333;color:#fff;padding:9px 18px;border-radius:8px;z-index:100000;'+
+   'font:13px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.4)';
+  document.body.appendChild(d);
+  setTimeout(function(){d.remove();},2600);
+ }
+ window.__demoToast=toast;
+ document.addEventListener('click',function(e){
+  var a=e.target.closest?e.target.closest('a'):null;
+  if(!a)return;
+  var href=a.getAttribute('href');
+  if(!href||href.charAt(0)==='#'||/^(javascript|mailto|data):/i.test(href))return;
+  if(/^(https?:)?\/\//i.test(href)){e.preventDefault();location.href=STUB+encodeURIComponent(href);return;}
+  if(!/\.html([?#]|$)/.test(href)&&!/^stub\.html/.test(href)){
+   e.preventDefault();location.href=STUB+encodeURIComponent(href);
+  }
+ },true);
+ document.addEventListener('submit',function(e){
+  e.preventDefault();toast('Демо-режим: действия отключены');
+ },true);
+ var _f=window.fetch;
+ if(_f){
+  window.fetch=function(input,init){
+   var url=typeof input==='string'?input:(input&&input.url)||'';
+   var method=((init&&init.method)||(input&&input.method)||'GET').toUpperCase();
+   if(method!=='GET'&&method!=='HEAD'){
+    toast('Демо-режим: изменения отключены');
+    return Promise.resolve(new Response(JSON.stringify({demo:true,message:'demo'}),{
+     status:200,headers:{'Content-Type':'application/json'}}));
+   }
+   var u=url;
+   if(u.charAt(0)==='/'&&u.charAt(1)!=='/')u=u.slice(1);
+   var q=''; var qi=u.indexOf('?');
+   if(qi>=0){q=u.substr(qi);u=u.substr(0,qi);}
+   function fallback(){
+    return new Response(JSON.stringify({demo:true,data:null}),{
+     status:200,headers:{'Content-Type':'application/json'}});
+   }
+   return _f.call(window,u+'.json'+q,init).then(function(r){
+    if(!r.ok)throw new Error('try plain');
+    return r;
+   }).catch(function(){
+    return _f.call(window,u+q,init).then(function(r){
+     if(!r.ok)throw new Error('demo 404');
+     return r;
+    });
+   }).catch(fallback);
+  };
+ }
+})();
+"""
+
+
+def route_file(path):
+    if path == "/":
+        return "index.html"
+    return path.strip("/").replace("/", "-") + ".html"
+
+
+def build_ips():
+    con = sqlite3.connect(DB)
+    ips = set()
+    try:
+        tables = [r[0] for r in con.execute(
+            "select name from sqlite_master where type='table'")]
+        for t in tables:
+            try:
+                cols = [r[1] for r in con.execute("pragma table_info(%s)" % t)]
+            except Exception:
+                continue
+            if "ip" not in cols:
+                continue
+            try:
+                for (v,) in con.execute(
+                        "select distinct ip from \"%s\" where ip is not null" % t):
+                    if v and re.match(r"^\d+\.\d+\.\d+\.\d+$", str(v)):
+                        ips.add(str(v))
+            except Exception:
+                pass
+    finally:
+        con.close()
+    return sorted(ips)
+
+
+def api_paths(app, ips):
+    out = []
+    for rule in app.url_map.iter_rules():
+        r = rule.rule
+        if not r.startswith("/api/"):
+            continue
+        if "GET" not in (rule.methods or set()):
+            continue
+        if any(s in r for s in SKIP_API) and not any(a in r for a in SKIP_ALLOW):
+            continue
+        if "<" not in r:
+            out.append(r)
+        elif "<ip>" in r:
+            out.extend(r.replace("<ip>", ip) for ip in ips)
+    return sorted(set(out))
+
+
+def scrub(obj):
+    if isinstance(obj, dict):
+        return {k: scrub(v) for k, v in obj.items()
+                if str(k).lower() not in DROP_KEYS}
+    if isinstance(obj, list):
+        return [scrub(x) for x in obj]
+    return obj
+
+
+def write_file(rel, data, binary=False):
+    path = os.path.join(OUT, rel)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        mode = "wb" if binary else "w"
+        with open(path, mode, encoding=None if binary else "utf-8") as f:
+            f.write(data)
+    except OSError as e:
+        print("WRITE SKIP", rel, e)
+
+
+def transform(html, page_map):
+    # 0) внешние CDN-ресурсы (xterm, socket.io…) вырезаем — в демо не грузим
+    html = re.sub(
+        r'<script[^>]+src="https?://[^"]+"[^>]*>\s*</script>', "", html)
+    html = re.sub(r'<link[^>]+href="https?://[^"]+"[^>]*>', "", html)
+    # 1) ссылка на Emergency Restore Server (порт 8081) → страница рекавери
+    html = re.sub(r'href="https?://[^"]*:8081[^"]*"', 'href="restore.html"', html)
+    html = re.sub(r"href='https?://[^']*:8081[^']*'", "href='restore.html'", html)
+    # 1b) iframe Transmission (внешний :9091) → заглушка
+    html = html.replace(
+        '"http://" + window.location.hostname + ":9091/transmission/web/"',
+        '"stub.html?to=transmission%3A%2F%2Fweb%3A9091"')
+    # 2) внешние ссылки → заглушка
+    html = re.sub(
+        r'href="(https?://[^"]*)"',
+        lambda m: 'href="stub.html?to=' + urllib.parse.quote(m.group(1), safe="") + '"',
+        html)
+    # 3) внутренние href/action → файлы страниц; неизвестные → заглушка
+    def _inner(m):
+        attr, path = m.group(1), m.group(2)
+        pure = path.split("?")[0].split("#")[0]
+        if pure in page_map:
+            return '%s="%s"' % (attr, page_map[pure])
+        return '%s="stub.html?to=%s"' % (attr, urllib.parse.quote(path, safe=""))
+    html = re.sub(r'(href|action)="/([^"]*)"', _inner, html)
+    # 4) остатки в JS-литералах и прочих атрибутах → относительные пути
+    html = re.sub(r'(["\'])/([A-Za-z])', r'\1\2', html)
+    # 5) плашка + demo.js
+    inject = BANNER + '\n<script src="demo.js"></script>\n'
+    html = re.sub(r'</body>', inject + '</body>', html, count=1, flags=re.I)
+    return html
+
+
+def login(client):
+    r = client.get("/login")
+    html = r.get_data(as_text=True)
+    m = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html)
+    token = m.group(1) if m else ""
+    r = client.post(
+        "/login",
+        data={"username": "admin", "password": "1234", "csrf_token": token},
+        follow_redirects=True)
+    if r.status_code != 200 or "traceback" in r.get_data(as_text=True).lower():
+        print("LOGIN FAILED", r.status_code)
+        sys.exit(1)
+    print("login: ok")
+
+
+def main():
+    if os.path.isdir(OUT):
+        shutil.rmtree(OUT)
+    os.makedirs(OUT)
+
+    import app as panel_app
+
+    ips = build_ips()
+    print("ips:", len(ips))
+
+    client = panel_app.app.test_client()
+    login(client)
+
+    # --- страницы ---
+    page_map = {}
+    pages = list(HTML_PAGES)
+    pages += ["/device/" + ip for ip in ips]
+    pages += ["/inventory/device/" + ip for ip in ips]
+    for path in pages:
+        r = client.get(path)
+        if r.status_code != 200:
+            print("PAGE SKIP", path, r.status_code)
+            continue
+        body = r.get_data(as_text=True)
+        if "traceback" in body.lower():
+            print("PAGE TRACEBACK", path)
+            continue
+        page_map[path] = route_file(path)
+        write_file(page_map[path], body)
+    print("pages:", len(page_map))
+
+    # --- снимки API ---
+    n_api = 0
+    for path in api_paths(panel_app.app, ips):
+        try:
+            r = client.get(path)
+        except Exception as e:
+            print("API ERR", path, e)
+            continue
+        if r.status_code != 200:
+            continue
+        # <path>.json — чтобы не было конфликта «файл vs каталог»
+        # (например, api/transmission и api/transmission/queue)
+        write_file(path.lstrip("/") + ".json", r.get_data(as_text=True))
+        n_api += 1
+    print("api snapshots:", n_api)
+
+    # --- слепок Emergency Restore Server ---
+    try:
+        import restore_server as rs
+        rc = rs.app.test_client()
+        with rc.session_transaction() as s:
+            s["restore_user"] = "admin"
+        rr = rc.get("/")
+        if rr.status_code == 200:
+            write_file("restore.html", rr.get_data(as_text=True))
+            print("restore: ok")
+        else:
+            print("restore skip:", rr.status_code)
+        rb = rc.get("/api/backups")
+        if rb.status_code == 200:
+            write_file("api/backups.json", rb.get_data(as_text=True))
+    except Exception as e:
+        print("restore err:", e)
+
+    # --- static ---
+    src_css = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "..", "static", "style.css")
+    if os.path.exists(src_css):
+        write_file("static/style.css", open(src_css, encoding="utf-8").read())
+        print("static: ok")
+
+    # --- игры (роут /games/<file> отдаёт каталог games/) ---
+    games_dir = os.path.join(
+        os.path.dirname(os.path.abspath(panel_app.__file__)), "games")
+    if os.path.isdir(games_dir):
+        shutil.copytree(games_dir, os.path.join(OUT, "games"),
+                        dirs_exist_ok=True)
+        for dirpath, _, files in os.walk(games_dir):
+            for fn in files:
+                full = os.path.join(dirpath, fn)
+                rel = os.path.relpath(full, games_dir).replace(os.sep, "/")
+                page_map["/games/" + rel] = "games/" + rel
+        print("games: ok")
+
+    # --- санитайзер секретов ---
+    for rel, empty in EMPTY_JSON.items():
+        write_file(rel, empty)
+    p = os.path.join(OUT, "api", "settings.json")
+    if os.path.exists(p):
+        try:
+            data = json.load(open(p, encoding="utf-8"))
+            json.dump(scrub(data), open(p, "w", encoding="utf-8"),
+                      ensure_ascii=False, indent=1)
+            print("settings scrubbed")
+        except Exception as e:
+            print("settings scrub err:", e)
+
+    # --- трансформация всех HTML ---
+    for fname in list(os.listdir(OUT)):
+        if not fname.endswith(".html"):
+            continue
+        path = os.path.join(OUT, fname)
+        html = open(path, encoding="utf-8").read()
+        html = transform(html, page_map)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html)
+
+    # --- заглушки ---
+    write_file("stub.html", STUB_HTML)
+    write_file("404.html", STUB_HTML)
+    write_file("demo.js", DEMO_JS)
+
+    n_files = sum(len(files) for _, _, files in os.walk(OUT))
+    print("DONE -> %s (%d files), snapshot %s" % (OUT, n_files, SNAP))
+
+
+if __name__ == "__main__":
+    main()
