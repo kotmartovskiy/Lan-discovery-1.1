@@ -1687,6 +1687,20 @@ def register_routes(app):
             _disk_sizes["hdd"] = hdd_size_lines[-1].strip() if hdd_size_lines else None
         hdd_size = _disk_sizes["hdd"]
 
+        sd_dev = None
+        try:
+            for _name in os.listdir("/sys/block"):
+                if not _name.startswith("mmcblk") or "boot" in _name:
+                    continue
+                try:
+                    with open(f"/sys/block/{_name}/device/type", "r", encoding="utf-8") as _f:
+                        if _f.read().strip() == "SD":
+                            sd_dev = _name
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         if _disk_sizes["sd"] is None and sd_dev and os.path.exists("/dev/" + sd_dev):
             sd_size_out = _cmd(["lsblk", "-dno", "SIZE", "/dev/" + sd_dev], timeout=5)
             sd_size_lines = sd_size_out.strip().splitlines()
