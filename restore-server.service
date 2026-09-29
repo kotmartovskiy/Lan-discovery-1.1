@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/lan-discovery
-ExecStart=/usr/bin/python3 /opt/lan-discovery/restore_server.py
+ExecStart=/opt/lan-discovery/venv/bin/python /opt/lan-discovery/restore_server.py
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

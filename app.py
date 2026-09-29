@@ -363,7 +363,26 @@ def monitoring():
 @app.route("/api/monitoring/<ip>")
 @login_required
 def api_monitoring(ip):
-    return jsonify(get_system_overview(ip))
+    from modules.monitor import (
+        _get_cpu_percent_from_netdata,
+        _get_ram_from_netdata,
+    )
+
+    if ip in ("127.0.0.1", "localhost", "192.168.3.243"):
+        return jsonify(get_system_overview())
+
+    cpu = _get_cpu_percent_from_netdata(ip)
+    ram = _get_ram_from_netdata(ip)
+    if cpu is None and ram is None:
+        return jsonify({"error": "host unreachable"}), 503
+
+    return jsonify({
+        "cpu": {"busy_percent": cpu or 0},
+        "ram": ram or {"percent": 0, "items": []},
+        "ram_items": (ram or {}).get("items", []),
+        "net_items": [],
+        "temperature": 0,
+    })
 
 
 # ==================== Inventory ====================
@@ -413,13 +432,24 @@ def inventory():
                     if inv.get("open_ports"):
                         try:
                             ports = json.loads(inv["open_ports"]) if isinstance(inv["open_ports"], str) else inv["open_ports"]
-                            for p in ports:
-                                if p.get("state") == "open" and p.get("port") in ("80", "443", "8080", "8443", "8081", "8888", "9091", "8000", "3000", "5000"):
-                                    inv["has_web"] = True
-                                    if p.get("port") in ("443", "8080"):
-                                        inv["web_port"] = p.get("port")
-                                    elif not inv.get("web_port"):
-                                        inv["web_port"] = p.get("port")
+                            open_web = [
+                                p.get("port") for p in ports
+                                if p.get("state") == "open"
+                                and p.get("port") in (
+                                    "80", "443", "8080", "8443", "8081",
+                                    "8888", "9091", "8000", "3000", "5000",
+                                )
+                            ]
+                            if open_web:
+                                inv["has_web"] = True
+                                priority = (
+                                    "80", "8080", "8000", "8888", "5000",
+                                    "3000", "9091", "8081", "443", "8443",
+                                )
+                                inv["web_port"] = next(
+                                    (x for x in priority if x in open_web),
+                                    str(open_web[0]),
+                                )
                         except Exception:
                             pass
                     if not inv["has_web"] and ip in known_web_ports:
@@ -445,6 +475,13 @@ def inventory():
         con.close()
     except Exception:
         pass
+
+    _aliases = _cfg("network", "web_aliases", {"192.168.3.234": "192.168.3.235"})
+    for inv in all_devices:
+        inv["web_ip"] = _aliases.get(inv.get("ip", ""), inv.get("ip", ""))
+        inv["web_scheme"] = (
+            "https" if str(inv.get("web_port") or "") in ("443", "8443") else "http"
+        )
 
     def sort_key(inv):
         online = int(inv.get("online", 0) if isinstance(inv, dict) else getattr(inv, "online", 0) or 0)

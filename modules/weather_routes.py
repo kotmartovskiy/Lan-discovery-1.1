@@ -25,6 +25,14 @@ def load_settings():
         return {}
 
 
+def weather_is_weekend(date_str):
+    try:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        return dt.weekday() >= 5
+    except Exception:
+        return False
+
+
 def weather_date_name(date_str):
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d")
@@ -358,6 +366,7 @@ def register_routes(app):
     app.jinja_env.globals["wind_direction_name"] = wind_direction_name
     app.jinja_env.globals["weather_code_name"] = weather_code_name
     app.jinja_env.globals["weather_date_name"] = weather_date_name
+    app.jinja_env.globals["weather_is_weekend"] = weather_is_weekend
 
     @app.route("/weather")
     @login_required

@@ -351,6 +351,12 @@ def scan_loop():
 
                     was_online = bool(row[0])
 
+                    old_mac = row[2]
+                    mac_changed = (
+                        bool(mac) and bool(old_mac)
+                        and str(mac).lower() != str(old_mac).lower()
+                    )
+
                     con.execute(
                         """
                         UPDATE devices
@@ -362,7 +368,9 @@ def scan_loop():
                             vendor=COALESCE(?, vendor),
                             last_seen=?,
                             misses=0,
-                            appearances=appearances+1
+                            appearances=appearances+1,
+                            name=CASE WHEN ?=1 THEN NULL ELSE name END,
+                            device_type=CASE WHEN ?=1 THEN NULL ELSE device_type END
 
                         WHERE ip=?
                         """,
@@ -371,6 +379,8 @@ def scan_loop():
                             mac,
                             vendor,
                             now,
+                            1 if mac_changed else 0,
+                            1 if mac_changed else 0,
                             ip
                         )
                     )

@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+.weekend td { color: #ff5f5f !important; }
+.days-scroll { max-height: 420px; overflow-y: auto; }
+</style>
+
 <h2>Погода</h2>
 
 {% if weather %}
@@ -231,8 +236,8 @@
 
 <div class="info-row">
 <span class="info-label">Осадки:</span>
-{{ "%.1f"|format(today[4]) }} мм,
-вероятность {{ today[5] }} %
+{{ "%.1f"|format(today[4]) }} мм{% if today[5] is not none %},
+вероятность {{ today[5] }} %{% endif %}
 </div>
 
 <div class="info-row">
@@ -243,8 +248,8 @@
 
 <div class="info-row">
 <span class="info-label">Солнце:</span>
-восход {{ today[8][11:16] }},
-закат {{ today[9][11:16] }}
+{% if today[8] and today[9] %}восход {{ today[8][11:16] }},
+закат {{ today[9][11:16] }}{% else %}--{% endif %}
 </div>
 
 </div>
@@ -278,8 +283,8 @@
 
 <div class="info-row">
 <span class="info-label">Радиационный фон:</span>
-{{ "%.1f"|format(env_data.radiation) if env_data and env_data.radiation else "--" }} мкР/ч
-({{ env_data.radiation_level if env_data else "--" }})
+{% if env_data and env_data.radiation %}{{ "%.1f"|format(env_data.radiation) }} мкР/ч
+({{ env_data.radiation_level }}){% else %}недоступно{% endif %}
 </div>
 
 </div>
@@ -327,7 +332,7 @@
 <td>{{ "%.1f"|format(h[1]) if h[1] is not none else '--' }} °C</td>
 <td>{{ weather_code_name(h[2]) if h[2] is not none else '--' }}</td>
 <td>{{ "%.1f"|format(h[3]) if h[3] is not none else '0' }} мм</td>
-<td>{{ h[4] if h[4] is not none else '--' }} %</td>
+<td>{{ (h[4] ~ ' %') if h[4] is not none else '' }}</td>
 <td>{{ "%.1f"|format(h[5] / 3.6) if h[5] is not none else '--' }} м/с {{ wind_direction_name(h[6]) if h[6] is not none else '' }}</td>
 <td>{{ "%.0f"|format(h[7]) if h[7] is not none else '--' }} %</td>
 </tr>
@@ -359,13 +364,13 @@
 </thead>
 <tbody>
 {% for row in weather_forecast %}
-<tr>
+<tr{{ ' class="weekend"' if weather_is_weekend(row[0]) else '' }}>
 <td>{{ weather_date_name(row[0]) }}</td>
 <td>{{ weather_code_name(row[1]) }}</td>
 <td>{{ "%.1f"|format(row[2]) }} °C</td>
 <td>{{ "%.1f"|format(row[3]) }} °C</td>
 <td>{{ "%.1f"|format(row[4]) }} мм</td>
-<td>{{ row[5] }} %</td>
+<td>{{ row[5] ~ ' %' if row[5] is not none else '' }}</td>
 <td>{{ "%.1f"|format(row[6] / 3.6) }} м/с {{ wind_direction_name(row[7]) }}</td>
 <td>{{ row[8][11:16] if row[8] else '--' }}</td>
 <td>{{ row[9][11:16] if row[9] else '--' }}</td>
@@ -386,6 +391,7 @@
 
 <h2>Статистика по дням</h2>
 
+<div class="days-scroll">
 <table>
 
 <thead>
@@ -429,4 +435,5 @@
 </tbody>
 
 </table>
+</div>
 {% endblock %}

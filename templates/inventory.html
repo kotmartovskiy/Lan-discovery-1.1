@@ -43,7 +43,7 @@ function toggleAccordion(header) {
 </div>
 
 <div class="info-row">
-<span class="info-label">IP:</span> <strong{% if inv.online %} style="color:#65d46e"{% endif %}>{{ inv.ip }}</strong>{% if inv.device_name %} (<strong>{% if inv.has_web %}<a href="http://{{ inv.ip }}{{ ':' ~ inv.web_port if inv.web_port and inv.web_port != '80' else '' }}" target="_blank" style="color:#6ba3d6; text-decoration:none;">{{ inv.device_name }}</a>{% else %}{{ inv.device_name }}{% endif %}</strong>){% endif %}
+<span class="info-label">IP:</span> <strong{% if inv.online %} style="color:#65d46e"{% endif %}>{{ inv.ip }}</strong>{% if inv.device_name %} (<strong>{% if inv.has_web %}<a href="{{ inv.web_scheme | default('http') }}://{{ inv.web_ip | default(inv.ip) }}{{ ':' ~ inv.web_port if inv.web_port and inv.web_port not in ('80', '443') else '' }}" target="_blank" style="color:#6ba3d6; text-decoration:none;">{{ inv.device_name }}</a>{% else %}{{ inv.device_name }}{% endif %}</strong>){% endif %}
 </div>
 
 {% if inv.hostname %}

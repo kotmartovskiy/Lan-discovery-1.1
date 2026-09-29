@@ -1201,11 +1201,45 @@ def register_routes(app):
         except Exception:
             pass
 
+        sd_dev = None
+        emmc_dev = None
+        try:
+            for _name in os.listdir("/sys/block"):
+                if not _name.startswith("mmcblk") or "boot" in _name:
+                    continue
+                try:
+                    with open(f"/sys/block/{_name}/device/type", "r", encoding="utf-8") as _f:
+                        _t = _f.read().strip()
+                except Exception:
+                    continue
+                if _t == "SD":
+                    sd_dev = _name
+                elif _t == "MMC":
+                    emmc_dev = _name
+        except Exception:
+            pass
+        _root_dev = ""
+        try:
+            with open("/proc/mounts", "r", encoding="utf-8") as _f:
+                for _line in _f:
+                    _p = _line.split()
+                    if len(_p) > 1 and _p[1] == "/":
+                        _root_dev = _p[0]
+                        break
+        except Exception:
+            pass
+        _root_is_sd = bool(sd_dev) and ("/dev/" + sd_dev) in _root_dev
+
         for key_free, key_total, path in (
             ("root_free", "root_total", "/"),
             ("srv_free", "srv_total", "/srv")
         ):
             try:
+                if key_free == "srv_free":
+                    import stat as _stat_mod
+                    if os.stat("/srv").st_dev == os.stat("/").st_dev:
+                        continue
+
                 stat = os.statvfs(path)
 
                 total = stat.f_blocks * stat.f_frsize
@@ -1247,11 +1281,16 @@ def register_routes(app):
                 pass
 
         try:
-            if os.path.exists("/dev/mmcblk0"):
+            if sd_dev and os.path.exists("/dev/" + sd_dev):
                 result["sd_present"] = True
 
-                with open("/sys/block/mmcblk0/size", "r", encoding="utf-8") as f:
+                with open(f"/sys/block/{sd_dev}/size", "r", encoding="utf-8") as f:
                     result["sd_size"] = int(f.read().strip()) * 512
+
+                if result["sd_total"] is None and _root_is_sd:
+                    _st = os.statvfs("/")
+                    result["sd_free"] = _st.f_bavail * _st.f_frsize
+                    result["sd_total"] = _st.f_blocks * _st.f_frsize
 
                 if result["sd_total"] is None and _load_clone_state().get("running"):
                     result["sd_writing"] = True
@@ -1648,8 +1687,8 @@ def register_routes(app):
             _disk_sizes["hdd"] = hdd_size_lines[-1].strip() if hdd_size_lines else None
         hdd_size = _disk_sizes["hdd"]
 
-        if _disk_sizes["sd"] is None and os.path.exists("/dev/mmcblk0"):
-            sd_size_out = _cmd(["lsblk", "-dno", "SIZE", "/dev/mmcblk0"], timeout=5)
+        if _disk_sizes["sd"] is None and sd_dev and os.path.exists("/dev/" + sd_dev):
+            sd_size_out = _cmd(["lsblk", "-dno", "SIZE", "/dev/" + sd_dev], timeout=5)
             sd_size_lines = sd_size_out.strip().splitlines()
             _disk_sizes["sd"] = sd_size_lines[-1].strip() if sd_size_lines else None
         sd_size = _disk_sizes["sd"]
