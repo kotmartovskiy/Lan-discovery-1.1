@@ -1,0 +1,16 @@
+{
+  "id": "torrent",
+  "name": "Торренты",
+  "description": "Встроенный торрент-клиент Transmission: очередь, веб-интерфейс v4, папка /srv/downloads",
+  "builtin": true,
+  "help": true,
+  "url": "/torrent",
+  "prefixes": ["/torrent", "/api/transmission"],
+  "tab": {"title": "Торрент", "order": 40},
+  "deps": {
+    "apt": ["transmission-daemon"],
+    "services": ["transmission-daemon"],
+    "dirs": ["/srv/downloads"],
+    "ports": [9091, 51413]
+  }
+}

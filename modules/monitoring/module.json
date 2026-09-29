@@ -1,0 +1,15 @@
+{
+  "id": "monitoring",
+  "name": "Мониторинг",
+  "description": "Статус хостов, CPU/память/диск/сеть через Netdata, история и оповещения",
+  "builtin": true,
+  "help": true,
+  "url": "/monitoring",
+  "prefixes": ["/monitoring", "/api/monitoring"],
+  "tab": {"title": "Мониторинг", "order": 30},
+  "deps": {
+    "apt": ["netdata"],
+    "services": ["netdata"],
+    "ports": [19999]
+  }
+}

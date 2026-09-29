@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Модули</h2>
+
+<style>
+.mod-note { color:#999; font-size:13px; max-width:900px; line-height:1.6; }
+.mod-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(340px, 1fr)); gap:12px; margin-top:14px; }
+.mod-card { background:#161616; border:1px solid #333; border-radius:8px; padding:12px 14px; }
+.mod-head { display:flex; align-items:center; gap:8px; }
+.mod-head strong { font-size:15px; }
+.mod-head code { color:#888; font-size:12px; }
+.badge { font-size:11px; padding:2px 7px; border-radius:10px; margin-left:auto; white-space:nowrap; }
+.badge-on { background:#1b3a1b; color:#7cb342; border:1px solid #2e5d2e; }
+.badge-off { background:#3a1b1b; color:#e57373; border:1px solid #5d2e2e; }
+.badge-none { background:#333; color:#aaa; border:1px solid #555; }
+.mod-desc { color:#bbb; font-size:13px; margin:6px 0 8px; }
+.mod-deps { font-size:12px; margin-bottom:8px; }
+.mod-deps span { display:inline-block; background:#0e2233; color:#8ab4f8; border:1px solid #1f4b6e; border-radius:4px; padding:1px 6px; margin:1px 3px 1px 0; }
+.mod-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.mod-actions button { font-size:13px; padding:4px 12px; border-radius:5px; border:1px solid #444; background:#1c1c1c; color:#eee; cursor:pointer; }
+.mod-actions button:hover { border-color:#8ab4f8; }
+.mod-actions button.primary { border-color:#2e7d32; color:#a5d6a7; }
+.mod-log { font-size:12px; margin-top:8px; border-top:1px dashed #333; padding-top:6px; }
+.mod-log .ok { color:#7cb342; }
+.mod-log .fail { color:#e57373; }
+.mod-log pre { white-space:pre-wrap; color:#999; font-size:11px; max-height:150px; overflow:auto; margin:6px 0 0; }
+</style>
+
+<p class="mod-note">
+Модуль — отдельный раздел панели со своим меню и страницей. Выключенный модуль скрывает
+вкладку и отдаёт 404 на своих маршрутах. «Установить зависимости» ставит пакеты (apt),
+Python-пакеты, сервисы и папки, указанные в манифесте модуля <code>module.json</code>,
+из репозитория ОС. Справка в разделе «Справка» собирается только из включённых модулей.
+</p>
+
+<div class="mod-grid">
+{% for it in mods %}
+<div class="mod-card">
+  <div class="mod-head">
+    <strong>{{ it.m.name }}</strong><code>{{ it.m.id }}</code>
+    {% if not it.installed %}<span class="badge badge-none">не установлен</span>
+    {% elif it.enabled %}<span class="badge badge-on">включен</span>
+    {% else %}<span class="badge badge-off">выключен</span>{% endif %}
+  </div>
+  <p class="mod-desc">{{ it.m.description }}</p>
+  {% set deps = it.m.deps if it.m.deps else {} %}
+  {% if (deps.get('apt') or deps.get('pip') or deps.get('services') or deps.get('dirs')) %}
+  <div class="mod-deps">
+    {% for p in deps.get('apt') or [] %}<span>apt: {{ p }}</span>{% endfor %}
+    {% for p in deps.get('pip') or [] %}<span>pip: {{ p }}</span>{% endfor %}
+    {% for p in deps.get('services') or [] %}<span>svc: {{ p }}</span>{% endfor %}
+    {% for p in deps.get('dirs') or [] %}<span>dir: {{ p }}</span>{% endfor %}
+    {% for p in deps.get('ports') or [] %}<span>port: {{ p }}</span>{% endfor %}
+  </div>
+  {% endif %}
+  {% if it.last %}
+  <div class="mod-log">
+    Установка {{ it.last.ts }}:
+    <span class="{{ 'ok' if it.last.ok else 'fail' }}">{{ 'OK' if it.last.ok else 'FAIL' }}</span>
+    {% if it.last.log %}<pre>{{ it.last.log | join('\n') }}</pre>{% endif %}
+  </div>
+  {% endif %}
+  <div class="mod-actions">
+    {% if (deps.get('apt') or deps.get('pip') or deps.get('services') or deps.get('dirs')) %}
+    <form method="post" action="/modules/{{ it.m.id }}/install">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="primary">Установить зависимости</button>
+    </form>
+    {% endif %}
+    {% if it.installed %}
+    <form method="post" action="/modules/{{ it.m.id }}/toggle">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button>{{ 'Выключить' if it.enabled else 'Включить' }}</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+</div>
+
+{% endblock %}

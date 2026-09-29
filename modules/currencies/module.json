@@ -1,0 +1,14 @@
+{
+  "id": "currencies",
+  "name": "Валюты",
+  "description": "Курсы валют и драгоценных металлов, переработка (утилизация), история",
+  "builtin": true,
+  "help": true,
+  "url": "/currencies",
+  "prefixes": ["/currencies", "/api/currencies"],
+  "tab": {"title": "Валюты", "order": 50},
+  "deps": {
+    "apt": [],
+    "ports": []
+  }
+}

@@ -242,6 +242,11 @@ _app_module.login_required = login_required
 _app_module.admin_required = admin_required
 _app_module.can_edit = can_edit
 
+# ==================== Module system ====================
+
+from modules.module_manager import register_routes as register_module_manager_routes
+register_module_manager_routes(app, login_required, admin_required, page_data)
+
 # ==================== Devices ====================
 
 from modules.devices_routes import register_routes as register_devices_routes, start_scan_thread

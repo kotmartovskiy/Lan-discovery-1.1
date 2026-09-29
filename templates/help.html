@@ -54,6 +54,10 @@
     <a href="#admin">12. Администрирование</a>
     <a href="#troubleshoot">13. Решение проблем</a>
     <a href="#faq">14. FAQ</a>
+    {% if help_sections %}
+    <div class="toc-group">Модули</div>
+    {% for s in help_sections %}<a href="#mod-{{ s.id }}">{{ s.title }}</a>{% endfor %}
+    {% endif %}
 </nav>
 
 <div class="help-main">
@@ -632,6 +636,13 @@
 <h4>Как работает секундомер?</h4>
 <p>Откройте «Приложения» → Секундомер. Нажмите «Старт» для запуска, «Круг» для фиксации промежуточного времени, «Стоп» для остановки.</p>
 </div>
+
+{% for s in help_sections %}
+<div class="help-section" id="mod-{{ s.id }}">
+<h3>📦 {{ s.title }}</h3>
+{{ s.html | safe }}
+</div>
+{% endfor %}
 
 </div>
 </div>

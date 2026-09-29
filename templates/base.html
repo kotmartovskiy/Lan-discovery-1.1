@@ -525,45 +525,16 @@ button:hover {
 </svg>LAN Discovery</h1>
 
 <div class="tabs">
-<a href="/" class="{{ 'active' if page == 'devices' else '' }}">
-Устройства
+{% for it in nav_items %}
+<a href="{{ it.url }}" class="{{ 'active' if page == it.page else '' }}">
+{{ it.title }}
 </a>
-
-<a href="/inventory" class="{{ 'active' if page == 'inventory' else '' }}">
-Инвентаризация
+{% endfor %}
+{% if current_user.role == 'admin' %}
+<a href="/modules" class="{{ 'active' if page == 'modules' else '' }}">
+Модули
 </a>
-
-<a href="/monitoring" class="{{ 'active' if page == 'monitoring' else '' }}">
-Мониторинг
-</a>
-
-<a href="/torrent" class="{{ 'active' if page == 'torrent' else '' }}">
-Торрент
-</a>
-
-<a href="/currencies" class="{{ 'active' if page == 'currencies' else '' }}">
-Валюты
-</a>
-
-<a href="/weather" class="{{ 'active' if page == 'weather' else '' }}">
-Погода
-</a>
-
-<a href="/apps" class="{{ 'active' if page == 'apps' else '' }}">
-Приложения
-</a>
-
-<a href="/system" class="{{ 'active' if page == 'system' else '' }}">
-Система
-</a>
-
-<a href="/about" class="{{ 'active' if page == 'about' else '' }}">
-О системе
-</a>
-
-<a href="/help" class="{{ 'active' if page == 'help' else '' }}">
-Справка
-</a>
+{% endif %}
 </div>
 </div>
 

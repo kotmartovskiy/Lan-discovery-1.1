@@ -1,0 +1,14 @@
+{
+  "id": "weather",
+  "name": "Погода",
+  "description": "Текущая погода и прогноз на неделю (Open-Meteo), статус в шапке панели",
+  "builtin": true,
+  "help": true,
+  "url": "/weather",
+  "prefixes": ["/weather", "/api/weather"],
+  "tab": {"title": "Погода", "order": 60},
+  "deps": {
+    "apt": [],
+    "ports": []
+  }
+}
