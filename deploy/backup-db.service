@@ -1,0 +1,7 @@
+[Unit]
+Description=Backup lan-discovery devices.db to /srv/backup-db
+After=lan-discovery.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/backup-db.sh

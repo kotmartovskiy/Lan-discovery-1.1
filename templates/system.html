@@ -203,6 +203,80 @@
 </div>
 {% endif %}
 
+{% if current_user.role != 'guest' %}
+{% set db_last = db_backup_last() %}
+<div class="card">
+
+<h2>🗄 Backup БД</h2>
+
+<div class="info-row">
+<span class="info-label">Статус:</span>
+{% if db_backup_running %}
+<span class="status-running">● ВЫПОЛНЯЕТСЯ</span>
+{% elif db_last %}
+<span class="status-ok">● OK</span>
+{% else %}
+<span>● НЕ СОЗДАВАЛСЯ</span>
+{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Последний backup:</span>
+{{ db_last.name if db_last else '-' }}{% if db_last %} ({{ db_last.mtime }}){% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Размер:</span>
+{{ db_backup_size_human(db_last.size) if db_last else '-' }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Следующий запуск:</span>
+{{ db_backup_next or '-' }}
+</div>
+
+<div class="info-row">
+<span class="info-label">Каталог:</span>
+<code>/srv/backup-db/</code>
+</div>
+
+<div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+<button id="btn-db-backup-create" type="button" onclick="startDbBackup()">Создать backup сейчас</button>
+<button type="button" onclick="showDbRestore()">Восстановление из копии</button>
+</div>
+
+<div id="db-backup-progress" style="display:none; margin-top:12px;">
+<div style="font-size:13px; color:#8ab4f8; margin-bottom:4px;" id="db-backup-progress-text">Создание backup БД...</div>
+<div style="background:#1a1a2e; border-radius:6px; overflow:hidden; height:20px;">
+<div id="db-backup-progress-bar" style="height:100%; background:linear-gradient(90deg,#2563eb,#60a5fa); width:0%; transition:width 2s ease; border-radius:6px;"></div>
+</div>
+</div>
+
+<div id="db-restore-section" style="display:none; margin-top:14px;">
+<div class="info-label" style="margin-bottom:6px;">Выберите копию:</div>
+<select id="db-restore-select" style="width:100%; padding:6px; background:#111; color:#eee; border:1px solid #333; border-radius:6px;">
+{% for b in db_backups %}
+<option value="{{ b.name }}">{{ b.name }} ({{ db_backup_size_human(b.size) }}, {{ b.mtime }})</option>
+{% else %}
+<option disabled selected>Нет копий</option>
+{% endfor %}
+</select>
+<div style="margin-top:8px; display:flex; gap:8px;">
+<button id="btn-db-restore" type="button" onclick="doDbRestore()">Восстановить</button>
+<button type="button" onclick="hideDbRestore()">Отмена</button>
+</div>
+
+<div id="db-restore-progress" style="display:none; margin-top:12px;">
+<div style="font-size:13px; color:#8ab4f8; margin-bottom:4px;" id="db-restore-progress-text">Восстановление БД...</div>
+<div style="background:#1a1a2e; border-radius:6px; overflow:hidden; height:20px;">
+<div id="db-restore-progress-bar" style="height:100%; background:linear-gradient(90deg,#2563eb,#60a5fa); width:0%; transition:width 2s ease; border-radius:6px;"></div>
+</div>
+</div>
+</div>
+
+</div>
+{% endif %}
+
 <div class="card">
 
 <h2>🌐 Сеть</h2>

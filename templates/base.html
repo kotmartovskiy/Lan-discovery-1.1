@@ -1034,7 +1034,10 @@ function startDbBackup() {
     if (bar) bar.style.width = "30%";
     if (txt) txt.textContent = "Создание backup БД...";
     
-    fetch("/system/db-backup", {method: "POST"})
+    fetch("/system/db-backup", {
+        method: "POST",
+        headers: {"X-CSRFToken": (document.querySelector('meta[name="csrf-token"]') || {}).content || ""}
+    })
         .then(function() {
             pollDbBackupProgress();
         })
@@ -1107,7 +1110,7 @@ function doDbRestore() {
     
     fetch("/system/db-restore", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: {"Content-Type": "application/json", "X-CSRFToken": (document.querySelector('meta[name="csrf-token"]') || {}).content || ""},
         body: JSON.stringify({file: sel.value})
     }).then(function(r) { return r.json(); }).then(function(d) {
         if (bar) bar.style.width = "100%";
