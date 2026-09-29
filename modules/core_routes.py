@@ -418,6 +418,33 @@ def register_routes(app):
     def apps_page():
         return render_template("apps.html", **page_data())
 
+    # --- App pages ---
+
+    @app.route("/torrent")
+    @login_required
+    def torrent_page():
+        return render_template("torrent.html", **page_data())
+
+    @app.route("/apps/notes")
+    @login_required
+    def app_notes():
+        return render_template("apps/notes.html", **page_data())
+
+    @app.route("/apps/passwords")
+    @login_required
+    def app_passwords():
+        return render_template("apps/passwords.html", **page_data())
+
+    @app.route("/apps/filemanager")
+    @login_required
+    def app_filemanager():
+        return render_template("apps/filemanager.html", **page_data())
+
+    @app.route("/apps/terminal")
+    @login_required
+    def app_terminal():
+        return render_template("apps/terminal.html", **page_data())
+
     # --- Help ---
 
     @app.route("/help")
@@ -452,6 +479,12 @@ def register_routes(app):
         return render_template("currencies.html",
             **data
         )
+
+    @app.route("/api/currencies")
+    @login_required
+    def api_currencies():
+        from modules.currencies import get_latest as get_currency_latest
+        return jsonify({"usd": get_currency_latest("usd") or {}, "eur": get_currency_latest("eur") or {}})
 
     # --- Settings ---
 
