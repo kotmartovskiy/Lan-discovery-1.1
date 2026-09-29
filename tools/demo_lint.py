@@ -6,7 +6,9 @@
   2) нет абсолютных путей («/...») и внешних URL в атрибутах;
   3) в JS нет fetch("...") с абсолютными путями;
   4) секреты вычищены (notes/secrets пусты, в settings нет token/password);
-  5) каркасные файлы на месте (index, restore, stub, 404, demo.js, static).
+  5) каркасные файлы на месте (index, restore, stub, 404, demo.js, static);
+  6) MAC-адреса заменены на случайные (local admin), в именах нет
+     MAC-фрагментов; вкладки index не уходят в заглушку; demo.js в <head>.
 
 Запуск: python tools/demo_lint.py <папка-demo>
 Код 0 = чисто, 1 = найдены ошибки.
@@ -15,6 +17,7 @@ import json
 import os
 import re
 import sys
+import urllib.parse
 
 ROOT = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "demo")
 
@@ -23,6 +26,16 @@ ATTR_RE = re.compile(
 FETCH_ABS_RE = re.compile(r"""fetch\(\s*["']/""")
 XHR_ABS_RE = re.compile(r"""\.open\(\s*["'][A-Z]+["']\s*,\s*["']/""")
 EXT_ATTR_RE = re.compile(r'^https?://', re.I)
+MAC_RE = re.compile(r'(?:[0-9A-Fa-f]{2}(?::|-)){5}[0-9A-Fa-f]{2}')
+BARE12_RE = re.compile(
+    r'(?<![0-9A-Za-z_-])[0-9A-Fa-f]{12}(?![0-9A-Za-z_-])')
+
+# вкладки главной (должны вести на страницы снимка, а не на заглушку)
+INDEX_TABS = (
+    "index.html", "inventory.html", "monitoring.html", "torrent.html",
+    "currencies.html", "weather.html", "apps.html", "system.html",
+    "about.html", "help.html", "modules.html",
+)
 
 errors = []
 warns = []
@@ -77,6 +90,48 @@ def check_secrets():
                 err("утечка hash в " + os.path.relpath(p, ROOT))
 
 
+def check_stub_target(rel, url):
+    """Внутренняя ссылка не должна уходить в заглушку, если есть страница."""
+    target = urllib.parse.unquote(url.split("to=", 1)[1])
+    if not target or target.startswith(("http://", "https://", "//")):
+        return
+    full = target if target.startswith("/") else "/" + target
+    if full.startswith("/games/"):
+        f = full[1:]
+    elif full == "/":
+        f = "index.html"
+    else:
+        f = full.strip("/").replace("/", "-") + ".html"
+    if os.path.exists(os.path.join(ROOT, f)):
+        err("%s: внутренняя ссылка ушла в заглушку: %s → %s"
+            % (rel, target, f))
+
+
+def check_privacy():
+    """MAC-адреса обязаны быть фейковыми, без MAC-фрагментов в именах."""
+    n_macs = 0
+    for dirpath, _, files in os.walk(ROOT):
+        for fn in files:
+            if not (fn.endswith(".html") or fn.endswith(".json")):
+                continue
+            p = os.path.join(dirpath, fn)
+            rel = os.path.relpath(p, ROOT)
+            try:
+                text = open(p, encoding="utf-8").read()
+            except Exception:
+                continue
+            for m in MAC_RE.finditer(text):
+                n_macs += 1
+                first = int(m.group()[0:2], 16)
+                if (first & 0x03) != 0x02:
+                    err("%s: настоящий MAC не заменён: %s" % (rel, m.group()))
+            for m in BARE12_RE.finditer(text):
+                tok = m.group()
+                if re.search(r"[a-fA-F]", tok):
+                    err("%s: MAC-фрагмент в тексте/имени: %s" % (rel, tok))
+    print("macs checked:", n_macs)
+
+
 def check_html():
     n_html = 0
     for dirpath, dirs, files in os.walk(ROOT):
@@ -101,6 +156,8 @@ def check_html():
                 if url.startswith("//"):
                     err("%s: протокол-относительная: %s" % (rel, url[:90]))
                     continue
+                if url.startswith("stub.html?to="):
+                    check_stub_target(rel, url)
                 pure = url.split("#")[0].split("?")[0]
                 if not pure:
                     continue
@@ -121,6 +178,15 @@ def check_html():
                     err("index.html: нет ссылки на restore.html")
                 if "Демо-режим" not in html:
                     err("index.html: нет плашки «Демо-режим»")
+                for t in INDEX_TABS:
+                    if 'href="%s"' % t not in html:
+                        err("index.html: вкладка ведёт не на страницу: " + t)
+                low = html.lower()
+                i_js = low.find('src="demo.js"')
+                i_head = low.find("</head>")
+                if i_js < 0 or (0 <= i_head < i_js):
+                    err("index.html: demo.js не в <head> — виджеты шапки "
+                        "не получат данные API")
     print("html checked:", n_html)
 
 
@@ -131,6 +197,7 @@ def main():
     check_files()
     check_secrets()
     check_html()
+    check_privacy()
     n = sum(len(f) for _, _, f in os.walk(ROOT))
     for w in warns:
         print("WARN:", w)

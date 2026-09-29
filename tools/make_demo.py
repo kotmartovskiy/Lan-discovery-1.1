@@ -9,10 +9,15 @@
 
 Секреты вычищаются: api/notes и api/secrets → [], в api/settings вырезаются
 ключи token/password/secret и т.п., в wifi-скане — bssid.
+MAC-адреса заменяются на случайные (locally administered, детерминированно
+от оригинала), MAC-подстроки в именах устройств убираются до нейтральных.
+demo.js внедряется в <head> — виджеты шапки (погода, здоровье системы)
+получают снимки API сразу при разборе страницы.
 
 Использование (на хосте панели):
   cd /opt/lan-discovery && venv/bin/python tools/make_demo.py /tmp/demo
 """
+import hashlib
 import json
 import os
 import re
@@ -55,6 +60,81 @@ SKIP_API = (
     "/trace", "/file_url", "/discoverable", "/restart", "/read",
 )
 SKIP_ALLOW = ("/wifi/scan",)  # безопасные исключения
+
+# --- санитайзер MAC-адресов и имён ---
+MAC_RE = re.compile(r"(?:[0-9A-Fa-f]{2}(?::|-)){5}[0-9A-Fa-f]{2}")
+BARE12_RE = re.compile(
+    r"(?<![0-9A-Za-z_-])[0-9A-Fa-f]{12}(?![0-9A-Za-z_-])")
+MAC_MENTION_RE = re.compile(r"\(\s*мак[^)]{0,24}\)", re.I)
+NAME_KEYS = {"name", "title"}
+
+
+def clean_name(s):
+    """Нейтральное имя устройства: убирает MAC-подстроки и упоминания «мак»."""
+    s = MAC_RE.sub(" ", s)
+    s = BARE12_RE.sub(
+        lambda m: " " if re.search(r"[a-fA-F]", m.group()) else m.group(), s)
+    s = MAC_MENTION_RE.sub(" ", s)
+    s = re.sub(r"\s{2,}", " ", s).strip()
+    s = re.sub(r"\s+([.,;:!?)])", r"\1", s)
+    return s if s else "Устройство"
+
+
+def fake_mac(m):
+    """Детерминированно-случайный MAC: local admin, unicast, не повторяется."""
+    h = hashlib.md5(("lan-demo:" + m.group()).encode("utf-8")).hexdigest()
+    first = format((int(h[0:2], 16) & 0xFC) | 0x02, "02X")
+    rest = ":".join(h[i:i + 2] for i in range(2, 12, 2))
+    return (first + ":" + rest).upper()
+
+
+def build_name_fixes():
+    """Старое имя (с MAC) → нейтральное; сканируются колонки name/title БД."""
+    fixes = {}
+    con = sqlite3.connect(DB)
+    try:
+        tables = [r[0] for r in con.execute(
+            "select name from sqlite_master where type='table'")]
+        for t in tables:
+            try:
+                cols = [r[1] for r in con.execute(
+                    'pragma table_info("%s")' % t)]
+            except Exception:
+                continue
+            for c in cols:
+                if str(c).lower() not in NAME_KEYS:
+                    continue
+                try:
+                    rows = con.execute(
+                        'select distinct "%s" from "%s"' % (c, t)).fetchall()
+                except Exception:
+                    continue
+                for (v,) in rows:
+                    if isinstance(v, str) and v.strip():
+                        n = clean_name(v)
+                        if n != v:
+                            fixes[v] = n
+    finally:
+        con.close()
+    return fixes
+
+
+def apply_name_fixes(text, fixes):
+    for old, new in fixes.items():
+        if old in text:
+            text = text.replace(old, new)
+    return text
+
+
+def scrub_name_keys(obj):
+    if isinstance(obj, dict):
+        return {k: (clean_name(v)
+                    if str(k).lower() in NAME_KEYS and isinstance(v, str)
+                    else scrub_name_keys(v))
+                for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [scrub_name_keys(x) for x in obj]
+    return obj
 
 BANNER = (
     '<div style="position:fixed;left:0;right:0;bottom:0;background:#12203a;'
@@ -113,8 +193,9 @@ DEMO_JS = r"""(function(){
   var a=e.target.closest?e.target.closest('a'):null;
   if(!a)return;
   var href=a.getAttribute('href');
-  if(!href||href.charAt(0)==='#'||/^(javascript|mailto|data):/i.test(href))return;
-  if(/^(https?:)?\/\//i.test(href)){e.preventDefault();location.href=STUB+encodeURIComponent(href);return;}
+   if(!href||href.charAt(0)==='#'||/^(javascript|mailto|data):/i.test(href))return;
+   if(/^logout([?#]|$)/.test(href)){e.preventDefault();toast('Демо-режим: выход отключён');return;}
+   if(/^(https?:)?\/\//i.test(href)){e.preventDefault();location.href=STUB+encodeURIComponent(href);return;}
   if(!/\.html([?#]|$)/.test(href)&&!/^stub\.html/.test(href)){
    e.preventDefault();location.href=STUB+encodeURIComponent(href);
   }
@@ -243,16 +324,24 @@ def transform(html, page_map):
     # 3) внутренние href/action → файлы страниц; неизвестные → заглушка
     def _inner(m):
         attr, path = m.group(1), m.group(2)
-        pure = path.split("?")[0].split("#")[0]
+        pure = "/" + path.split("?")[0].split("#")[0]
         if pure in page_map:
             return '%s="%s"' % (attr, page_map[pure])
         return '%s="stub.html?to=%s"' % (attr, urllib.parse.quote(path, safe=""))
     html = re.sub(r'(href|action)="/([^"]*)"', _inner, html)
     # 4) остатки в JS-литералах и прочих атрибутах → относительные пути
     html = re.sub(r'(["\'])/([A-Za-z])', r'\1\2', html)
-    # 5) плашка + demo.js
-    inject = BANNER + '\n<script src="demo.js"></script>\n'
-    html = re.sub(r'</body>', inject + '</body>', html, count=1, flags=re.I)
+    # 5) demo.js в <head> — шим fetch должен работать ДО инлайн-скриптов
+    #    страницы (погода/здоровье в шапке грузятся сразу, а не через 60 с)
+    m = re.search(r"<head(?:\s[^>]*)?>", html, flags=re.I)
+    if m:
+        html = (html[:m.end()] + '\n<script src="demo.js"></script>'
+                + html[m.end():])
+    else:
+        html = re.sub(r"</body>", '<script src="demo.js"></script>\n</body>',
+                      html, count=1, flags=re.I)
+    # 6) плашка
+    html = re.sub(r"</body>", BANNER + "</body>", html, count=1, flags=re.I)
     return html
 
 
@@ -280,6 +369,11 @@ def main():
 
     ips = build_ips()
     print("ips:", len(ips))
+
+    fixes = build_name_fixes()
+    print("name fixes:", len(fixes))
+    for old, new in sorted(fixes.items(), key=lambda kv: -len(kv[0])):
+        print("  name:", old, "->", new)
 
     client = panel_app.app.test_client()
     login(client)
@@ -369,12 +463,42 @@ def main():
         except Exception as e:
             print("settings scrub err:", e)
 
+    # --- санитайзер API-снимков: имена + случайные MAC ---
+    n_json = 0
+    for dirpath, _, files in os.walk(os.path.join(OUT, "api")):
+        for fn in sorted(files):
+            if not fn.endswith(".json"):
+                continue
+            p = os.path.join(dirpath, fn)
+            try:
+                text = open(p, encoding="utf-8").read()
+            except OSError as e:
+                print("JSON READ SKIP", p, e)
+                continue
+            try:
+                text = json.dumps(scrub_name_keys(json.loads(text)),
+                                  ensure_ascii=False)
+            except Exception:
+                pass
+            for old, new in fixes.items():
+                text = text.replace(old, new)
+            text = MAC_RE.sub(fake_mac, text)
+            try:
+                with open(p, "w", encoding="utf-8") as f:
+                    f.write(text)
+                n_json += 1
+            except OSError as e:
+                print("JSON WRITE SKIP", p, e)
+    print("json sanitized:", n_json)
+
     # --- трансформация всех HTML ---
     for fname in list(os.listdir(OUT)):
         if not fname.endswith(".html"):
             continue
         path = os.path.join(OUT, fname)
         html = open(path, encoding="utf-8").read()
+        html = apply_name_fixes(html, fixes)
+        html = MAC_RE.sub(fake_mac, html)
         html = transform(html, page_map)
         with open(path, "w", encoding="utf-8") as f:
             f.write(html)
