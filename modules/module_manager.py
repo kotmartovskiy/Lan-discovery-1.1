@@ -15,6 +15,7 @@ import time
 from flask import redirect, render_template, request
 
 from core.module_loader import (
+    desktop_categories,
     discover_modules,
     disabled_prefixes,
     get_module,
@@ -87,6 +88,7 @@ def register_routes(app, login_required, admin_required, page_data):
         return {
             "nav_items": nav_items(),
             "help_sections": help_sections(),
+            "desktop_categories": desktop_categories(),
             "page": active_page(request.path),
         }
 

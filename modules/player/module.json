@@ -1,0 +1,10 @@
+{
+  "id": "player",
+  "name": "Плеер",
+  "description": "Медиаплеер сервера: плейлисты, воспроизведение файлов из /srv/media",
+  "builtin": true,
+  "help": false,
+  "prefixes": ["/api/player"],
+  "app": {"title": "Плеер", "icon": "🎵", "category": "Медиа", "order": 20},
+  "deps": {"apt": [], "ports": []}
+}

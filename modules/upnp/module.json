@@ -1,0 +1,10 @@
+{
+  "id": "upnp",
+  "name": "UPnP",
+  "description": "UPnP Control Point: рендереры и медиасерверы, управление воспроизведением",
+  "builtin": true,
+  "help": false,
+  "prefixes": ["/apps/upnp", "/api/upnp"],
+  "app": {"title": "UPnP", "icon": "📡", "category": "Система и сеть", "order": 80},
+  "deps": {"apt": [], "ports": []}
+}

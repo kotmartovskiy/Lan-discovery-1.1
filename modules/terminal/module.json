@@ -1,0 +1,10 @@
+{
+  "id": "terminal",
+  "name": "Терминал",
+  "description": "Веб-терминал с доступом к командной строке сервера (только admin)",
+  "builtin": true,
+  "help": false,
+  "prefixes": ["/apps/terminal"],
+  "app": {"title": "Терминал", "icon": "💻", "category": "Система и сеть", "order": 10},
+  "deps": {"apt": [], "ports": []}
+}

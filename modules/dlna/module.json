@@ -1,0 +1,10 @@
+{
+  "id": "dlna",
+  "name": "DLNA",
+  "description": "Браузер DLNA/UPnP-медиасерверов: контент, сканирование",
+  "builtin": true,
+  "help": false,
+  "prefixes": ["/apps/dlna", "/api/dlna"],
+  "app": {"title": "DLNA", "icon": "📺", "category": "Система и сеть", "order": 70},
+  "deps": {"apt": [], "ports": []}
+}

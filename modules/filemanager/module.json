@@ -1,0 +1,10 @@
+{
+  "id": "filemanager",
+  "name": "Файловый менеджер",
+  "description": "Двухпанельный файловый менеджер: просмотр, копирование, загрузка файлов",
+  "builtin": true,
+  "help": false,
+  "prefixes": ["/apps/filemanager", "/api/filemanager"],
+  "app": {"title": "Файлы", "icon": "📁", "category": "Утилиты", "order": 80},
+  "deps": {"apt": [], "ports": []}
+}

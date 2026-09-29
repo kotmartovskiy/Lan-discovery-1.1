@@ -252,110 +252,17 @@
 <h2>Приложения</h2>
 
 <div class="desktop">
+{% for cat in desktop_categories %}
 <div class="desktop-cat">
-<div class="cat-label">Утилиты</div>
-<div class="desktop-icon" onclick="openApp('calc')">
-<div class="icon">🔢</div>
-<div class="label">Калькулятор</div>
+<div class="cat-label">{{ cat.name }}</div>
+{% for it in cat.tiles %}
+<div class="desktop-icon" onclick="openApp('{{ it.key }}')"{% if it.description %} title="{{ it.description }}"{% endif %}>
+<div class="icon">{{ it.icon }}</div>
+<div class="label">{{ it.title }}</div>
 </div>
-<div class="desktop-icon" onclick="openApp('calendar')">
-<div class="icon">📅</div>
-<div class="label">Календарь</div>
+{% endfor %}
 </div>
-<div class="desktop-icon" onclick="openApp('timer')">
-<div class="icon">⏳</div>
-<div class="label">Таймер</div>
-</div>
-<div class="desktop-icon" onclick="openApp('stopwatch')">
-<div class="icon">⏱</div>
-<div class="label">Секундомер</div>
-</div>
-<div class="desktop-icon" onclick="openApp('alarm')">
-<div class="icon">⏰</div>
-<div class="label">Будильник</div>
-</div>
-<div class="desktop-icon" onclick="openApp('notes')">
-<div class="icon">📝</div>
-<div class="label">Заметки</div>
-</div>
-<div class="desktop-icon" onclick="openApp('passwords')">
-<div class="icon">🔐</div>
-<div class="label">Пароли</div>
-</div>
-<div class="desktop-icon" onclick="openApp('filemanager')">
-<div class="icon">📁</div>
-<div class="label">Файлы</div>
-</div>
-</div>
-<div class="desktop-cat">
-<div class="cat-label">Медиа</div>
-<div class="desktop-icon" onclick="openApp('radio')">
-<div class="icon">📻</div>
-<div class="label">Радио</div>
-</div>
-<div class="desktop-icon" onclick="openApp('player')">
-<div class="icon">🎵</div>
-<div class="label">Плеер</div>
-</div>
-<div class="desktop-icon" onclick="openApp('camera')">
-<div class="icon">📷</div>
-<div class="label">Камеры</div>
-</div>
-</div>
-<div class="desktop-cat">
-<div class="cat-label">Игры</div>
-<div class="desktop-icon" onclick="openApp('snake')">
-<div class="icon">🐍</div>
-<div class="label">Змейка</div>
-</div>
-<div class="desktop-icon" onclick="openApp('tetris')">
-<div class="icon">🟦</div>
-<div class="label">Тетрис</div>
-</div>
-<div class="desktop-icon" onclick="openApp('g2048')">
-<div class="icon">🟩</div>
-<div class="label">2048</div>
-</div>
-<div class="desktop-icon" onclick="openApp('arkanoid')">
-<div class="icon">🟪</div>
-<div class="label">Арканоид</div>
-</div>
-</div>
-<div class="desktop-cat">
-<div class="cat-label">Система и сеть</div>
-<div class="desktop-icon" onclick="openApp('terminal')">
-<div class="icon">💻</div>
-<div class="label">Терминал</div>
-</div>
-<div class="desktop-icon" onclick="openApp('nettools')">
-<div class="icon">🔌</div>
-<div class="label">Сеть</div>
-</div>
-<div class="desktop-icon" onclick="openApp('wifianalyzer')">
-<div class="icon">📡</div>
-<div class="label">Wi-Fi</div>
-</div>
-<div class="desktop-icon" onclick="openApp('disks')">
-<div class="icon">💾</div>
-<div class="label">Диски</div>
-</div>
-<div class="desktop-icon" onclick="openApp('downloads')">
-<div class="icon">📦</div>
-<div class="label">Загрузки</div>
-</div>
-<div class="desktop-icon" onclick="openApp('bluetooth')">
-<div class="icon">📶</div>
-<div class="label">Bluetooth</div>
-</div>
-<div class="desktop-icon" onclick="openApp('dlna')">
-<div class="icon">📺</div>
-<div class="label">DLNA</div>
-</div>
-<div class="desktop-icon" onclick="openApp('upnp')">
-<div class="icon">📡</div>
-<div class="label">UPnP</div>
-</div>
-</div>
+{% endfor %}
 </div>
 
 <!-- Calculator -->

@@ -32,6 +32,22 @@ CORE_NAV = [
     {"page": "help", "title": "Справка", "url": "/help", "order": 100},
 ]
 
+# Категории рабочего стола /apps (порядок разделов) и ядровые плитки (без манифестов).
+APP_CATEGORY_ORDER = ["Утилиты", "Медиа", "Игры", "Система и сеть"]
+
+CORE_APPS = [
+    # (category, key, title, icon, order)
+    ("Утилиты", "calc", "Калькулятор", "🔢", 10),
+    ("Утилиты", "calendar", "Календарь", "📅", 20),
+    ("Утилиты", "timer", "Таймер", "⏳", 30),
+    ("Утилиты", "stopwatch", "Секундомер", "⏱", 40),
+    ("Утилиты", "alarm", "Будильник", "⏰", 50),
+    ("Игры", "snake", "Змейка", "🐍", 10),
+    ("Игры", "tetris", "Тетрис", "🟦", 20),
+    ("Игры", "g2048", "2048", "🟩", 30),
+    ("Игры", "arkanoid", "Арканоид", "🟪", 40),
+]
+
 _manifest_cache = {"ts": 0.0, "data": None}
 _state_cache = {"mtime": -1, "data": None}
 
@@ -166,6 +182,41 @@ def disabled_prefixes():
             for p in prefixes:
                 if p and p not in out:
                     out.append(p)
+    return out
+
+
+def app_items():
+    """Плитки приложений из включённых модулей (поле app в манифесте)."""
+    out = []
+    for m in discover_modules():
+        installed, enabled = module_status(m["id"])
+        app = m.get("app")
+        if installed and enabled and isinstance(app, dict) and app.get("title"):
+            out.append({
+                "key": app.get("key") or m["id"],
+                "title": app["title"],
+                "icon": app.get("icon", "📦"),
+                "category": app.get("category", "Прочее"),
+                "order": int(app.get("order", 500)),
+                "description": m.get("description", ""),
+                "module": m["id"],
+            })
+    return out
+
+
+def desktop_categories():
+    """Разделы рабочего стола /apps: ядровые плитки + плитки включённых модулей."""
+    cats = {name: [] for name in APP_CATEGORY_ORDER}
+    for cat, key, title, icon, order in CORE_APPS:
+        cats.setdefault(cat, []).append(
+            {"key": key, "title": title, "icon": icon, "order": order,
+             "description": "", "module": None})
+    for it in app_items():
+        cats.setdefault(it["category"], []).append(it)
+    out = []
+    for name, items in cats.items():
+        if items:
+            out.append({"name": name, "tiles": sorted(items, key=lambda x: x["order"])})
     return out
 
 
