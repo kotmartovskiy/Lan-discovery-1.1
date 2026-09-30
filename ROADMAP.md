@@ -61,7 +61,7 @@ security pentest, восстановление из backup на чистую с�
 | **Stability: изоляция сбоев** | большинство роутов в `try/except`, но: DDL в `get_db()` на **каждый запрос** (`devices_routes.py:22-98`); утечки `con.close()` при исключениях (нет `finally`); падение импорта модуля валит всё приложение | схема один раз при старте; context manager; тест «SMART/Wi-Fi/nmap нет» | часы/диски/сеть отсутствуют → 500 в отдельных роутах (не фатально), но нет системного барьера | **P1** |
 | **Stability: фоновые задачи** | `start_scan_thread()` без guard от повторного запуска (`devices_routes.py:756`); `/inventory/scan` и bluetooth-scan без lock → параллельные прогоны по повторному POST; дубли функций (`app.py` ↔ `core_routes.py`), **мёртвый код** `init_background_tasks` (`core_routes.py:1009`) | lock/flag на каждую задачу, один источник истины | race: параллельные nmap/сканы, лишняя нагрузка | **P1** |
 | **Stability: systemd** | `Restart=always`, `RestartSec=5`, `After=network-online` — корректно; **но** сервис работает **от root** и dev-сервер Werkzeug | non-root пользователь + (wsgi) либо задокументированное «root by design» | root-веб-сервер | **P1** |
-| **Configuration** | hardcoded: `NETWORK=192.168.3.0/24`, интерфейсы `end0/wlan0/wlan1/eth0`, IP хостов в `monitoring_routes.py:22`, `inventory_routes.py:28`, fallback `.234/.235`, порт 8080, пути `/opt|/etc|/srv` — разбросаны по 15+ файлам | единый конфиг: defaults + `/etc/lan-discovery/settings.json` overrides | переносимость на другую сеть/платформу требует правки кода | **P2** |
+| **Configuration** | сеть/скан/интерфейсы/порт подключены к `/etc/lan-discovery/settings.json` через `_cfg` (P2: `subnet`, `scan_interval`/`max_misses`, `wifi_ifaces`, `traffic_ifaces`, `self_ips`, `web.flask_host`/`flask_port`; удалён мёртвый `app.NETWORK`); пути `/opt|/etc|/srv` остаются в коде (задокументированы в `docs/Конфигурация.md`) | единый конфиг: defaults + settings.json overrides | частично: пути захардкожены осознанно | **P2** (закрыта) |
 | **Hardware abstraction** | platform-specific жёстко вшит: `end0` vs `eth0` перебором (`system_routes.py:1436`), thermal `thermal_zone0`, `/dev/mmcblk2`, `dd if=/dev/mmcblk…` | `detect_platform()` + capabilities + адаптеры | новый SoC/дистрибутив = правки в многих файлах | **P2** |
 | **Переносимость (X96)** | новый код **уже работает** на aarch64/Debian 12; старый — на armv7l/Debian 13 | один код на обеих | две версии в проде (§9) | **P2** |
 | **Database** | WAL + busy_timeout есть в ключевых точках; **нет** версионирования схемы (`user_version=0`), **нет** индекса `events(ip)`, **нет** retention (events = 36 327 строк), идентичность = **IP** (не MAC); 8 таблиц weather не имеют CREATE в репо (схема живёт только на серверах) | `user_version` + миграции, индексы, retention, идентичность MAC+IP+hostname | рост БД бесконечен; восстановление на чистой машине может создать неполную схему | **P1** |
@@ -174,6 +174,23 @@ security pentest, восстановление из backup на чистую с�
      discovery без nmap (фикс фиктивного `SCAN OK` + интерфейсы `eth0/wlan0`)
      — см. журнал §9.
 
+**PHASE 2 — Configuration (задачи P2):**
+
+12. **[P2][DONE — 30.09.2026]** Хардкоды → `_cfg` (см. §2 строка «Configuration»):
+     подключены уже существующие ключи `settings.json` — `network.subnet` в
+     сканере/inventory, `scan_interval`/`max_misses` (вместо мёртвых констант
+     app/devices/system), `wifi_ifaces` в iw-scan, `traffic_ifaces` в
+     мониторинге трафика, self-check IP через `self_ips`,
+     `web.flask_host`/`flask_port` в `socketio.run`, удалён мёртвый
+     `app.NETWORK` — см. журнал §9.
+13. **[P2][DONE — 30.09.2026]** Тест override-конфига: подменённый
+     `settings.json` → ленивые хелперы читают новые значения
+     (subnet/interval/self_ips), регрессии P1-9/P1-11, восстановление боевых
+     настроек — 18/18 PASS, см. журнал §9.
+14. **[P2][DONE — 30.09.2026]** Документация: `docs/Конфигурация.md` (все ключи
+     `settings.json`, отдельный `network.json`, how-to «новая сеть/платформа»),
+     прогон `sanitize_docs` (leaks 0), журнал §9 — см. журнал §9.
+
 ---
 
 ## 7. Статусы фаз roadmap
@@ -182,7 +199,7 @@ security pentest, восстановление из backup на чистую с�
 |---|---|---|
 | PHASE 0 Audit | **DONE** | этот документ; код не менялся |
 | PHASE 1 Stabilization | **DONE** | задачи 7–11 done |
-| PHASE 2 Configuration | **PENDING** | см. §2 «Configuration» (P2) |
+| PHASE 2 Configuration | **DONE** | задачи 12–14: хардкоды → `_cfg`, тест override, docs/Конфигурация.md |
 | PHASE 3 Hardware abstraction | **PENDING** | platform detection/ capabilities |
 | PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
 | PHASE 5 Database | **PARTIAL** | задача 7 (init/user_version/индекс) done; миграционная система — нет |
@@ -672,3 +689,53 @@ py_compile OK, `systemctl restart lan-discovery` → active.
 только `FileNotFoundError` (не OSError/TimeoutExpired); `tracepath`/`host` не
 установлены и видны в `missing_deps` (демонстрация честной деградации);
 `INVENTORY ERROR` печатается в лог фонового потока (не HTTP-статус).
+
+### 30.09.2026 — P2: Configuration — хардкоды → `_cfg` (settings.json), тест override, docs — **DONE**
+
+**Проблема (§2 «Configuration»):** сеть/скан/интерфейсы/порт были захардкожены
+в коде при том, что `/etc/lan-discovery/settings.json` уже содержал
+`network.subnet`, `scan_interval`, `max_misses`, `self_ips`, `web.flask_port` —
+ключами никто не пользовались: настройки из UI «Система → Настройки»
+сохранялись, но не применялись; `SCAN_INTERVAL`/`MAX_MISSES` дублировались в
+трёх местах (app/devices/system); `app.NETWORK` был мёртвым; `monitor.py`
+показывал трафик только `end0/wlan1` (на X96 — пусто).
+
+**Изменения (задача 12):**
+- `app.py`: удалены мёртвые `NETWORK` и константы `SCAN_INTERVAL`/`MAX_MISSES`;
+  ленивые `_scan_interval()`/`_max_misses()` через `_cfg`; `/api/settings` и
+  `socketio.run` → `_cfg("web", "flask_host"/"flask_port", …)`.
+- `modules/devices_routes.py`: ленивые `_subnet()`/`_scan_interval()`/
+  `_max_misses()` (правки применяются через 10-сек кэш, без рестарта);
+  nmap-сканер и offline-логика читают их вместо констант.
+- `modules/system_routes.py`: `page_data` (interval/max_misses) и мониторинг
+  трафика → `_cfg("network", "traffic_ifaces", …)` (лейблы lan/wifi строятся
+  правилом `wlan*` → wifi).
+- `modules/inventory.py`: nmap-скан подсети → `_cfg("network", "subnet", …)`.
+- `modules/network_routes.py`: `/api/wifi/scan` → перебор
+  `_cfg("network", "wifi_ifaces", ["wlan1", "wlan0"])` (вместо двух разворотов).
+- `modules/monitor.py`: трафик → `_cfg("network", "traffic_ifaces", …)`
+  (дефолт покрывает `end0/eth0/wlan1/wlan0` — обе платформы).
+- `modules/monitoring_routes.py`: self-check `/api/monitoring/<ip>` →
+  `network.self_ips` вместо хардкода `192.168.3.243`.
+
+**Деплой (задача 13):** бэкапы `*.backup-pre-p2-20260930-091449` (7 файлов),
+py_compile OK, restart → active; тест `/tmp/test_p22_config.py` — **18/18 PASS**:
+override-подмена settings (subnet `10.99.0.0/24`, interval 77, max_misses 9,
+self_ips `10.99.0.5`, flask_port 9099) → все ленивые хелперы читают новые
+значения; self-check по новому self_ips → 200 (локальный overview); после
+восстановления — боевые 30/6/`192.168.3.0/24`; регрессии: health (P1-9/P1-11),
+live-сервис, `SCAN OK: 8–15 devices`, журнал без Traceback.
+
+**Документация (задача 14):** `docs/Конфигурация.md` — таблицы всех ключей
+settings.json (кто читает, дефолт, когда применяется), отдельный `network.json`,
+`server_ips` помечен «зарезервирован, кодом не читается», how-to «новая
+сеть/платформа» + минимальный пример override; `tools/sanitize_docs.py` —
+добавлена замена подсети `192.168.3.0/24 → 192.168.1.0/24`, прогон →
+**leaks: 0, exit 0**.
+
+**Остаточные риски:** пути `/opt|/etc|/srv` и `network_check.py` остаются
+захардкожены (осознанно, задокументированы — правка только под другую структуру
+установки); `network.json` исторически отдельный файл (не слит с settings);
+`server_ips` в settings не читается кодом (задел); дубли `load_settings`
+(app/core/system/weather) читают один файл, но имеют раздельные кэши (10 с);
+смена `flask_port` требует рестарта сервиса и правки systemd-юнита/фаервола.

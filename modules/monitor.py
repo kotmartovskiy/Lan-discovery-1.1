@@ -357,7 +357,10 @@ def get_system_overview():
 
     net_items = []
     try:
-        for iface in ("end0", "wlan1"):
+        from app import _cfg
+        traffic_ifaces = _cfg("network", "traffic_ifaces",
+                              ["end0", "eth0", "wlan1", "wlan0"])
+        for iface in traffic_ifaces:
             try:
                 with open(f"/sys/class/net/{iface}/statistics/rx_bytes") as f:
                     rx = int(f.read().strip())

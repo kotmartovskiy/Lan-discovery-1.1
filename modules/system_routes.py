@@ -1164,11 +1164,11 @@ def register_routes(app):
         if _page_data_cache["data"] is not None and now - _page_data_cache["ts"] < 10:
             return _page_data_cache["data"]
 
-        from app import check_internet_cached, weather_current, SCAN_INTERVAL, MAX_MISSES
+        from app import check_internet_cached, weather_current
         data = {
             "internet": check_internet_cached(),
-            "interval": SCAN_INTERVAL,
-            "max_misses": MAX_MISSES,
+            "interval": int(_cfg("network", "scan_interval", 30) or 30),
+            "max_misses": int(_cfg("network", "max_misses", 6) or 6),
             "weather": weather_current()
         }
         _page_data_cache["data"] = data
@@ -1432,12 +1432,12 @@ def register_routes(app):
             except Exception:
                 pass
 
-        for interface, rx_key, tx_key in (
-            ("end0", "lan_rx_bytes", "lan_tx_bytes"),
-            ("eth0", "lan_rx_bytes", "lan_tx_bytes"),
-            ("wlan1", "wifi_rx_bytes", "wifi_tx_bytes"),
-            ("wlan0", "wifi_rx_bytes", "wifi_tx_bytes")
-        ):
+        for interface in _cfg("network", "traffic_ifaces",
+                              ["end0", "eth0", "wlan1", "wlan0"]):
+            if interface.startswith("wlan"):
+                rx_key, tx_key = "wifi_rx_bytes", "wifi_tx_bytes"
+            else:
+                rx_key, tx_key = "lan_rx_bytes", "lan_tx_bytes"
             if result.get(rx_key) is not None:
                 continue
             try:

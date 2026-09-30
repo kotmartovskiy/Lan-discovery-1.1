@@ -247,17 +247,17 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
     @app.route("/api/wifi/scan")
     @login_required
     def api_wifi_scan():
+        wifi_ifaces = _cfg("network", "wifi_ifaces", ["wlan1", "wlan0"])
         try:
-            r = subprocess.run(
-                ["iw", "dev", "wlan1", "scan"],
-                capture_output=True, text=True, timeout=15
-            )
-            if r.returncode != 0:
+            r = None
+            for wifi_iface in wifi_ifaces:
                 r = subprocess.run(
-                    ["iw", "dev", "wlan0", "scan"],
+                    ["iw", "dev", wifi_iface, "scan"],
                     capture_output=True, text=True, timeout=15
                 )
-            output = r.stdout
+                if r.returncode == 0:
+                    break
+            output = r.stdout if r is not None else ""
             networks = []
             current = {}
             for line in output.splitlines():

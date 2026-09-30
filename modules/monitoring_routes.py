@@ -78,7 +78,8 @@ def register_routes(app):
             _get_ram_from_netdata,
         )
 
-        if ip in ("127.0.0.1", "localhost", "192.168.3.243"):
+        if ip in ("127.0.0.1", "localhost") or \
+                ip in (_cfg("network", "self_ips") or []):
             return jsonify(get_system_overview())
 
         cpu = _get_cpu_percent_from_netdata(ip)

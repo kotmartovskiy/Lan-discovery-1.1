@@ -10,10 +10,22 @@ from flask import render_template, request, redirect, url_for, jsonify
 
 log = logging.getLogger("lan-discovery")
 
-NETWORK = "192.168.3.0/24"
-SCAN_INTERVAL = 30
-MAX_MISSES = 6
 DB = "/opt/lan-discovery/devices.db"
+
+
+def _subnet():
+    from app import _cfg
+    return _cfg("network", "subnet", "192.168.3.0/24")
+
+
+def _scan_interval():
+    from app import _cfg
+    return int(_cfg("network", "scan_interval", 30) or 30)
+
+
+def _max_misses():
+    from app import _cfg
+    return int(_cfg("network", "max_misses", 6) or 6)
 
 _hostname_cache = {}
 
@@ -203,11 +215,12 @@ def run_scan():
     import subprocess
 
     devices = {}
+    subnet = _subnet()
 
     for iface in ["end0", "eth0"]:
         try:
             r = subprocess.run(
-                ["nmap", "-sn", "-PR", "-e", iface, "--host-timeout", "3s", NETWORK],
+                ["nmap", "-sn", "-PR", "-e", iface, "--host-timeout", "3s", subnet],
                 capture_output=True, text=True, timeout=45
             )
             if r.returncode == 0:
@@ -234,7 +247,7 @@ def run_scan():
         for iface in ["wlan1", "wlan0"]:
             try:
                 r = subprocess.run(
-                    ["nmap", "-sn", "-PR", "-e", iface, "--host-timeout", "3s", NETWORK],
+                    ["nmap", "-sn", "-PR", "-e", iface, "--host-timeout", "3s", subnet],
                     capture_output=True, text=True, timeout=45
                 )
                 if r.returncode == 0:
@@ -281,7 +294,7 @@ _scan_status = {"last_scan": None, "last_ok": None, "last_error": None, "errors"
 def get_scan_status():
     """Статус скан-потока для /api/health (P1-9)."""
     st = dict(_scan_status)
-    st["interval_sec"] = SCAN_INTERVAL
+    st["interval_sec"] = _scan_interval()
     st["thread_alive"] = bool(_scan_thread and _scan_thread.is_alive())
     return st
 
@@ -305,7 +318,7 @@ def scan_loop():
                     "сканирование недоступно (см. журнал)"
                 )
                 _scan_status["errors"] += 1
-                time.sleep(SCAN_INTERVAL)
+                time.sleep(_scan_interval())
                 continue
 
             current_devices = parse_scan(output)
@@ -476,7 +489,7 @@ def scan_loop():
 
                 new_misses = state["misses"] + 1
 
-                if new_misses >= MAX_MISSES:
+                if new_misses >= _max_misses():
 
                     con.execute(
                         """
@@ -561,7 +574,7 @@ def scan_loop():
                 except Exception:
                     pass
 
-        time.sleep(SCAN_INTERVAL)
+        time.sleep(_scan_interval())
 
 
 def register_routes(app):

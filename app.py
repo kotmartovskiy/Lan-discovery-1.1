@@ -22,7 +22,6 @@ logging.basicConfig(
 log = logging.getLogger("lan-discovery")
 
 DB = "/opt/lan-discovery/devices.db"
-NETWORK = "192.168.3.0/24"
 SETTINGS_PATH = "/etc/lan-discovery/settings.json"
 USERS_PATH = "/etc/lan-discovery/users.json"
 IPTV_CONFIG = "/etc/lan-discovery/iptv-playlists.json"
@@ -30,8 +29,6 @@ IPTV_DIR = "/srv/media/IPTV"
 IPTV_UPDATE_STATUS = "/etc/lan-discovery/iptv-update-status.json"
 GAMES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "games")
 TRANSMISSION_CONF = "/etc/transmission-daemon/settings.json"
-SCAN_INTERVAL = 30
-MAX_MISSES = 6
 APP_VERSION = "0.9.0"
 _SERVICE_START = time.time()
 
@@ -79,6 +76,14 @@ def _check_rate(action, cooldown=60):
 def _cfg(section, key, default=None):
     s = load_settings().get(section, {})
     return s.get(key, default)
+
+
+def _scan_interval():
+    return int(_cfg("network", "scan_interval", 30) or 30)
+
+
+def _max_misses():
+    return int(_cfg("network", "max_misses", 6) or 6)
 
 
 def _cmd(cmd, timeout=30):
@@ -180,8 +185,8 @@ def page_data():
         return _page_data_cache["data"]
     data = {
         "internet": check_internet_cached(),
-        "interval": SCAN_INTERVAL,
-        "max_misses": MAX_MISSES,
+        "interval": _scan_interval(),
+        "max_misses": _max_misses(),
         "weather": weather_current()
     }
     _page_data_cache["data"] = data
@@ -414,4 +419,7 @@ if __name__ == "__main__":
     threading.Thread(target=update_recycling_background, daemon=True).start()
     threading.Thread(target=_schedule_currencies, daemon=True).start()
 
-    socketio.run(app, host="0.0.0.0", port=8080, allow_unsafe_werkzeug=True)
+    socketio.run(app,
+                 host=_cfg("web", "flask_host", "0.0.0.0"),
+                 port=int(_cfg("web", "flask_port", 8080) or 8080),
+                 allow_unsafe_werkzeug=True)
