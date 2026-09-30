@@ -56,11 +56,11 @@ security pentest, восстановление из backup на чистую с�
 | **Security: сейф паролей** | «шифрование» = base64 + HMAC, который **игнорируется при несовпадении**; ключ = `secret.key`; чтение доступно guest — `core_routes.py:793-816` | настоящее шифрование (Fernet/AES-GCM) или явно «не секреты» | пароли в открытом виде (+base64) | **P0** |
 | **Security: авторизация** | `enabled` не проверяется в `login_required` (`auth.py:85-93`); SHA-256-фолбэк пароля (`auth.py:35-42`); нет session timeout; смена пароля без мин. длины (`core_routes.py:525`) | отключённый юзер = 401, только bcrypt, TTL сессии | отключённый пользователь остаётся в системе | **P0** |
 | **Security: CSRF во вкладках** | `base_app.html` **без csrf-meta** в репозитории → 11 шаблонов `/apps/*` POST без токена (на X96 правка уже есть, **в git не закоммичена**) | csrf-meta + fetch-wrapper в обеих базовых шаблонаках | POST-запросы из вкладок падают/незащищены | **P0** |
-| **Security: заголовки/HOST** | нет X-Frame-Options/CSP/X-Content-Type; `SESSION_COOKIE_*` не настроены; dev-Werkzeug `allow_unsafe_werkzeug=True` на `0.0.0.0:8080` (`app.py:351`) | заголовки, cookie-флаги, (опц.) reverse-proxy | clickjacking/доп. экспозиция | **P1** |
-| **Security: секреты в git** | `AGENTS.md`, `docs/*`, `templates/help.html:96,627` — root/1234, рабочие IP; 8 скриптов с `password='1234'`; `sanitize_docs.py` чистит **только `docs/`** | чистка всех отслеживаемых файлов | утечка реквизитов в публичные репо (docs/demo) | **P1** |
+| **Security: заголовки/HOST** | ~~нет X-Frame-Options/CSP/X-Content-Type; `SESSION_COOKIE_*` не настроены~~ **закрыта (P1-10, 30.09)**: `_security_headers` (nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy same-origin), cookie `HttpOnly`+`SameSite=Lax` (без Secure — LAN HTTP); CSP не введён (CDN xterm/socket.io — residual); dev-Werkzeug `allow_unsafe_werkzeug=True` остаётся — осознанный threat model «root by design» (PHASE 8, docs/Безопасность.md) | заголовки, cookie-флаги, (опц.) reverse-proxy | clickjacking/доп. экспозиция | **P1** (закрыта) |
+| **Security: секреты в git** | ~~`AGENTS.md`, `docs/*`, `templates/help.html` — root/1234, рабочие IP; скрипты с `password='1234'`; `sanitize_docs.py` чистит только `docs/`~~ **закрыта (P1-10, 30.09)**: help.html вычищен, 10 скриптов → env-переменные (`LAN_SSH_*`, `LAN_PANEL_PASS`), `make_demo.py` scrub + `demo_lint.py` (контент и имена файлов), публичный demo перегенерирован (leaks: 0); `sanitize_docs.py` дополнен P14 (wiki-regex, `admin/1234`); `AGENTS.md` с кредами — осознанно приватный ops-файл | чистка всех отслеживаемых файлов | утечка реквизитов в публичные репо (docs/demo) | **P1** (закрыта) |
 | **Stability: изоляция сбоев** | большинство роутов в `try/except`, но: DDL в `get_db()` на **каждый запрос** (`devices_routes.py:22-98`); утечки `con.close()` при исключениях (нет `finally`); падение импорта модуля валит всё приложение | схема один раз при старте; context manager; тест «SMART/Wi-Fi/nmap нет» | часы/диски/сеть отсутствуют → 500 в отдельных роутах (не фатально), но нет системного барьера | **P1** |
 | **Stability: фоновые задачи** | `start_scan_thread()` без guard от повторного запуска (`devices_routes.py:756`); `/inventory/scan` и bluetooth-scan без lock → параллельные прогоны по повторному POST; дубли функций (`app.py` ↔ `core_routes.py`), **мёртвый код** `init_background_tasks` (`core_routes.py:1009`) | lock/flag на каждую задачу, один источник истины | race: параллельные nmap/сканы, лишняя нагрузка | **P1** |
-| **Stability: systemd** | `Restart=always`, `RestartSec=5`, `After=network-online` — корректно; **но** сервис работает **от root** и dev-сервер Werkzeug | non-root пользователь + (wsgi) либо задокументированное «root by design» | root-веб-сервер | **P1** |
+| **Stability: systemd** | `Restart=always`, `RestartSec=5`, `After=network-online` — корректно; ~~сервис работает от root и dev-сервер Werkzeug~~ **закрыта (P8, 30.09)**: systemd-хардening в юните (`PrivateTmp`, `ProtectKernel{Tunables,Modules,ControlGroups}`, `LockPersonality`, `RestrictRealtime`; verify + рестарт + смоук на X96), «root by design» + dev-Werkzeug зафиксированы threat model в `docs/Безопасность.md` (вариант «задокументированное root by design»); `ProtectHome`/`SystemCallFilter` осознанно не включены | non-root + (wsgi) либо задокументированное «root by design» | root-веб-сервер | **P1** (закрыта через P8) |
 | **Configuration** | сеть/скан/интерфейсы/порт подключены к `/etc/lan-discovery/settings.json` через `_cfg` (P2: `subnet`, `scan_interval`/`max_misses`, `wifi_ifaces`, `traffic_ifaces`, `self_ips`, `web.flask_host`/`flask_port`; удалён мёртвый `app.NETWORK`); пути `/opt|/etc|/srv` остаются в коде (задокументированы в `docs/Конфигурация.md`) | единый конфиг: defaults + settings.json overrides | частично: пути захардкожены осознанно | **P2** (закрыта) |
 | **Hardware abstraction** | `core/hardware.py`: `detect_platform()`/`thermal_temp()`/`hdd_device()`/`emmc_device()`/`sd_device()` — thermal-перебор зон и динамический детект дисков вместо хардкодов (`thermal_zone0`, `mmcblk2`, `/dev/sda`); `platform`-блок в `/api/health`; остаток: пути `/opt|/etc|/srv` (конфиг, PHASE 2) | `detect_platform()` + capabilities + адаптеры | закрыта (пути — в PHASE 2) | **P2** (закрыта) |
 | **Переносимость (X96)** | новый код **уже работает** на aarch64/Debian 12; старый — на armv7l/Debian 13 | один код на обеих | две версии в проде (§9) | **P2** |
@@ -101,14 +101,14 @@ security pentest, восстановление из backup на чистую с�
 
 | # | Проблема | Место | Эффект |
 |---|---|---|---|
-| B1 | ~~Веб-терминал без авторизации, root-PTY, CORS `*`~~ **РЕШЁН (P0-1)** — SocketIO admin-only, CORS same-origin; root-PTY и dev-Werkzeug остались (деферт вне scope задачи 10) | `core_routes.py`, `app.py` | RCE закрыт для не-admin |
+| B1 | ~~Веб-терминал без авторизации, root-PTY, CORS `*`~~ **РЕШЁН (P0-1)** — SocketIO admin-only, CORS same-origin; root-PTY — **закрыт в PHASE 8 как «root by design»** (admin-only + сессии TTL + threat model в docs/Безопасность.md, задача 49); dev-Werkzeug — там же | `core_routes.py`, `app.py` | RCE закрыт для не-admin |
 | B2 | ~~Filemanager: корень `/`, guest может удалять/перемещать файлы~~ **РЕШЁН (P0-2)** — 7 API → `@admin_required`, нормализация путей; корень `/` оставлен для admin | `core_routes.py` | потеря данных закрыта |
 | B3 | ~~`POST /api/network/check_host` без авторизации (host → внешняя команда)~~ **РЕШЁН (P0-3)** — `@login_required` + `_valid_host` во всех nettools | `network_routes.py` | неаутентифицированный SSRF/DoS закрыт |
 | B4 | ~~Сейф паролей: base64, HMAC игнорируется, guest читает~~ **РЕШЁН (30.09.2026, P0-4)** — Fernet + `@can_edit` | `core_routes.py` secrets-helpers | пароли открыты — закрыто |
 | B5 | ~~Отключённый пользователь не выкидывается из сессии; SHA-256-фолбэк пароля~~ **РЕШЁН (30.09.2026, P0-5)** — enabled+TTL в `get_current_user`, lazy re-hash bcrypt, min 8 | `auth.py` | обход блокировки учётки — закрыт |
 | B6 | ~~CSRF-meta отсутствует в `base_app.html` **в репозитории**~~ **РЕШЁН (30.09.2026, P0-6)** — правки X96 забраны в репо | `templates/base_app.html` | регресс CSRF при следующем деплое — закрыт |
 
-Не P0, но рядом: dev-Werkzeug на `0.0.0.0`, нет security-заголовков, root-сервис.
+Не P0, но рядом: ~~dev-Werkzeug на `0.0.0.0`, нет security-заголовков, root-сервис~~ — заголовки закрыты (P1-10), root/Werkzeug — задокументированный threat model + systemd-хардening (PHASE 8).
 
 ---
 
@@ -369,6 +369,25 @@ security pentest, восстановление из backup на чистую с�
 46. **[P14][DONE — 30.09.2026]** Сверка комплекта 1.0: линкер-проверка
      внутренних ссылок docs (битых нет), §2 Documentation закрыта,
      `python tools/sanitize_docs.py` без утечек, CI green, sync — см. §9.
+47. **[P8][DONE — 30.09.2026]** `tests/unit/test_security.py` —
+     security-регресс в CI через Flask `test_client`: заголовки
+     (nosniff/XFO/Referrer-Policy), cookie-флаги (HttpOnly+SameSite=Lax,
+     без Secure), аноним `/` → 302, анонимный POST без CSRF → 400 —
+     см. §9.
+48. **[P8][DONE — 30.09.2026]** `tests/live/test_security.py` — перенос
+     ад-hoc `/tmp/test_p10_env.py` (27 чеков P1-10) в live-набор:
+     заголовки на 5 точках, Set-Cookie, чистый `/help`, no-store на API,
+     регрессии авторизации — см. §9.
+49. **[P8][DONE — 30.09.2026]** systemd-хардening юнита
+     (`deploy/lan-discovery.service`): `PrivateTmp`, `ProtectHome`,
+     `ProtectKernel{Tunables,Modules,ControlGroups}`, `LockPersonality`,
+     `RestrictRealtime` + проверка на X96 (restart → health → смоук);
+     «root by design» + dev-Werkzeug зафиксированы как осознанный threat
+     model в `docs/Безопасность.md` (вариант §2 «задокументированное
+     root by design») — см. §9.
+50. **[P8][DONE — 30.09.2026]** Итог PHASE 8: §2 (заголовки/куки и
+     секреты в git закрыты P1-10, systemd/root — P8), §4 B1 — финальная
+     отметка, регресс unit+CI+live, §7 → DONE, §9 — см. журнал.
 
 ---
 
@@ -384,7 +403,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 5 Database | **DONE** | задачи 25–28: MIGRATIONS-карта по user_version, ensure 8 «серверных» таблиц, retention events (180д), тест 24/24 |
 | PHASE 6 Discovery engine | **DONE** | задачи 17–20: `core/discovery.py` (scanner/normalizer/reconcile), `POST /api/scan` + кнопка, событие MAC_CHANGED |
 | PHASE 7 Event engine | **DONE** | задачи 21–24: events v2 (severity/source/metadata, SCHEMA_VERSION=2), `core/events.py`, `GET /api/events`, бейджи в /history |
-| PHASE 8 Security hardening | **IN PROGRESS** | задачи 1–6 (P0) + 10 (P1-10); root-PTY/dev-Werkzeug дефернуты |
+| PHASE 8 Security hardening | **DONE** | задачи 1–6 (P0) + 10 (P1-10) + 47–50 (P8): security-тесты в репо (8 unit в CI + 10 live), systemd-хардening юнита (проверено на X96: restart/health/scan/filemanager), «root by design» threat model в docs/Безопасность.md |
 | PHASE 9 Installer | **DONE** | задачи 32–34: install.sh (8 шагов, идемпотент, dry-run), deploy/lan-discovery.service, docs/Установка.md; проверка на X96 в tmp-префиксе + повторный прогон без изменений данных |
 | PHASE 10 Update/rollback | **DONE** | задачи 35–37: update.sh (backup → apply → verify → pip → restart → health с авто-rollback), docs/Обновление.md; тесты на X96: success/fail+авто-откат (md5 app.py восстановлен, сервис жив)/ручной rollback/ротация |
 | PHASE 11 Backup/Recovery | **DONE** | задачи 38–41: backup-db.sh (config_*.tar.gz), recovery.sh (код+конфиг+БД+verify+юнит), дрил на X96 в изолированном префиксе (PASS, боевые данные не тронуты, идемпотентность), docs/Восстановление.md, юнит-тест фильтра UI-списка |
@@ -1354,3 +1373,68 @@ verify-fail); git-путь (`git pull`) прогнан только dry-run'ом
 роутов; wiki-страницы в GitHub-wiki обновляются отдельным пушом
 (сами `docs/` — источник); английской версии комплекта нет (весь
 проект русскоязычный).
+
+### 30.09.2026 — PHASE 8 Security hardening: тесты + systemd + threat model — **DONE**
+
+**Контекст:** P0 (задачи 1–6) и P1-10 (заголовки/куки/чистка секретов)
+закрыты ранее; в PHASE 8 оставались два дефернутых пункта — root-PTY и
+dev-Werkzeug, плюс отсутствие security-регресса в репо и systemd-юнит
+без ограничений.
+
+**Что сделано:**
+
+- **`tests/unit/test_security.py` (задача 47)** — 8 тестов через Flask
+  `test_client` (гоняются в CI, без живой панели): nosniff/
+  X-Frame-Options/Referrer-Policy на `/login`, `/api/health`,
+  статике; cookie `HttpOnly`+`SameSite=Lax` и **без** `Secure`
+  (иначе вход по HTTP сломается); `no-store` на API; аноним `/` → 302
+  `/login`; анонимный `GET /api/settings` → 302/401; mutating POST
+  без CSRF → 400 (CSRF временно включается в фикстуре и
+  восстанавливается). Набор unit вырос **46 → 54**.
+- **`tests/live/test_live_security.py` (задача 48)** — перенос ad-hoc
+  `/tmp/test_p10_env.py` (27 чеков P1-10) в pytest-стиль: заголовки
+  на `/login`/API/`/`,`/system`,`/static/style.css`, флаги Set-Cookie
+  на реальном POST /login, чистый `/help` (нет `root / 1234` и
+  `пароль: 1234`, UX-таблица `192.168.3.243`/`X96 Max` сохранена),
+  POST /login без токена → 400, `/api/status` без сессии → 302,
+  поля health (P1-9-регресс). **10/10 PASS** против панели X96.
+  Файл переименован из `test_security.py` → `test_live_security.py`:
+  имена модулей pytest в `tests/unit` и `tests/live` конфликтовали
+  («import file mismatch»), в стиле каталога с `test_live_smoke.py`.
+- **systemd-хардening (задача 49)** — `deploy/lan-discovery.service`
+  дополнен: `PrivateTmp=yes`, `ProtectKernelTunables=yes`,
+  `ProtectKernelModules=yes`, `ProtectControlGroups=yes`,
+  `LockPersonality=yes`, `RestrictRealtime=yes`, `WorkingDirectory`
+  (шаблон с `{PREFIX}`); комментарий о сознательно НЕ включаемых
+  (`ProtectHome` — filemanager/терминалу нужен `/root`;
+  `SystemCallFilter`/`CapabilityBoundingSet` — риск сломать
+  systemctl/диск/сеть). На X96: бэкап юнита
+  `*.backup-pre-p8-*` → применение (`sed {PREFIX}`) →
+  `systemd-analyze verify` чист → `daemon-reload` → restart → health
+  200, флаги активны (`systemctl show` → yes/yes/yes/yes).
+- **Функциональный смоук после рестарта:** login 302, filemanager
+  `/root` → 200 (root-доступ не сломан), `/api/status` 200,
+  `POST /api/scan` → 200 `{devices:17, ok:true}` (35.5с — эндпоинт
+  синхронный, 15-сек таймаут первого прогона был просто мал),
+  health 200 после скана. Live-набор: **15/15** (5 smoke + 10
+  security).
+- **Threat model «root by design» (задача 49)** — `docs/Безопасность.md`:
+  новый раздел «Модель угроз» (почему root: systemctl/диск/eMMC/
+  bluetooth/терминал; компенсации: admin-only, bcrypt+TTL-сессии,
+  LAN-only, systemd-ограничения; что осознанно не включено и почему),
+  зафиксирован dev-Werkzeug `allow_unsafe_werkzeug=True` как
+  осознанное решение; раздел «Что уже сделано» дополнен юнитом и
+  security-тестами.
+- **ROADMAP:** §2 — «Security: заголовки/HOST» и «Security: секреты в
+  git» (закрыты P1-10), «Stability: systemd» (закрыта через P8);
+  §4 B1 — root-PTY/dev-Werkzeug закрыты как threat model; §7 PHASE 8
+  → **DONE**.
+
+**Тесты:** unit 54/54 (локально + CI), live 15/15 на X96,
+`systemd-analyze verify` чист, смоук зелёный.
+
+**Остаточные риски:** CSP не введён (CDN xterm/socket.io); альтернатива
+«non-root + gunicorn» не реализована (требует переработки SocketIO +
+sudo-моста — зафиксировано в docs); `ProtectHome`/syscall-фильтры
+выключены осознанно (root by design); brute-force `/login` из LAN без
+rate-limit.

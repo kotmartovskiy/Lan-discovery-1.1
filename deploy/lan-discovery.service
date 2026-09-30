@@ -10,6 +10,15 @@ Restart=always
 RestartSec=5
 User=root
 WorkingDirectory={PREFIX}
+# PHASE 8: systemd-хардening (root by design — см. docs/Безопасность.md).
+# Осознанно НЕ включаются: ProtectHome (filemanager/терминал — root по модели
+# угроз), SystemCallFilter/CapabilityBoundingSet (systemctl/диск/сеть).
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictRealtime=yes
 
 [Install]
 WantedBy=multi-user.target
