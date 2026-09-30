@@ -41,8 +41,14 @@ security pentest, восстановление из backup на чистую с�
 | Бэкап БД | `/srv/backup-db` — 3 файла (таймер 03:30, **timer ещё не срабатывал**) | `/srv/backup-db` — 182 файла (часовые, идёт давно) |
 | Таймеры | weather-update, backup-db, update-iptv, env-data | + backup-emmc, backup-emmc-test |
 
-**Вывод:** сейчас в работе **две разные версии приложения** на двух платформах, обе
-активно сканируют одну подсеть. Это главный источник дрейфа (см. §9).
+**Вывод:** ~~сейчас в работе **две разные версии приложения** на двух платформах,
+обе активно сканируют одну подсеть. Это главный источник дрейфа (см. §9).~~
+**Обновлено 01.10.2026 (P4):** на обеих платформах — **одна и та же версия**
+(repo == X96 == OP, md5 `app.py` `26ca64a1…`); X96 (LAN `192.168.3.243`) —
+основная панель, Orange Pi — доступен через WiFi AP `192.168.3.235`
+(LAN `.234` отвалился кабелем); обе активно сканируют подсеть (двойное
+сканирование оставлено осознанно); юниты на venv + systemd-хардening P8.
+Таблица выше — **факт аудита 30.09.2026** (до P4), сохранена как история.
 
 ---
 
@@ -415,6 +421,30 @@ security pentest, восстановление из backup на чистую с�
      решение оператора: **обе панели сканируют LAN** (двойное
      сканирование оставлено, `scan_interval` не менялся), §7 → DONE,
      §9 — см. журнал.
+55. **[P15][DONE — 01.10.2026]** Reboot-тест X96: до — enabled/
+     active, NRestarts=0, health 200, db v2/15/40/37270; `systemctl
+     reboot` → панель сама вернулась за ~50 с (boot 34.6s); после —
+     enabled/active, NRestarts=0, health 200, **данные идентичны**
+     (v2/15/40/37270), ошибок в journal за boot 0.
+56. **[P15][DONE — 01.10.2026]** Disaster-recovery дрил на чистый
+     префикс `/tmp/recovery-test` (X96): `install.sh --prefix …
+     --unit-dir … --skip-apt --no-enable` — код (md5 == repo), venv
+     `--system-site-packages`, юнит `ExecStart=/tmp/recovery-test/venv/…`;
+     `recovery.sh` из свежих бэкапов (`devices_20260930-233341.db`,
+     `config_*.tar.gz`, `code.tar.gz` из `/var/backups`) → SYNTAX OK
+     (22 файла), **restored devices=40 events=37184 == бэкапу**,
+     integrity=ok, config 16 элементов; уборка, боевой сервис не
+     пострадал (active).
+57. **[P15][DONE — 01.10.2026]** Нагрузочный smoke (live, X96):
+     200×GET /api/status в 20 потоков, 100×status **во время**
+     ручного scan, 10 параллельных логинов, 50 анонимных `/` —
+     итог **356×200 + 9×302, 0×5xx/ERR, errors none** (дедлоков
+     нет); scan под нагрузкой 200 за 31.7с; latency p50=3.4s
+     p95=5.1s — dev-Werkzeug под 20-поточной нагрузкой (известное
+     ограничение, гunicorn отложен threat model P8).
+58. **[P15][DONE — 01.10.2026]** Итог Production 1.0: git tag
+     `v1.0.0`, актуализация §1 (одна версия на обеих платформах),
+     §7 → DONE, §9 — см. журнал.
 
 ---
 
@@ -437,7 +467,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 12 Observability | **DONE** | P1-9: `/api/health` + version/uptime/last-discovery/db-status |
 | PHASE 13 Testing | **DONE** | задачи 29–31: pytest-структура (unit 42 / live 5, маркер `live`), CI GitHub Actions (ubuntu/py3.11: pytest unit + py_compile) на каждый push/PR |
 | PHASE 14 Documentation | **DONE** | задачи 42–46: docs/API.md (163 роута, колонка доступа), docs/Безопасность.md, docs/Архитектура.md освежён (14 таблиц, core/, lifecycle, CI), README/Home/_Sidebar со всеми страницами, линкер 74/0, sanitize leaks=0, публичный репо docs обновлён |
-| PHASE 15 Production 1.0 | **PENDING** | зависит от P0/P1 выше |
+| PHASE 15 Production 1.0 | **DONE** | задачи 55–58: reboot-тест X96 PASS (автостарт/данные), disaster-recovery дрил на чистый префикс PASS (==бэкапу), нагрузочный smoke PASS (0×5xx), git tag `v1.0.0` |
 | PHASE 16 After 1.0 | **DEFERRED** | по правилу — после стабильного ядра |
 
 ---
@@ -1524,3 +1554,53 @@ health/login-смоук на OP зелёный.
 два пустых легаси-БД (`events.db`, `lan.db`) оставлены как есть;
 пакетная сборка cffi из sdist на armhf без компилятора по-прежнему
 невозможна — armhf-окружение обязано идти через apt-зависимости.
+
+### 01.10.2026 — PHASE 15 Production 1.0 (тег v1.0.0) — **DONE**
+
+**Контекст:** все фазы закрыты; §0 аудита фиксировал четыре непроверенных
+пункта (нагрузка, pentest, restore на чистую систему, reboot). PHASE 15
+закрывает три из них (pentest остаётся вне объёма — см. риски).
+
+**Что сделано:**
+
+- **Задача 55 — reboot-тест X96:** до — enabled/active, NRestarts=0,
+  health 200, `user_version=2, tables=15, devices=40, events=37270`,
+  ошибок 0; `systemctl reboot` → из Windows опрос: панель сама
+  вернулась через ~50 с (systemd boot 34.6s); после — enabled/active,
+  NRestarts=0, health 200, **данные бит-в-бит идентичны** (40/37270),
+  journal за boot чист. Автозапуск работает без ручного вмешательства.
+- **Задача 56 — disaster-recovery дрил на чистую систему:** чистый
+  префикс `/tmp/recovery-test` на X96. `install.sh --prefix …
+  --unit-dir … --skip-apt --no-enable`: код скопирован (md5
+  `26ca64a1… == repo`), venv `--system-site-packages` собран, юнит
+  смоделирован (`ExecStart=/tmp/recovery-test/venv/bin/python …`),
+  health-шаг прошёл (боевая панель). Затем `recovery.sh --db
+  /srv/backup-db/devices_20260930-233341.db --config-tar … --prefix
+  … --unit --unit-dir … --no-restart`: code.tar.gz из
+  `/var/backups/lan-discovery/20260930-232055` → **SYNTAX OK
+  (22 файла)**, БД → **devices=40 events=37184 v2 integrity=ok —
+  счётчики точно совпали с бэкапом**, конфиг восстановлен (16
+  элементов: settings/secret.key/users…), юнит записан в префиксный
+  unit-dir (боевой `/etc/systemd/system` не тронут). Уборка ok,
+  боевой сервис active. Восстановление из backup на чистую систему —
+  подтверждено end-to-end.
+- **Задача 57 — нагрузочный smoke (live, X96):** warmup; 200×GET
+  `/api/status` в 20 потоков (43.4s); 100×`/api/status` **во время**
+  ручного `POST /api/scan` (scan: 200 за 31.7s); 10 параллельных
+  логинов; 50 анонимных `/`. Итог: **356×200 + 9×302, 0×5xx/ERR,
+  errors: none** — дедлоков и падений нет; latency p50=3406ms,
+  p95=5124ms (20-поточный dev-Werkzeug — известное ограничение,
+  гunicorn/reverse-proxy осознанно отложены threat model PHASE 8).
+- **Задача 58 — релиз:** git tag **`v1.0.0`** (запушен), §1
+  актуализирована (обе платформы на одной версии; таблица 30.09
+  сохранена как история), §6 задачи 55–58 DONE, §7 PHASE 15 →
+  **DONE — ROADMAP исполнен полностью**.
+
+**Тесты:** unit 54/54 (X96 + OP), live 15/15 (P8), reboot-данные
+идентичны, recovery-дрил == бэкапу, нагрузочный smoke без 5xx.
+
+**Остаточные риски (для 1.x/2.0):** пентест не проводился (LAN-only,
+admin/1234 по умолчанию — сменить в эксплуатации); dev-Werkzeug под
+нагрузкой (p50 > 3s при 20 потоках) — гunicorn-переход отложен;
+brute-force `/login` без rate-limit; двойное сканирование LAN (P4,
+осознанно); LAN `.234` до физического восстановления кабеля.
