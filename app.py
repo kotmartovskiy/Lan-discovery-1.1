@@ -134,6 +134,7 @@ def check_internet_cached():
 
 
 def weather_current():
+    con = None
     try:
         con = sqlite3.connect(DB, timeout=5)
         row = con.execute(
@@ -141,17 +142,22 @@ def weather_current():
             "weather_code, wind_speed, wind_direction, pressure, cloud_cover "
             "FROM weather_observations ORDER BY timestamp DESC LIMIT 1"
         ).fetchone()
-        con.close()
         if not row:
             return None
         return {
             "timestamp": row[0], "temperature": row[1], "apparent_temperature": row[2],
-            "humidity": row[3], "precipitation": row[4], "weather_code": row[5],
-            "wind_speed": row[6], "wind_direction": row[7], "pressure": row[8],
-            "cloud_cover": row[9] if len(row) > 9 else None
+            "humidity": row[3], "precipitation": row[4],
+            "weather_code": row[5], "wind_speed": row[6], "wind_direction": row[7],
+            "pressure": row[8], "cloud_cover": row[9] if len(row) > 9 else None
         }
     except Exception:
         return None
+    finally:
+        if con is not None:
+            try:
+                con.close()
+            except Exception:
+                pass
 
 
 def currency_category_name(cat):
@@ -255,7 +261,11 @@ register_module_manager_routes(app, login_required, admin_required, page_data)
 
 # ==================== Devices ====================
 
-from modules.devices_routes import register_routes as register_devices_routes, start_scan_thread
+from modules.devices_routes import (
+    register_routes as register_devices_routes,
+    start_scan_thread,
+    init_db_schema,
+)
 register_devices_routes(app)
 
 # ==================== Weather ====================
@@ -341,6 +351,7 @@ register_socketio_handlers(socketio)
 # ==================== Main ====================
 
 if __name__ == "__main__":
+    init_db_schema()
     init_inventory_db()
     start_scan_thread()
 

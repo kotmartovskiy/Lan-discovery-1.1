@@ -290,25 +290,25 @@ def weather_current():
     import sqlite3
     try:
         con = sqlite3.connect(DB, timeout=5)
-
-        row = con.execute("""
-            SELECT
-                timestamp,
-                temperature,
-                apparent_temperature,
-                humidity,
-                precipitation,
-                weather_code,
-                wind_speed,
-                wind_direction,
-                pressure,
-                cloud_cover
-            FROM weather_observations
-            ORDER BY timestamp DESC
-            LIMIT 1
-        """).fetchone()
-
-        con.close()
+        try:
+            row = con.execute("""
+                SELECT
+                    timestamp,
+                    temperature,
+                    apparent_temperature,
+                    humidity,
+                    precipitation,
+                    weather_code,
+                    wind_speed,
+                    wind_direction,
+                    pressure,
+                    cloud_cover
+                FROM weather_observations
+                ORDER BY timestamp DESC
+                LIMIT 1
+            """).fetchone()
+        finally:
+            con.close()
 
         if not row:
             return {}

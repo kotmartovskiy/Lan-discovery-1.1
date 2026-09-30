@@ -157,8 +157,9 @@ security pentest, восстановление из backup на чистую с�
    recycling, favicon) забраны в репо, `terminal.html` починен на X96,
    `monitor.py` задеплоен, `.gitattributes` добавлен, `apps\*.html` удалены —
    см. журнал §9.
-7. **[P1] Схема БД:** перенести DDL из `get_db()` в однократную инициализацию
-   (startup), `PRAGMA user_version`, индекс `events(ip, id)`, `finally`-закрытие коннектов.
+7. **[P1][DONE — 30.09.2026]** Схема БД: DDL из `get_db()` → однократная
+   инициализация (startup), `PRAGMA user_version`, индекс `events(ip, id)`,
+   `finally`-закрытие коннектов — см. журнал §9.
 8. **[P1] Фоновые задачи:** guard от повторного запуска сканов (inventory/bluetooth),
    удалить мёртвый `init_background_tasks` и дубли функций.
 9. **[P1] Observability:** `/api/health` → добавить version/uptime/last-discovery/
@@ -173,11 +174,11 @@ security pentest, восстановление из backup на чистую с�
 | Фаза | Статус | Комментарий |
 |---|---|---|
 | PHASE 0 Audit | **DONE** | этот документ; код не менялся |
-| PHASE 1 Stabilization | **IN PROGRESS** | задачи 7–9 + обработка отсутствующих подсистем |
+| PHASE 1 Stabilization | **IN PROGRESS** | задачи 8–9 + обработка отсутствующих подсистем |
 | PHASE 2 Configuration | **PENDING** | см. §2 «Configuration» (P2) |
 | PHASE 3 Hardware abstraction | **PENDING** | platform detection/ capabilities |
 | PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
-| PHASE 5 Database | **PENDING** | задача 7 — первые шаги |
+| PHASE 5 Database | **PARTIAL** | задача 7 (init/user_version/индекс) done; миграционная система — нет |
 | PHASE 6 Discovery engine | **PENDING** | |
 | PHASE 7 Event engine | **PENDING** | |
 | PHASE 8 Security hardening | **IN PROGRESS** | задачи 1–6 (P0) |
@@ -414,3 +415,50 @@ salt); смена пароля — `len(pw) < 1`; TTL сессий отсутс�
 (нет login_ts) — однократный ре-логин; SHA-256-аккаунты, ни разу не вошедшие,
 остаются sha256 до первого входа (детект: `grep -v '$2' users.json`); TTL
 фиксированный 12ч (конфигурируемый — P2 Configuration).
+
+### 30.09.2026 — P1-7: схема БД — однократный init, user_version, индекс — **DONE**
+
+**Проблема:** DDL и ALTER-миграции колонок выполнялись в `get_db()` на **каждом**
+подключении (лишняя работа + шум в логе); `PRAGMA user_version = 0` (аудит §3 —
+миграции не версионированы); нет индекса `events(ip, id)` — `/history` и
+`/device/<ip>` (35 836 событий) делают полный скан; `con.close()` без `finally`
+— при исключении коннект утекал (scan_loop, все 5 роутов, `weather_current`
+в `app.py` и `core_routes`).
+
+**Изменения:**
+- `modules/devices_routes.py`:
+  - `init_db_schema(force=False)` — весь DDL + миграции колонок +
+    `CREATE INDEX IF NOT EXISTS idx_events_ip_id ON events(ip, id)` +
+    `PRAGMA user_version = 1` (если `< 1`), под `threading.Lock`, идемпотентна
+    (повторный вызов → `False`), коннект закрывается в `finally`;
+  - `get_db()` — только connect + `busy_timeout`/WAL + авто-вызов init, пока
+    не done (после init DDL не выполняется — проверено: число объектов
+    в `sqlite_master` не меняется);
+  - `scan_loop` — `con = None` до `try`, закрытие в `finally` (устранена утечка
+    при `SCAN ERROR`); роуты `index/history/device/set_name/dismiss_new` —
+    `try/finally` (в `device` not-found return тоже через finally);
+- `app.py`: `init_db_schema()` в `__main__` до `start_scan_thread()`;
+  `weather_current()` — `close` в `finally` (при исключении в запросе утекал);
+- `modules/core_routes.py`: `weather_current()` — вложенный `try/finally`
+  вокруг запроса.
+
+**Файлы:** `modules/devices_routes.py`, `app.py`, `modules/core_routes.py`
+(repo == X96 после деплоя). Бэкапы: `*.backup-pre-p07-20260930-070508` (до
+правки, из git HEAD), `*.backup-20260930-070645`; БД
+`devices.db.backup-p07-*` (integrity ok, 40 devices / 35 836 events).
+
+**Тесты (X96, `/tmp/test_p07_db.py` 22/22 PASS):**
+- prod: `user_version = 1`, индекс существует и используется
+  (`SEARCH events USING INDEX idx_events_ip_id (ip=?)`), integrity ok,
+  данные не потеряны (40 / 35 836 → 40 / 35 836);
+- fresh-DB (tmp): init создаёт таблицы, все колонки, индекс, version; повторный
+  init — no-op; `get_db()` работает без DDL; `sqlite_master` count не растёт;
+- HTTP: admin login 302, `/` `/history` `/device/<ip>` 200, unknown 404,
+  `set_name`/`dismiss-new` на несуществующий IP 302/200 (без мутаций), health 200;
+- после рестарта в журнале: `DB SCHEMA INIT: version=1` + `SCAN OK` каждые 30 с
+  (скан-поток жив), без traceback.
+
+**Остаточные риски:** OP работает со старой версией кода (нет `modules/`) —
+при синке получит init автоматически при старте; DDL других модулей
+(currencies/inventory/recycling/weather-monitor) — свой idempotent init вне
+`get_db()`, не трогался (полноценная миграционная система — PHASE 5 позже).

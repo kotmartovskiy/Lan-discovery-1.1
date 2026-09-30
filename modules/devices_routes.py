@@ -19,8 +19,92 @@ _hostname_cache = {}
 _inet_cache = {"ok": None, "ts": 0}
 
 
-def get_db():
+SCHEMA_VERSION = 1
+_init_lock = threading.Lock()
+_init_done = False
 
+
+def init_db_schema(force=False):
+    """Однократная инициализация схемы (P1-7).
+
+    DDL, миграции колонок, индекс events(ip,id) и PRAGMA user_version
+    выполняются только здесь — не в каждом get_db().
+    """
+    global _init_done
+    with _init_lock:
+        if _init_done and not force:
+            return False
+        con = sqlite3.connect(DB, timeout=30)
+        try:
+            con.execute("PRAGMA busy_timeout=30000")
+            con.execute("PRAGMA journal_mode=WAL")
+
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS devices (
+                    ip TEXT PRIMARY KEY,
+                    online INTEGER DEFAULT 0,
+                    hostname TEXT,
+                    mac TEXT,
+                    vendor TEXT,
+                    first_seen TEXT,
+                    last_seen TEXT,
+                    is_new INTEGER DEFAULT 0,
+                    appearances INTEGER DEFAULT 0,
+                    misses INTEGER DEFAULT 0,
+                    name TEXT
+                )
+            """)
+
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    ip TEXT,
+                    hostname TEXT,
+                    mac TEXT,
+                    event TEXT
+                )
+            """)
+
+            columns = {
+                row[1]
+                for row in con.execute(
+                    "PRAGMA table_info(devices)"
+                ).fetchall()
+            }
+
+            migrations = (
+                ("hostname", "ALTER TABLE devices ADD COLUMN hostname TEXT"),
+                ("is_new", "ALTER TABLE devices ADD COLUMN is_new INTEGER DEFAULT 0"),
+                ("appearances", "ALTER TABLE devices ADD COLUMN appearances INTEGER DEFAULT 0"),
+                ("misses", "ALTER TABLE devices ADD COLUMN misses INTEGER DEFAULT 0"),
+                ("name", "ALTER TABLE devices ADD COLUMN name TEXT"),
+                ("device_type", "ALTER TABLE devices ADD COLUMN device_type TEXT"),
+            )
+            for col, stmt in migrations:
+                if col not in columns:
+                    con.execute(stmt)
+
+            con.execute(
+                "CREATE INDEX IF NOT EXISTS idx_events_ip_id "
+                "ON events(ip, id)"
+            )
+
+            version = con.execute("PRAGMA user_version").fetchone()[0]
+            if version < SCHEMA_VERSION:
+                con.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+
+            con.commit()
+            _init_done = True
+            log.info(f"DB SCHEMA INIT: version={SCHEMA_VERSION}")
+            return True
+        finally:
+            con.close()
+
+
+def get_db():
+    if not _init_done:
+        init_db_schema()
     con = sqlite3.connect(
         DB,
         timeout=30
@@ -28,72 +112,6 @@ def get_db():
 
     con.execute("PRAGMA busy_timeout=30000")
     con.execute("PRAGMA journal_mode=WAL")
-
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS devices (
-            ip TEXT PRIMARY KEY,
-            online INTEGER DEFAULT 0,
-            hostname TEXT,
-            mac TEXT,
-            vendor TEXT,
-            first_seen TEXT,
-            last_seen TEXT,
-            is_new INTEGER DEFAULT 0,
-            appearances INTEGER DEFAULT 0,
-            misses INTEGER DEFAULT 0,
-            name TEXT
-        )
-    """)
-
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            ip TEXT,
-            hostname TEXT,
-            mac TEXT,
-            event TEXT
-        )
-    """)
-
-    columns = {
-        row[1]
-        for row in con.execute(
-            "PRAGMA table_info(devices)"
-        ).fetchall()
-    }
-
-    if "hostname" not in columns:
-        con.execute(
-            "ALTER TABLE devices ADD COLUMN hostname TEXT"
-        )
-
-    if "is_new" not in columns:
-        con.execute(
-            "ALTER TABLE devices ADD COLUMN is_new INTEGER DEFAULT 0"
-        )
-
-    if "appearances" not in columns:
-        con.execute(
-            "ALTER TABLE devices ADD COLUMN appearances INTEGER DEFAULT 0"
-        )
-
-    if "misses" not in columns:
-        con.execute(
-            "ALTER TABLE devices ADD COLUMN misses INTEGER DEFAULT 0"
-        )
-
-    if "name" not in columns:
-        con.execute(
-            "ALTER TABLE devices ADD COLUMN name TEXT"
-        )
-
-    if "device_type" not in columns:
-        con.execute(
-            "ALTER TABLE devices ADD COLUMN device_type TEXT"
-        )
-
-    con.commit()
 
     return con
 
@@ -284,6 +302,8 @@ def run_scan():
 def scan_loop():
 
     while True:
+
+        con = None
 
         try:
 
@@ -524,13 +544,19 @@ def scan_loop():
                     )
 
             con.commit()
-            con.close()
 
             log.info(f"SCAN OK: {len(current_devices)} devices")
 
         except Exception as e:
 
             log.error(f"SCAN ERROR: {e}")
+
+        finally:
+            if con is not None:
+                try:
+                    con.close()
+                except Exception:
+                    pass
 
         time.sleep(SCAN_INTERVAL)
 
@@ -543,40 +569,40 @@ def register_routes(app):
     def index():
 
         con = get_db()
+        try:
+            devices = con.execute(
+                """
+                SELECT
+                    ip,
+                    online,
+                    name,
+                    hostname,
+                    mac,
+                    vendor,
+                    first_seen,
+                    last_seen,
+                    misses,
+                    appearances,
+                    is_new,
+                    device_type
+                FROM devices
 
-        devices = con.execute(
-            """
-            SELECT
-                ip,
-                online,
-                name,
-                hostname,
-                mac,
-                vendor,
-                first_seen,
-                last_seen,
-                misses,
-                appearances,
-                is_new,
-                device_type
-            FROM devices
+                ORDER BY
+                    is_new DESC,
+                    online DESC,
+                    ip
+                """
+            ).fetchall()
 
-            ORDER BY
-                is_new DESC,
-                online DESC,
-                ip
-            """
-        ).fetchall()
+            total = len(devices)
 
-        total = len(devices)
-
-        online = sum(
-            1
-            for d in devices
-            if d[1]
-        )
-
-        con.close()
+            online = sum(
+                1
+                for d in devices
+                if d[1]
+            )
+        finally:
+            con.close()
 
         prepared = []
 
@@ -613,25 +639,25 @@ def register_routes(app):
     def history():
 
         con = get_db()
+        try:
+            events = con.execute(
+                """
+                SELECT
+                    timestamp,
+                    ip,
+                    hostname,
+                    mac,
+                    event
 
-        events = con.execute(
-            """
-            SELECT
-                timestamp,
-                ip,
-                hostname,
-                mac,
-                event
+                FROM events
 
-            FROM events
+                ORDER BY id DESC
 
-            ORDER BY id DESC
-
-            LIMIT 500
-            """
-        ).fetchall()
-
-        con.close()
+                LIMIT 500
+                """
+            ).fetchall()
+        finally:
+            con.close()
 
         from app import page_data
         data = page_data()
@@ -646,52 +672,50 @@ def register_routes(app):
     def device(ip):
 
         con = get_db()
+        try:
+            device = con.execute(
+                """
+                SELECT
+                    ip,
+                    online,
+                    name,
+                    hostname,
+                    mac,
+                    vendor,
+                    first_seen,
+                    last_seen,
+                    misses,
+                    appearances,
+                    is_new,
+                    device_type
+                FROM devices
+                WHERE ip=?
+                """,
+                (ip,)
+            ).fetchone()
 
-        device = con.execute(
-            """
-            SELECT
-                ip,
-                online,
-                name,
-                hostname,
-                mac,
-                vendor,
-                first_seen,
-                last_seen,
-                misses,
-                appearances,
-                is_new,
-                device_type
-            FROM devices
-            WHERE ip=?
-            """,
-            (ip,)
-        ).fetchone()
+            if not device:
 
-        if not device:
+                return "Устройство не найдено", 404
 
+            events = con.execute(
+                """
+                SELECT
+                    timestamp,
+                    event
+
+                FROM events
+
+                WHERE ip=?
+
+                ORDER BY id DESC
+
+                LIMIT 100
+                """,
+                (ip,)
+            ).fetchall()
+        finally:
             con.close()
-
-            return "Устройство не найдено", 404
-
-        events = con.execute(
-            """
-            SELECT
-                timestamp,
-                event
-
-            FROM events
-
-            WHERE ip=?
-
-            ORDER BY id DESC
-
-            LIMIT 100
-            """,
-            (ip,)
-        ).fetchall()
-
-        con.close()
 
         from app import page_data
         data = page_data()
@@ -718,22 +742,23 @@ def register_routes(app):
         ).strip()
 
         con = get_db()
-
-        con.execute(
-            """
-            UPDATE devices
-            SET name=?, device_type=?
-            WHERE ip=?
-            """,
-            (
-                name if name else None,
-                device_type if device_type else None,
-                ip
+        try:
+            con.execute(
+                """
+                UPDATE devices
+                SET name=?, device_type=?
+                WHERE ip=?
+                """,
+                (
+                    name if name else None,
+                    device_type if device_type else None,
+                    ip
+                )
             )
-        )
 
-        con.commit()
-        con.close()
+            con.commit()
+        finally:
+            con.close()
 
         return redirect(
             url_for(
@@ -747,9 +772,11 @@ def register_routes(app):
     @login_required
     def dismiss_new(ip):
         con = get_db()
-        con.execute("UPDATE devices SET is_new=0 WHERE ip=?", (ip,))
-        con.commit()
-        con.close()
+        try:
+            con.execute("UPDATE devices SET is_new=0 WHERE ip=?", (ip,))
+            con.commit()
+        finally:
+            con.close()
         return jsonify({"ok": True})
 
 
