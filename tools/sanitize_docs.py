@@ -39,20 +39,25 @@ REPL = [
     ("пароль `1234`", "пароль — свой"),
     ("(пароль 1234)", "(пароль — свой)"),
     ("kot:kot", "<пользователь>:<группа>"),
+    ("`admin` / `1234`", "`admin` / `<заданный при установке>`"),
 ]
 
 WIKI = "https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/"
-PAGES = [
-    "Полезные-команды", "SD-клонирование", "Архитектура", "Установка",
-    "Модули", "Погода", "IPTV", "Home",
-]
+
+
+def _wiki_to_rel(text: str) -> str:
+    """Любая wiki-ссылка на существующую страницу docs/ → относительная."""
+    def repl(m):
+        page = m.group(1)
+        return page + ".md" if (SRC / (page + ".md")).exists() else m.group(0)
+    return re.sub(
+        re.escape(WIKI) + r"([^)\s#\"']+)", repl, text)
 
 
 def sanitize(text: str) -> str:
     for old, new in REPL:
         text = text.replace(old, new)
-    for page in PAGES:
-        text = text.replace(WIKI + page, page + ".md")
+    text = _wiki_to_rel(text)
     text = text.replace(
         "- **Репозиторий:** https://github.com/kotmartovskiy/Lan-discovery-ARM\n",
         "- **Исходный код:** в закрытом репозитории проекта\n",

@@ -4,8 +4,13 @@
 
 - [Главная](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Home)
 - [Установка](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Установка)
+- [Обновление](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Обновление)
+- [Восстановление](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Восстановление)
 - [Архитектура](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Архитектура)
 - [Модули и роуты](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Модули)
+- [API](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/API)
+- [Конфигурация](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Конфигурация)
+- [Безопасность](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Безопасность)
 
 **Подсистемы**
 

@@ -72,7 +72,7 @@ security pentest, восстановление из backup на чистую с�
 | **Update/rollback** | ~~деплой вручную, нет отката кода~~ **закрыта (P10, 30.09)**: `update.sh` — бэкап (tar кода + settings + sqlite-бэкап БД в `/var/backups/lan-discovery/<ts>` c meta.json/git-rev, ротация `--keep`) → apply (`--from`/`git pull`) → verify py_compile → pip → restart → health-retry; **авто-rollback** при сбое verify/health (восстановление кода/БД + restart + контрольный health), ручной `--rollback [TS]`, `--dry-run`; бэкап БД автоматический + restore из UI уже были | версия → backup → update → health → rollback | нет семантических версий/чейнджлога (трассировка — git-rev в meta.json); `--from` не удаляет исчезнувшие из новой версии файлы | **P10** (закрыта) |
 | **Backup/recovery** | ~~restore на чистую систему не проверен~~ **закрыта (P11, 30.09)**: `backup-db.sh` пишет и `config_*.tar.gz` (тар `/etc/lan-discovery`) рядом с `devices_*.db`; `recovery.sh` — авто-pick последних бэкапов (код `code.tar.gz` + конфиг + БД), verify (py_compile + sqlite integrity/user_version/counts), `--unit`/`--dry-run`/`--no-restart`; **дрил PASS** в изолированном `/tmp/lanrec` (config md5 == боевому, идемпотентность, боевые данные целы); `docs/Восстановление.md`; было: Online Backup API + integrity_check + ротация 14 дней + restore через UI, эММС-бэкапы на OP | документированная и проверенная процедура restore | «production ready только после проверенного restore» | **P11** (закрыта) |
 | **Testing** | ~~pytest/CI нет; 3 ad-hoc скрипта требуют живой панели~~ **закрыта (P13, 30.09)**: `tests/` в репо — 42 unit (discovery/events/hardware/migrations/config, без сети) + 5 live (маркер `live`, скип при недоступности панели), `pytest.ini`+`requirements-dev.txt`, CI на каждый push/PR (ubuntu/py3.11: pytest unit + py_compile); ad-hoc `/tmp/test_p*`-скрипты остались как deploy-проверки фаз | unit + интеграционные в одном прогоне | живые ad-hoc-скрипты фаз не в git (deploy-only) | **P13** (закрыта) |
-| **Documentation** | `docs/` (9 страниц, wiki), `README.md`, `AGENTS.md`; `docs/Архитектура.md:81` **устарел** (11 таблиц vs 16 фактических), нет ARCHITECTURE/SECURITY/CONFIGURATION/API | комплект 1.0 (см. PHASE 14) | документация отстаёт от кода | **P3** |
+| **Documentation** | ~~docs/Архитектура.md устарел, комплекта нет~~ **закрыта (P14, 30.09)**: комплект 1.0 — 14 страниц: добавлены `docs/API.md` (163 роута: метод/путь/доступ/описание, из кода), `docs/Безопасность.md` (роли/CSRF/секреты/периметр/риски/чек-лист); `docs/Архитектура.md` освежён (14 таблиц БД вместо 11, core/hardware+discovery+events, MIGRATIONS по user_version, retention, lifecycle-скрипты, tests/CI); README/Home/_Sidebar — все страницы, install.sh в быстром старте, структура репо; линкер-проверка 74 ссылок = 0 битых; `sanitize_docs.py` fixed (wiki-regex для новых страниц + `admin/1234`) → leaks 0, exit 0; было: docs/ 9 страниц, README, AGENTS | комплект 1.0 | документация отстаёт от кода | **P14** (закрыта) |
 | **Repo hygiene** | в корне 60+ одноразовых скриптов (`check_*`, `debug*`, `verify*` — большая часть в `.gitignore`, часть трекается: `patch_app.py`, `ssh_query.py`…); трекаются `modules/*_b64.txt`; ~~`.gitattributes` нет~~ **добавлен 30.09 (P0-6)** | мусор вне корня/git | грязь в репозитории | **P4** |
 
 ---
@@ -348,6 +348,27 @@ security pentest, восстановление из backup на чистую с�
      систему (что где лежит, recovery.sh по шагам, ручные альтернативы,
      проверка после восстановления) — закрывает §2 «production ready
      только после проверенного restore» — см. §9.
+42. **[P14][DONE — 30.09.2026]** `docs/API.md` — полный каталог роутов
+     (163 шт., собран из `app.py` + `modules/*.py`): метод/путь/группа/
+     доступ/описание, группы по модулям, отдельно JSON API vs страницы;
+     перелинковка из «Модули»/README — см. §9.
+43. **[P14][DONE — 30.09.2026]** `docs/Безопасность.md` — модель доступа
+     (роли/декораторы/CSRF/сессии), секреты (`users.json`, `secret.key`),
+     сделанный hardening (P0/P1-10), периметр (0.0.0.0, dev-сервер, нет
+     TLS), бэкапы/restore, гигиена документации (sanitize), известные
+     ограничения — см. §9.
+44. **[P14][DONE — 30.09.2026]** `docs/Архитектура.md` приведён в
+     соответствие с кодом: 14 таблиц БД (было 11) + `user_version=2`/
+     MIGRATIONS, `core/hardware`/`core/discovery`/`core/events`,
+     retention, lifecycle-скрипты (install/update/recovery/backup),
+     tests/CI, структура deploy — см. §9.
+45. **[P14][DONE — 30.09.2026]** README + Home + _Sidebar: таблица всех
+     страниц docs (добавлены Обновление/Восстановление/Конфигурация/
+     API/Безопасность), быстрый старт через `install.sh`, актуальная
+     структура репо (core/, tests/, скрипты), навигация wiki — см. §9.
+46. **[P14][DONE — 30.09.2026]** Сверка комплекта 1.0: линкер-проверка
+     внутренних ссылок docs (битых нет), §2 Documentation закрыта,
+     `python tools/sanitize_docs.py` без утечек, CI green, sync — см. §9.
 
 ---
 
@@ -369,7 +390,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 11 Backup/Recovery | **DONE** | задачи 38–41: backup-db.sh (config_*.tar.gz), recovery.sh (код+конфиг+БД+verify+юнит), дрил на X96 в изолированном префиксе (PASS, боевые данные не тронуты, идемпотентность), docs/Восстановление.md, юнит-тест фильтра UI-списка |
 | PHASE 12 Observability | **DONE** | P1-9: `/api/health` + version/uptime/last-discovery/db-status |
 | PHASE 13 Testing | **DONE** | задачи 29–31: pytest-структура (unit 42 / live 5, маркер `live`), CI GitHub Actions (ubuntu/py3.11: pytest unit + py_compile) на каждый push/PR |
-| PHASE 14 Documentation | **PARTIAL** | docs/ есть, `Архитектура.md` устарел, комплекта нет |
+| PHASE 14 Documentation | **DONE** | задачи 42–46: docs/API.md (163 роута, колонка доступа), docs/Безопасность.md, docs/Архитектура.md освежён (14 таблиц, core/, lifecycle, CI), README/Home/_Sidebar со всеми страницами, линкер 74/0, sanitize leaks=0, публичный репо docs обновлён |
 | PHASE 15 Production 1.0 | **PENDING** | зависит от P0/P1 выше |
 | PHASE 16 After 1.0 | **DEFERRED** | по правилу — после стабильного ядра |
 
@@ -1279,3 +1300,57 @@ verify-fail); git-путь (`git pull`) прогнан только dry-run'ом
 `install.sh`-примесно (сам дрил шёл поверх установленной системы с
 изолированным префиксом); `config_*.tar.gz` не виден в UI-restore
 (только recovery.sh).
+
+### 30.09.2026 — PHASE 14 Documentation 1.0 (задачи 42–46)
+
+**Что сделано:**
+
+- **`docs/API.md` (задача 42)** — полный каталог всех **163 роутов**,
+  сгенерирован из кода (`app.py` + `modules/*.py`): колонки
+  метод/путь/доступ/описание, 10 секций по модулям. Фактология по
+  доступу из декораторов: 140 под `login_required`, 40 под
+  `admin_required` (20 пересекаются), **открытые ровно 3** —
+  `GET/POST /login`, `GET /logout`, `GET /api/health`. Шапка дока —
+  про CSRF (скрытое поле / `X-CSRFToken`) и 400/302 для анонима.
+- **`docs/Безопасность.md` (задача 43)** — модель доступа (роли,
+  декораторы, сессии, CSRF-обёртки в `base.html`/`base_app.html`),
+  таблица секретов (`users.json`/`secret.key`/`secrets/`/`settings.json`),
+  периметр (0.0.0.0:8080, нет TLS, dev-сервер `allow_unsafe_werkzeug=True`
+  — gunicorn отложен в PHASE 8), сделанный hardening (csrf-meta во всех
+  шаблонах, debug=False, bcrypt, тесты аноним-поведения в
+  `tests/live/test_live_smoke.py`), **осознанные ограничения** (нет
+  rate-limit/TLS, SocketIO вне CSRF, admin-роуты = контроль ОС) и
+  чек-лист для новых роутов.
+- **`docs/Архитектура.md` (задача 44)** — приведён в соответствие с
+  кодом: раздел «Ядро — core/» (hardware/discovery/events/
+  module_loader/module_catalog), **14 таблиц БД** (было 11) с группами
+  и `user_version=2`, миграции `MIGRATIONS`/`_ensure_extra_tables` —
+  в `modules/devices_routes.py` (не в app.py, как было написано),
+  `retention_loop` в фоне, новый раздел «Эксплуатация: скрипты
+  жизненного цикла» (install/update/recovery/backup-db + deploy.py),
+  «Тесты и CI» (46 unit + live, CI py3.11), блок «Безопасность»
+  перелинкован в новую страницу.
+- **README + Home + `_Sidebar` (задача 45)** — таблица docs из **13
+  страниц** (добавлены Обновление/Восстановление/Конфигурация/API/
+  Безопасность), быстрый старт через `install.sh`/`update.sh`/
+  `recovery.sh`, структура репо (core/, tests/, скрипты, CI),
+  навигация wiki (сайдбар дополнен), ключевые файлы Home дополнены
+  lifecycle-скриптами.
+- **Сверка комплекта (задача 46)** — линкер-проверка всех относительных
+  и wiki-ссылок в docs/README/AGENTS: **74 ссылки, 0 битых**;
+  `pytest tests/unit` 46/46. **`tools/sanitize_docs.py` починен**: две
+  давние «утечки» (`` `admin` / `1234` `` в Установка.md — добавлена
+  REPL-замена) и структурный баг — `PAGES`-список wiki-страниц не
+  содержал новых страниц (Обновление/Восстановление/Конфигурация/API/
+  Безопасность) → `/wiki/` оставался в публичной копии; замена сделана
+  regex-ом по существующим `docs/<page>.md`. Итог: **leaks 0, exit 0**,
+  публичная копия `docs-public` (15 файлов) обновлена и залита в
+  `Lan-discovery-docs`.
+
+**Тесты:** линкер 74/0, sanitize exit 0, pytest 46/46 (код не менялся).
+
+**Остаточные риски:** `docs/Модули.md` (227 строк) дублирует часть
+информации `docs/API.md` — синхронизируются вручную при добавлении
+роутов; wiki-страницы в GitHub-wiki обновляются отдельным пушом
+(сами `docs/` — источник); английской версии комплекта нет (весь
+проект русскоязычный).
