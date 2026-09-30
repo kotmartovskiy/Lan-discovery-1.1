@@ -71,7 +71,7 @@ security pentest, восстановление из backup на чистую с�
 | **Installer** | нет: установка вручную по `docs/Установка.md` (venv + systemd вручную) | `install.sh`: dep-check → config → systemd → db init → health | воспроизводимость установки на новое устройство | **P3** |
 | **Update/rollback** | деплой вручную (`deploy.py`: бэкап → SFTP → py_compile → restart); бэкап БД автоматический + integrity_check + restore из UI — **это уже работает** | версия → backup → update → health → rollback | нет версий/отката кода (только бэкап файлов) | **P3** |
 | **Backup/recovery** | БД: Online Backup API + integrity_check + ротация 14 дней + restore через UI (`system_routes.py:1936`); на OP эММС-бэкапы; **restore на чистую систему не проверен** | документированная и проверенная процедура restore | «production ready только после проверенного restore» | **P2** |
-| **Testing** | 3 ad-hoc скрипта `test_*.py` (захардкожены admin/1234, требуют живой панели); pytest/CI нет | unit-тесты (parsers/config/db/events/platform) + интеграционные | регрессии ловятся только вручную | **P2** |
+| **Testing** | ~~pytest/CI нет; 3 ad-hoc скрипта требуют живой панели~~ **закрыта (P13, 30.09)**: `tests/` в репо — 42 unit (discovery/events/hardware/migrations/config, без сети) + 5 live (маркер `live`, скип при недоступности панели), `pytest.ini`+`requirements-dev.txt`, CI на каждый push/PR (ubuntu/py3.11: pytest unit + py_compile); ad-hoc `/tmp/test_p*`-скрипты остались как deploy-проверки фаз | unit + интеграционные в одном прогоне | живые ad-hoc-скрипты фаз не в git (deploy-only) | **P13** (закрыта) |
 | **Documentation** | `docs/` (9 страниц, wiki), `README.md`, `AGENTS.md`; `docs/Архитектура.md:81` **устарел** (11 таблиц vs 16 фактических), нет ARCHITECTURE/SECURITY/CONFIGURATION/API | комплект 1.0 (см. PHASE 14) | документация отстаёт от кода | **P3** |
 | **Repo hygiene** | в корне 60+ одноразовых скриптов (`check_*`, `debug*`, `verify*` — большая часть в `.gitignore`, часть трекается: `patch_app.py`, `ssh_query.py`…); трекаются `modules/*_b64.txt`; ~~`.gitattributes` нет~~ **добавлен 30.09 (P0-6)** | мусор вне корня/git | грязь в репозитории | **P4** |
 
@@ -265,6 +265,25 @@ security pentest, восстановление из backup на чистую с�
      v1→v2 на чистой БД с логами `DB MIGRATION`, ensure 8 таблиц, retention
      unit, боевая БД integrity ok, health/user_version=2, регрессии,
      live) — см. журнал §9.
+29. **[P13][DONE — 30.09.2026]** pytest-структура в репо: `tests/unit`
+     (не требуют сети/панели) + `tests/live` (маркер `live`, скипаются,
+     если панель недоступна), `tests/conftest.py` (фикстуры events_con /
+     devices_db / no_dns), `pytest.ini` (по умолчанию `-m "not live"`),
+     `requirements-dev.txt` (pytest) — см. §9.
+30. **[P13][DONE — 30.09.2026]** Набор тестов: **42 unit** — discovery
+     (parse_scan, run_scan с моками subprocess, reconcile NEW/ONLINE/
+     misses/OFFLINE/MAC_CHANGED, get_scan_status, guard scan-потока),
+     events (severity-карта, фильтры, JSON metadata, retention unit),
+     hardware (переносимые проверки Win/CI/X96), миграции (шаги v1/v2,
+     идемпотентность, полный init, ensure-таблицы, retention_days),
+     config (`_cfg`/`_scan_interval`/`_max_misses` через monkeypatch
+     load_settings); **5 live** — health-форма, anon-редирект,
+     login+`/api/events`, страницы, `/api/currencies`. Прогнано локально
+     (Win/py3.12/pytest 8) и на X96 (venv/pytest 9) — см. §9.
+31. **[P13][DONE — 30.09.2026]** CI: `.github/workflows/ci.yml` — на
+     push/PR в main: ubuntu + Python 3.11 + `pip install -r
+     requirements.txt -r requirements-dev.txt` → `pytest tests/unit -v` +
+     py_compile core/app/modules; timeout 15 мин, cache pip — см. §9.
 
 ---
 
@@ -285,7 +304,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 10 Update/rollback | **PENDING** | |
 | PHASE 11 Backup/Recovery | **PARTIAL** | бэкап БД готов; restore на чистую систему не проверен → не DONE |
 | PHASE 12 Observability | **DONE** | P1-9: `/api/health` + version/uptime/last-discovery/db-status |
-| PHASE 13 Testing | **PENDING** | pytest/CI нет |
+| PHASE 13 Testing | **DONE** | задачи 29–31: pytest-структура (unit 42 / live 5, маркер `live`), CI GitHub Actions (ubuntu/py3.11: pytest unit + py_compile) на каждый push/PR |
 | PHASE 14 Documentation | **PARTIAL** | docs/ есть, `Архитектура.md` устарел, комплекта нет |
 | PHASE 15 Production 1.0 | **PENDING** | зависит от P0/P1 выше |
 | PHASE 16 After 1.0 | **DEFERRED** | по правилу — после стабильного ядра |
@@ -984,3 +1003,61 @@ integrity ok, 37 129 событий и 40 устройств целы), API (hea
 единой точкой — при чистом старте порядок зависит от вызова
 `init_inventory_db`/first-use; временные метки событий строковые —
 retention парсит их в Python.
+
+### 30.09.2026 — P13: Testing — pytest-структура + CI (PHASE 13) — **DONE**
+
+**Задачи 29–31 (PHASE 13).** Ad-hoc проверки предыдущих фаз
+(`/tmp/test_p*`, живая панель, admin/1234) превращены в репозиторный
+pytest-набор + CI:
+
+- **Структура (P13-29):** `tests/conftest.py` — фикстуры `events_con`
+  (tmp-схема events v2), `devices_db` (полный init на tmp-БД с
+  monkeypatch `DB`/`_init_done`), `no_dns` (заглушка DNS в reconcile).
+  `tests/unit` — без сети и панели; `tests/live` — маркер `live`
+  (фикстуры `panel_url` скипают прогон при недоступности, `admin_session`
+  — CSRF-логин сессией). `pytest.ini`: по умолчанию `-m "not live"`
+  (unit-прогон детерминирован; live — явно `pytest -m live` или
+  `LAN_PANEL_URL=... pytest -m live`). `requirements-dev.txt`:
+  `pytest>=8,<10` (проверено на 8.4.2 локально и 9.1.1 на X96).
+- **42 unit-теста (P13-30):**
+  - `test_discovery.py` (15): `parse_scan` (hostname/IP/MAC/vendor, пусто,
+    без MAC-блока), `run_scan` — subprocess замокан (self_ips дописываются,
+    не дублируются, FileNotFoundError → None, все ifaces упали → None,
+    пустой вывод → только self_ips); `reconcile` — NEW → повтор (без
+    ONLINE-дубля, appearances+1) → пропуски (misses растут, OFFLINE на
+    пороге `max_misses`, severity=warning) → возврат ONLINE-события;
+    MAC_CHANGED (обнуление name, событие warning) и case-insensitive
+    сравнение MAC; форма `get_scan_status`; guard `start_scan_thread`
+    (повторный вызов → тот же поток).
+  - `test_events.py` (10): severity-карта и override, персистентность
+    колонок, фильтры `list_events`, порядок (новые первыми), JSON
+    metadata (включая кириллицу и битый JSON без падения), retention unit
+    (старое удалено/свежее цело/0=выкл/мусорная дата не роняет).
+  - `test_hardware.py` (6): переносимые проверки Win/CI/X96 — path/None,
+    типы, кэш `detect_platform`, форма словаря.
+  - `test_migrations.py` (6): шаги v1/v2 изолированно, идемпотентность
+    повторных вызовов (с commit — бэкфилл+индекс в одной транзакции),
+    полный init на чистой БД (user_version=2, ядро + 8 ensure-таблиц +
+    индексы), повторный init → False, `_retention_days` через
+    monkeypatch `load_settings` (180/0/30).
+  - `test_config.py` (5): `_cfg` default/секция/missing-key,
+    `_scan_interval` (0 → default 30), `_max_misses` (default 6).
+- **5 live-тестов:** форма `/api/health` (db.version=2, platform,
+    capabilities, last_discovery), анонимный `/api/events` → 302, логин +
+  авторизованный `/api/events`, страницы `/`/`/history`/`/currencies`/
+  `/apps`, `/api/currencies`.
+- **CI (P13-31):** `.github/workflows/ci.yml` — push/PR в main →
+  ubuntu + Python 3.11 + pip cache → `pip install -r requirements.txt -r
+  requirements-dev.txt` → `pytest tests/unit -v` + py_compile
+  app/core/modules; timeout 15 мин.
+
+**Проверки:** локально (Windows, py3.12, pytest 8.4.2) — 42 unit PASS,
+5 live PASS (панель 192.168.3.243:8080 отвечает); на X96
+(`/opt/lan-discovery/tests`, venv, pytest 9.1.1) — 42 unit PASS,
+5 live PASS. Нюансы: ручной вызов `_migration_v2` без `commit` теряет
+бэкфилл/индекс (в `init_db_schema` commit есть — тесты учли); MAC в
+reconcile обновляется как есть (регистр ≠ смена).
+
+**Остаточные риски:** live-тесты гоняются только при достижимой панели
+(по умолчанию выключены); ад-hoc deploy-скрипты фаз (`/tmp/test_p*`) не в
+git; негативные проверки (403/валидация форм) покрыты частично.

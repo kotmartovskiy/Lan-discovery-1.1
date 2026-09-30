@@ -35,3 +35,5 @@ _v14.py
 .idea/
 Thumbs.db
 .DS_Store
+.venv-test/
+.pytest_cache/
