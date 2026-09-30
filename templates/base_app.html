@@ -148,6 +148,30 @@ input:focus, select:focus, textarea:focus { border-color: #58a6ff; }
 .text-gray { color: #8b949e; }
 .text-blue { color: #58a6ff; }
 </style>
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<script>
+(function () {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (!meta) return;
+    var token = meta.getAttribute('content');
+    var origFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+        var method = 'GET';
+        if (init && init.method) method = init.method;
+        else if (input && input.method) method = input.method;
+        method = String(method).toUpperCase();
+        if (method !== 'GET' && method !== 'HEAD') {
+            var headers;
+            if (init && init.headers) headers = new Headers(init.headers);
+            else if (input && input.headers) headers = new Headers(input.headers);
+            else headers = new Headers();
+            if (!headers.has('X-CSRFToken')) headers.set('X-CSRFToken', token);
+            init = Object.assign({}, init || {}, {headers: headers});
+        }
+        return origFetch(input, init);
+    };
+})();
+</script>
 </head>
 <body>
 <script>var USER_ROLE = "{{ current_user.role if current_user else 'guest' }}";</script>

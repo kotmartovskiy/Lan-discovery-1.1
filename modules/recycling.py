@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import sqlite3
 import json
 import re
+import time
 from datetime import datetime
 
 
@@ -86,54 +87,66 @@ def parse_pushkin_prices():
 
 def parse_vitaminstir_prices():
     prices = []
+    last_error = None
 
-    try:
-        resp = requests.get(
-            "https://vitaminstir.ru/price/",
-            timeout=15,
-            headers={
-                "User-Agent": "Mozilla/5.0 (X11; Linux armv7l) "
-                              "AppleWebKit/537.36"
-            }
-        )
+    for attempt in range(3):
+        if attempt:
+            time.sleep(5 * attempt)
+        try:
+            resp = requests.get(
+                "https://vitaminstir.ru/price/",
+                timeout=15,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (X11; Linux armv7l) "
+                                  "AppleWebKit/537.36"
+                }
+            )
 
-        if not resp.ok:
+            if not resp.ok:
+                return prices
+
+            prices = []
+            soup = BeautifulSoup(resp.text, "html.parser")
+
+            tables = soup.find_all("table")
+
+            for table in tables:
+                rows = table.find_all("tr")
+                for row in rows:
+                    cells = row.find_all(["td", "th"])
+                    if len(cells) >= 2:
+                        material = cells[0].get_text(strip=True)
+                        price_text = cells[1].get_text(strip=True)
+
+                        price_match = re.search(
+                            r"([\d\s,.]+)",
+                            price_text
+                        )
+                        if price_match:
+                            price_str = price_match.group(1) \
+                                .replace(" ", "") \
+                                .replace(",", ".")
+                            try:
+                                price = float(price_str)
+                                prices.append({
+                                    "material": material,
+                                    "price": price,
+                                    "unit": "RUB/kg",
+                                    "source": "vitaminstir.ru"
+                                })
+                            except ValueError:
+                                pass
+
             return prices
 
-        soup = BeautifulSoup(resp.text, "html.parser")
+        except Exception as e:
+            last_error = e
+            print(
+                f"VITAMINSTIR ATTEMPT {attempt + 1}/3 FAILED: {e}",
+                flush=True
+            )
 
-        tables = soup.find_all("table")
-
-        for table in tables:
-            rows = table.find_all("tr")
-            for row in rows:
-                cells = row.find_all(["td", "th"])
-                if len(cells) >= 2:
-                    material = cells[0].get_text(strip=True)
-                    price_text = cells[1].get_text(strip=True)
-
-                    price_match = re.search(
-                        r"([\d\s,.]+)",
-                        price_text
-                    )
-                    if price_match:
-                        price_str = price_match.group(1) \
-                            .replace(" ", "") \
-                            .replace(",", ".")
-                        try:
-                            price = float(price_str)
-                            prices.append({
-                                "material": material,
-                                "price": price,
-                                "unit": "RUB/kg",
-                                "source": "vitaminstir.ru"
-                            })
-                        except ValueError:
-                            pass
-
-    except Exception as e:
-        print(f"VITAMINSTIR PARSE ERROR: {e}", flush=True)
-
+    print(f"VITAMINSTIR PARSE ERROR: {last_error}", flush=True)
     return prices
 
 
@@ -225,11 +238,7 @@ def update_all():
     if pushkin:
         save_prices("paper", pushkin)
 
-    vitaminstir = parse_vitaminstir_prices()
-    if vitaminstir:
-        save_prices("metal", vitaminstir)
-
-    total = len(pushkin) + len(vitaminstir)
+    total = len(pushkin)
     print(f"RECYCLING UPDATE: {total} prices saved", flush=True)
 
 

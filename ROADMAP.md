@@ -73,7 +73,7 @@ security pentest, восстановление из backup на чистую с�
 | **Backup/recovery** | БД: Online Backup API + integrity_check + ротация 14 дней + restore через UI (`system_routes.py:1936`); на OP эММС-бэкапы; **restore на чистую систему не проверен** | документированная и проверенная процедура restore | «production ready только после проверенного restore» | **P2** |
 | **Testing** | 3 ad-hoc скрипта `test_*.py` (захардкожены admin/1234, требуют живой панели); pytest/CI нет | unit-тесты (parsers/config/db/events/platform) + интеграционные | регрессии ловятся только вручную | **P2** |
 | **Documentation** | `docs/` (9 страниц, wiki), `README.md`, `AGENTS.md`; `docs/Архитектура.md:81` **устарел** (11 таблиц vs 16 фактических), нет ARCHITECTURE/SECURITY/CONFIGURATION/API | комплект 1.0 (см. PHASE 14) | документация отстаёт от кода | **P3** |
-| **Repo hygiene** | в корне 60+ одноразовых скриптов (`check_*`, `debug*`, `verify*` — большая часть в `.gitignore`, часть трекается: `patch_app.py`, `ssh_query.py`…); трекаются `modules/*_b64.txt`; `.gitattributes` нет (EOL-шум: 13/19 расхождений — только перевод строки) | мусор вне корня/git, `.gitattributes` | грязь в репозитории, шум при сверке с сервером | **P4** |
+| **Repo hygiene** | в корне 60+ одноразовых скриптов (`check_*`, `debug*`, `verify*` — большая часть в `.gitignore`, часть трекается: `patch_app.py`, `ssh_query.py`…); трекаются `modules/*_b64.txt`; ~~`.gitattributes` нет~~ **добавлен 30.09 (P0-6)** | мусор вне корня/git | грязь в репозитории | **P4** |
 
 ---
 
@@ -106,29 +106,29 @@ security pentest, восстановление из backup на чистую с�
 | B3 | `POST /api/network/check_host` без авторизации (host → внешняя команда) | `network_routes.py:82-93` | неаутентифицированный SSRF/DoS-прокси |
 | B4 | Сейф паролей: base64, HMAC игнорируется, guest читает | `core_routes.py:793-816` | пароли открыты |
 | B5 | Отключённый пользователь не выкидывается из сессии; SHA-256-фолбэк пароля | `auth.py:35-42,85-93` | обход блокировки учётки |
-| B6 | CSRF-meta отсутствует в `base_app.html` **в репозитории** (на X96 уже исправлено, не закоммичено) | `templates/base_app.html` | регресс CSRF при следующем деплое |
+| B6 | ~~CSRF-meta отсутствует в `base_app.html` **в репозитории**~~ **РЕШЁН (30.09.2026, P0-6)** — правки X96 забраны в репо | `templates/base_app.html` | регресс CSRF при следующем деплое — закрыт |
 
 Не P0, но рядом: dev-Werkzeug на `0.0.0.0`, нет security-заголовков, root-сервис.
 
 ---
 
-## 5. Синхронизация «репозиторий ↔ серверы» (факт)
+## 5. Синхронизация «репозиторий ↔ серверы»
 
-- `app.py`: **репозиторий == X96** (md5 совпадает). OP — старая версия.
-- Расхождения репозиторий ↔ X96 (19 файлов):
-  - **X96 впереди (не закоммичено):** `templates/base_app.html` (+24 строки — CSRF-fix),
-    `modules/recycling.py` (3 попытки запроса), `templates/login.html` (favicon).
-  - **Репозиторий впереди (не задеплоено):** `modules/monitor.py` (ThreadPoolExecutor,
-    cpu-cache, timeout=3 вместо 5), `templates/apps/terminal.html` (на X96 — **мозги
-    повреждены кодировкой**: «вљ пёЏ РўРµСЂРјРёРЅР°Р»…»).
-  - 13 файлов — **только перевод строки** (CRLF↔LF) → нужен `.gitattributes`.
-- Мусор на X96: 7 файлов `templates/apps\*.html` (буквальный backslash в имени,
-  артефакт загрузки с Windows, 21.09) — не используются, удалить.
-- `deploy/`, `docs/` — только в репозитории (units ставятся в `/etc/systemd` напрямую).
-- Репозиторий чистый (`git status` = 0), последний коммит 30.09.2026 02:35.
+**Статус: ВЫПОЛНЕНО (30.09.2026, P0-6) — repo == X96, content_diff=0.**
 
-**Риски:** пуш «как есть» сломает CSRF во вкладках (B6) и терминал-строку; деплой
-«как есть» затрёт monitor.py/terminal.html.
+Итоговая сверка md5 (127 файлов): **exact=120, EOL-only=0, content diff=0,
+только на сервере=0**. Что было сделано:
+- забраны в репо правки X96: `templates/base_app.html` (+24 CSRF-fix, B6),
+  `modules/recycling.py` (retry-логика vitaminstir), `templates/login.html` (favicon);
+- задеплоены с X96: `modules/monitor.py` (ThreadPoolExecutor) и
+  `templates/apps/terminal.html` (восстановлен из репо — на X96 была повреждена
+  кодировка) → md5 байт-в-байт;
+- 14 EOL-only файлов перезалиты (LF→LF), добавлен `.gitattributes` (`eol=lf`);
+- 7 junk-файлов `templates/apps\*.html` (буквальный backslash, артефакт
+  загрузки с Windows) перемещены в `/tmp/junk-templates-20260930-034105/`;
+- только в git (ожидаемо, не код панели): `docs/`, `deploy/`, `AGENTS.md`,
+  `ROADMAP.md`, разовые скрипты, `modules/*_b64.txt` (кандидат на чистку P4).
+- OP (Orange Pi) — **другая, старая версия** (нет `modules/`), отдельная задача.
 
 ---
 
@@ -149,8 +149,10 @@ security pentest, восстановление из backup на чистую с�
    записей + доступ не ниже `can_edit`.
 5. **[P0] Auth:** проверка `enabled` в `login_required`/`get_current_user`, отказ от
    SHA-256-фолбэка (массовый re-hash при первом входе), min. длина пароля, TTL сессии.
-6. **[P0] Синхронизация:** закоммитить X96-правки (CSRF base_app, recycling, favicon),
-   починить `terminal.html` на X96, добавить `.gitattributes`, удалить `apps\*.html`.
+6. **[P0][DONE — 30.09.2026]** Синхронизация: X96-правки (CSRF base_app,
+   recycling, favicon) забраны в репо, `terminal.html` починен на X96,
+   `monitor.py` задеплоен, `.gitattributes` добавлен, `apps\*.html` удалены —
+   см. журнал §9.
 7. **[P1] Схема БД:** перенести DDL из `get_db()` в однократную инициализацию
    (startup), `PRAGMA user_version`, индекс `events(ip, id)`, `finally`-закрытие коннектов.
 8. **[P1] Фоновые задачи:** guard от повторного запуска сканов (inventory/bluetooth),
@@ -170,7 +172,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 1 Stabilization | **IN PROGRESS** | задачи 7–9 + обработка отсутствующих подсистем |
 | PHASE 2 Configuration | **PENDING** | см. §2 «Configuration» (P2) |
 | PHASE 3 Hardware abstraction | **PENDING** | platform detection/ capabilities |
-| PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; блокер — расхождение двух версий (§5) |
+| PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
 | PHASE 5 Database | **PENDING** | задача 7 — первые шаги |
 | PHASE 6 Discovery engine | **PENDING** | |
 | PHASE 7 Event engine | **PENDING** | |
@@ -259,8 +261,8 @@ admin: list→200, страница с UI; не-admin (`user`): list/read→403,
 
 **Остаточные риски:** guest/editor больше не имеют доступа к filemanager
 (изменение поведения — задокументировать); `/api/player/*` (browse/playlist без
-нормализации путей) — отдельная задача hardening (см. P1-10);
-CSRF-заголовков в `base_app.html` в репозитории ещё нет (B6, задача 6).
+нормализации путей) — отдельная задача hardening (см. P1-10).
+(B6 про base_app CSRF — решён в P0-6.)
 
 ### 30.09.2026 — P0-3: авторизация network-роутов + валидация host/MAC — **DONE**
 
@@ -291,3 +293,36 @@ admin: check→200, check_host(127.0.0.1)→200 online=true;
 список при hardening (P1-10); hosts из `/api/network/config` (user-editable)
 проходят ту же валидацию при проверке — несовместимые старые значения дадут 400
 (поведение видимое, не тихое).
+
+### 30.09.2026 — P0-6: синхронизация repo ↔ X96 — **DONE**
+
+**Проблема (B6 + §5):** репозиторий и X96 разошлись в 19 файлах: сервер впереди
+(CSRF-meta в `base_app.html`, retry в `recycling.py`, favicon в `login.html`),
+репо впереди (`monitor.py` с ThreadPoolExecutor, `terminal.html` без испорченной
+кодировки), 14 файлов различались EOL, на сервере — 7 junk-файлов
+`templates/apps\*.html` (буквальный backslash). Риск: любой пуш/деплой «как есть»
+ломает CSRF во вкладках или терминал.
+
+**Изменения:**
+- **server→repo:** `templates/base_app.html` (+24: csrf-meta + fetch-обёртка),
+  `modules/recycling.py` (3 попытки запроса vitaminstir), `templates/login.html` (+1 favicon);
+- **repo→server:** `modules/monitor.py` (ThreadPoolExecutor, timeout=3),
+  `templates/apps/terminal.html` (восстановлен), 14 EOL-only файлов;
+- **новое:** `.gitattributes` (`* text=auto eol=lf`, бинарные исключения);
+- **удалено с сервера:** 7 файлов `templates/apps\*.html` → перемещены
+  (не удалены) в `/tmp/junk-templates-20260930-034105/`;
+- бэкапы: `templates/apps/terminal.html.backup-20260930-033734`,
+  `modules/monitor.py.backup-20260930-033734`.
+
+**Тесты (X96, `/tmp/test_p06_sync.py`, 13/13 PASS):** admin login; terminal.html
+содержит xterm-код без мозги; `/monitoring` 200; `/api/monitoring/127.0.0.1` →
+JSON с `cpu`/`ram` (get_system_overview); csrf-meta и fetch-обёртка есть в
+вкладках; регресс `/`, filemanager, nettools, bluetooth, health.
+Загруженные `.py` прошли `py_compile`, сервис перезапущен, active.
+
+**Сверка md5 (финальная, `filelist_host.py` + compare):** exact=120,
+EOL-only=0, content_diff=0, только на сервере=0 — **repo == X96 байт-в-байт**.
+
+**Остаточные риски:** OP (Orange Pi) остался на старой версии (нет `modules/`) —
+отдельная задача (дублирование сканов, остановка сервиса на OP); junk-файлы
+лежат в `/tmp` (перезагрузка сотрёт — ок); `modules/*_b64.txt` в git — чистка P4.
