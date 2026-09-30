@@ -30,6 +30,8 @@ GAMES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "games")
 TRANSMISSION_CONF = "/etc/transmission-daemon/settings.json"
 SCAN_INTERVAL = 30
 MAX_MISSES = 6
+APP_VERSION = "0.9.0"
+_SERVICE_START = time.time()
 
 _settings_cache = {"data": None, "ts": 0}
 _rate_limits = {}

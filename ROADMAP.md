@@ -163,8 +163,8 @@ security pentest, восстановление из backup на чистую с�
 8. **[P1][DONE — 30.09.2026]** Фоновые задачи: guard от повторного запуска
    сканов (scan/inventory/bluetooth), удалён мёртвый `init_background_tasks`
    и дубли функций (`app.py` ↔ `core_routes.py`) — см. журнал §9.
-9. **[P1] Observability:** `/api/health` → добавить version/uptime/last-discovery/
-   db-status в один ответ.
+9. **[P1][DONE — 30.09.2026]** Observability: `/api/health` → version/
+   uptime/last-discovery/db-status в один ответ — см. журнал §9.
 10. **[P1] Безопасность окружения:** security-заголовки, cookie-флаги, вычистить
     root/1234 и IP из отслеживаемых файлов (включить `templates/help.html` в sanitize).
 
@@ -175,7 +175,7 @@ security pentest, восстановление из backup на чистую с�
 | Фаза | Статус | Комментарий |
 |---|---|---|
 | PHASE 0 Audit | **DONE** | этот документ; код не менялся |
-| PHASE 1 Stabilization | **IN PROGRESS** | задача 9 + обработка отсутствующих подсистем |
+| PHASE 1 Stabilization | **IN PROGRESS** | задачи 7–9 done; остаётся обработка отсутствующих подсистем |
 | PHASE 2 Configuration | **PENDING** | см. §2 «Configuration» (P2) |
 | PHASE 3 Hardware abstraction | **PENDING** | platform detection/ capabilities |
 | PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
@@ -186,7 +186,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 9 Installer | **PENDING** | |
 | PHASE 10 Update/rollback | **PENDING** | |
 | PHASE 11 Backup/Recovery | **PARTIAL** | бэкап БД готов; restore на чистую систему не проверен → не DONE |
-| PHASE 12 Observability | **PARTIAL** | `/api/health` есть, version/discovery-status нет |
+| PHASE 12 Observability | **DONE** | P1-9: `/api/health` + version/uptime/last-discovery/db-status |
 | PHASE 13 Testing | **PENDING** | pytest/CI нет |
 | PHASE 14 Documentation | **PARTIAL** | docs/ есть, `Архитектура.md` устарел, комплекта нет |
 | PHASE 15 Production 1.0 | **PENDING** | зависит от P0/P1 выше |
@@ -515,3 +515,45 @@ POST → параллельные nmap/bluetoothctl-прогоны (race + ли�
 `system_routes`/`weather_routes` имеют локальные обёртки `page_data/
 weather_current`, но делегируют логику в `app`/`weather` — не дублируют её;
 мусорные `app_copy.py`/`patch_app.py`/`app_remote.py` не трогались.
+
+### 30.09.2026 — P1-9: Observability — /api/health: version/uptime/last-discovery/db — **DONE**
+
+**Проблема:** `/api/health` отдавал только `checks` (database/disk/ram/cpu_temp)
++ timestamp — ни версии панели, ни аптайма, ни статуса discovery, ни состояния
+БД (§2 Observability: «состояние видно только через UI»).
+
+**Изменения:**
+- `app.py` — `APP_VERSION = "0.9.0"` и `_SERVICE_START = time.time()`
+  (единый источник версии и аптайма процесса);
+- `modules/devices_routes.py` — `_scan_status`
+  (`last_scan/last_ok/last_error/errors`) обновляется в `scan_loop`
+  (успех / ошибка / пустой вывод); `get_scan_status()` добавляет
+  `interval_sec` и `thread_alive`;
+- `modules/system_routes.py` — `/api/health`:
+  - db-check одним коннектом → объект `db` `{status, path, size_bytes,
+    journal_mode, user_version, devices, events}`;
+  - новые поля: `version`, `uptime` `{host_sec (/proc/uptime), service_sec}`,
+    `last_discovery` `{scan, ok, error, errors, interval_sec, thread_alive}`,
+    `db`;
+  - легаси-ключи `ok/checks/timestamp` и коды 200/503 не менялись.
+
+**Файлы:** `app.py`, `modules/devices_routes.py`, `modules/system_routes.py`
+(repo == X96 после деплоя). Бэкапы `*.backup-pre-p09-20260930-072700` (3 файла).
+
+**Тесты (X96, `/tmp/test_p09_health.py` 22/22 PASS):**
+- health 200/`ok=true`; legacy `checks` (database="ok"+disk/ram/cpu_temp) и
+  `timestamp` в прежнем формате;
+- `version == 0.9.0`; uptime: host 118128 c, service 9.8 c (service ≤ host);
+- `last_discovery`: scan/ok в формате DD.MM.YYYY HH:MM:SS (первый скан
+  после рестарта отработал), `thread_alive=true`, `interval_sec=30`,
+  `errors=0`, `error=null`;
+- `db`: status ok, `user_version=1`, `journal_mode=wal`, devices=40,
+  events=35836, size 6.3 МБ;
+- `get_scan_status()` доступен из другого процесса; регрессии: login 302,
+  `/` `/history` `/system` `/api/system/health` 200; журнал — `SCAN OK`,
+  без Traceback.
+
+**Остаточные риски:** version — константа в `app.py` (в settings переедет
+в P2 Configuration); `service_sec` считается от импорта app.py (≈ старт
+процесса); unauth-доступ `/api/health` сохранён осознанно (мониторинг
+без входа в закрытой LAN; роут добавлен ещё в P0-3-регламенте «по решению»).

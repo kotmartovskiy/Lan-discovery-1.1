@@ -265,6 +265,17 @@ def run_scan():
     return output.strip()
 
 
+_scan_status = {"last_scan": None, "last_ok": None, "last_error": None, "errors": 0}
+
+
+def get_scan_status():
+    """Статус скан-потока для /api/health (P1-9)."""
+    st = dict(_scan_status)
+    st["interval_sec"] = SCAN_INTERVAL
+    st["thread_alive"] = bool(_scan_thread and _scan_thread.is_alive())
+    return st
+
+
 def scan_loop():
 
     while True:
@@ -277,6 +288,9 @@ def scan_loop():
 
             if output is None:
 
+                _scan_status["last_scan"] = datetime.now().strftime(
+                    "%d.%m.%Y %H:%M:%S"
+                )
                 time.sleep(SCAN_INTERVAL)
                 continue
 
@@ -511,9 +525,18 @@ def scan_loop():
 
             con.commit()
 
+            _scan_status["last_scan"] = now
+            _scan_status["last_ok"] = now
+
             log.info(f"SCAN OK: {len(current_devices)} devices")
 
         except Exception as e:
+
+            _scan_status["last_scan"] = datetime.now().strftime(
+                "%d.%m.%Y %H:%M:%S"
+            )
+            _scan_status["last_error"] = str(e)
+            _scan_status["errors"] += 1
 
             log.error(f"SCAN ERROR: {e}")
 

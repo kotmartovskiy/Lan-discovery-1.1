@@ -1637,13 +1637,32 @@ def register_routes(app):
     def api_health():
         checks = {}
         ok = True
+        db_status = {}
 
         try:
             con = sqlite3.connect(DB, timeout=5)
-            con.execute("SELECT 1")
-            con.close()
+            try:
+                con.execute("SELECT 1")
+                db_status["status"] = "ok"
+                db_status["path"] = DB
+                db_status["size_bytes"] = os.path.getsize(DB)
+                db_status["journal_mode"] = con.execute(
+                    "PRAGMA journal_mode"
+                ).fetchone()[0]
+                db_status["user_version"] = con.execute(
+                    "PRAGMA user_version"
+                ).fetchone()[0]
+                db_status["devices"] = con.execute(
+                    "SELECT COUNT(*) FROM devices"
+                ).fetchone()[0]
+                db_status["events"] = con.execute(
+                    "SELECT COUNT(*) FROM events"
+                ).fetchone()[0]
+            finally:
+                con.close()
             checks["database"] = "ok"
         except Exception as e:
+            db_status["status"] = "error: %s" % e
             checks["database"] = str(e)
             ok = False
 
@@ -1694,7 +1713,37 @@ def register_routes(app):
             checks["cpu_temp"] = "unavailable"
 
         status_code = 200 if ok else 503
-        return jsonify({"ok": ok, "checks": checks, "timestamp": datetime.now().strftime("%d.%m.%Y %H:%M:%S")}), status_code
+
+        from app import APP_VERSION, _SERVICE_START
+        from modules.devices_routes import get_scan_status
+
+        try:
+            with open("/proc/uptime") as f:
+                host_uptime = round(float(f.read().split()[0]), 1)
+        except Exception:
+            host_uptime = None
+
+        scan_st = get_scan_status()
+
+        return jsonify({
+            "ok": ok,
+            "checks": checks,
+            "timestamp": datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+            "version": APP_VERSION,
+            "uptime": {
+                "host_sec": host_uptime,
+                "service_sec": round(time.time() - _SERVICE_START, 1),
+            },
+            "last_discovery": {
+                "scan": scan_st["last_scan"],
+                "ok": scan_st["last_ok"],
+                "error": scan_st["last_error"],
+                "errors": scan_st["errors"],
+                "interval_sec": scan_st["interval_sec"],
+                "thread_alive": scan_st["thread_alive"],
+            },
+            "db": db_status,
+        }), status_code
 
     @app.route("/system")
     @login_required
