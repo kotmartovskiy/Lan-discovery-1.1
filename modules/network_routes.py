@@ -72,6 +72,27 @@ def _bt_cmd(command, timeout=10):
     except Exception:
         return ""
 
+
+_bt_scan_lock = threading.Lock()
+
+
+def _spawn_bt_scan():
+    """Запустить bluetooth-скан, если предыдущий ещё идёт (P1-8 guard)."""
+    if not _bt_scan_lock.acquire(blocking=False):
+        return False
+
+    def _run():
+        try:
+            _bt_cmd("scan on", timeout=35)
+            time.sleep(30)
+            _bt_cmd("scan off", timeout=5)
+        finally:
+            _bt_scan_lock.release()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
+
+
 def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, page_data):
 
     @app.route("/api/network/config")
@@ -321,13 +342,8 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
     @login_required
     def api_bluetooth_scan():
         try:
-            def do_scan():
-                _bt_cmd("scan on", timeout=35)
-                import time
-                time.sleep(30)
-                _bt_cmd("scan off", timeout=5)
-            threading.Thread(target=do_scan, daemon=True).start()
-            return {"ok": True}
+            started = _spawn_bt_scan()
+            return {"ok": True, "already_running": not started}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 

@@ -14,10 +14,8 @@ from datetime import datetime
 # ==================== Cache dicts ====================
 
 _settings_cache = {"data": None, "ts": 0}
-_page_data_cache = {"data": None, "ts": 0}
 _iptv_update_status_cache = {"data": None, "ts": 0}
 _rate_limits = {}
-_inet_cache = {"ok": None, "ts": 0}
 
 IPTV_UPDATE_STATUS = "/etc/lan-discovery/iptv-update-status.json"
 NETWORK_CONFIG = "/etc/lan-discovery/network.json"
@@ -214,24 +212,6 @@ def _inject_user():
 
 # ==================== Currency / recycling helpers ====================
 
-def update_currencies_background():
-    from modules.currencies import update_all as update_currencies_fn
-    try:
-        update_currencies_fn()
-    except Exception as e:
-        from app import log
-        log.error(f"CURRENCIES BG ERROR: {e}")
-
-
-def update_recycling_background():
-    from modules.recycling import update_all as update_recycling_fn
-    try:
-        update_recycling_fn()
-    except Exception as e:
-        from app import log
-        log.error(f"RECYCLING BG ERROR: {e}")
-
-
 _currency_cache = {"data": None, "recycling": None, "ts": 0, "updating": False}
 
 
@@ -263,87 +243,10 @@ def get_currency_cached():
 
 # ==================== Internet / weather / page_data ====================
 
-def check_internet():
-    try:
-        result = subprocess.run(
-            ["ping", "-c", "1", "-W", "2", "1.1.1.1"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=3
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
-
-
-def check_internet_cached():
-    now = time.time()
-    if now - _inet_cache["ts"] < 10:
-        return _inet_cache["ok"]
-    _inet_cache["ok"] = check_internet()
-    _inet_cache["ts"] = now
-    return _inet_cache["ok"]
-
-
-def weather_current():
-    from app import DB
-    import sqlite3
-    try:
-        con = sqlite3.connect(DB, timeout=5)
-        try:
-            row = con.execute("""
-                SELECT
-                    timestamp,
-                    temperature,
-                    apparent_temperature,
-                    humidity,
-                    precipitation,
-                    weather_code,
-                    wind_speed,
-                    wind_direction,
-                    pressure,
-                    cloud_cover
-                FROM weather_observations
-                ORDER BY timestamp DESC
-                LIMIT 1
-            """).fetchone()
-        finally:
-            con.close()
-
-        if not row:
-            return {}
-
-        return {
-            "timestamp": row[0],
-            "temperature": row[1],
-            "apparent_temperature": row[2],
-            "humidity": row[3],
-            "precipitation": row[4],
-            "weather_code": row[5],
-            "wind_speed": row[6],
-            "wind_direction": row[7],
-            "pressure": row[8],
-            "cloud_cover": row[9],
-        }
-    except Exception:
-        return {}
-
-
 def page_data():
-    from app import SCAN_INTERVAL, MAX_MISSES
-    now = time.time()
-    if _page_data_cache["data"] is not None and now - _page_data_cache["ts"] < 10:
-        return _page_data_cache["data"]
-
-    data = {
-        "internet": check_internet_cached(),
-        "interval": SCAN_INTERVAL,
-        "max_misses": MAX_MISSES,
-        "weather": weather_current()
-    }
-    _page_data_cache["data"] = data
-    _page_data_cache["ts"] = now
-    return data
+    """Делегируется app.page_data — единый источник (P1-8: нет дублей)."""
+    from app import page_data as _app_page_data
+    return _app_page_data()
 
 
 # ==================== Routes ====================
@@ -903,61 +806,6 @@ def _save_secrets(secrets):
         pass
 
 
-# ==================== Alarm helpers ====================
-
-ALARM_FILE = "/etc/lan-discovery/alarms.json"
-
-
-def _load_alarms():
-    try:
-        with open(ALARM_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return []
-
-
-def _save_alarms(alarms):
-    with open(ALARM_FILE, "w") as f:
-        json.dump(alarms, f, indent=2, ensure_ascii=False)
-
-
-def _alarm_scheduler():
-    import datetime as _dt
-    fired = set()
-    while True:
-        time.sleep(15)
-        try:
-            now = _dt.datetime.now()
-            weekday = now.isoweekday()
-            current = now.strftime("%H:%M")
-            alarms = _load_alarms()
-            for a in alarms:
-                if not a.get("enabled"):
-                    continue
-                if a["time"] != current:
-                    fired.discard(a["id"])
-                    continue
-                if weekday not in a.get("days", []):
-                    continue
-                if a["id"] in fired:
-                    continue
-                fired.add(a["id"])
-                fpath = a.get("file", "")
-                if fpath and os.path.exists(fpath):
-                    try:
-                        ext = os.path.splitext(fpath)[1].lower()
-                        if ext == ".mp3":
-                            subprocess.Popen(["mpg123", "-q", fpath])
-                        else:
-                            subprocess.Popen(["aplay", "-q", fpath])
-                    except:
-                        pass
-                if len(fired) > 100:
-                    fired.clear()
-        except:
-            pass
-
-
 # ==================== Terminal / SocketIO ====================
 
 _terminal_sessions = {}
@@ -1079,41 +927,3 @@ def register_socketio_handlers(socketio):
     @socketio.on("disconnect")
     def terminal_disconnect():
         _terminal_drop(request.sid)
-
-
-# ==================== Background tasks ====================
-
-def init_background_tasks(app, socketio, scan_loop_fn=None):
-    register_socketio_handlers(socketio)
-
-    if scan_loop_fn:
-        threading.Thread(
-            target=scan_loop_fn,
-            daemon=True
-        ).start()
-
-    threading.Thread(
-        target=update_currencies_background,
-        daemon=True
-    ).start()
-
-    threading.Thread(
-        target=update_recycling_background,
-        daemon=True
-    ).start()
-
-    import schedule as sched
-    sched.every(6).hours.do(update_currencies_background)
-    sched.every(24).hours.do(update_recycling_background)
-
-    def run_schedule():
-        while True:
-            sched.run_pending()
-            time.sleep(60)
-
-    threading.Thread(
-        target=run_schedule,
-        daemon=True
-    ).start()
-
-    threading.Thread(target=_alarm_scheduler, daemon=True).start()

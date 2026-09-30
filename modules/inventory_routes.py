@@ -4,10 +4,28 @@ import threading
 
 from flask import render_template, jsonify, redirect, url_for
 
+from modules.inventory import get_inventory, scan_all_devices
+
+_inv_scan_lock = threading.Lock()
+
+
+def _spawn_inventory_scan():
+    """Запустить inventory-скан, если предыдущий ещё идёт (P1-8 guard)."""
+    if not _inv_scan_lock.acquire(blocking=False):
+        return False
+
+    def _run():
+        try:
+            scan_all_devices()
+        finally:
+            _inv_scan_lock.release()
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
+
 
 def register_routes(app):
     from app import login_required, page_data, _cfg, DB
-    from modules.inventory import get_inventory, scan_all_devices
 
     @app.route("/inventory")
     @login_required
@@ -130,7 +148,7 @@ def register_routes(app):
     @app.route("/inventory/scan", methods=["POST"])
     @login_required
     def inventory_scan():
-        threading.Thread(target=scan_all_devices, daemon=True).start()
+        _spawn_inventory_scan()
         return redirect(url_for("inventory"))
 
     @app.route("/inventory/device/<ip>")

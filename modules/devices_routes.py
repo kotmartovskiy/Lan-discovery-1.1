@@ -16,7 +16,6 @@ MAX_MISSES = 6
 DB = "/opt/lan-discovery/devices.db"
 
 _hostname_cache = {}
-_inet_cache = {"ok": None, "ts": 0}
 
 
 SCHEMA_VERSION = 1
@@ -132,39 +131,6 @@ def get_hostname(ip):
     finally:
         socket.setdefaulttimeout(old_timeout)
 
-
-def check_internet():
-
-    try:
-
-        result = subprocess.run(
-            [
-                "ping",
-                "-c",
-                "1",
-                "-W",
-                "2",
-                "1.1.1.1"
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=3
-        )
-
-        return result.returncode == 0
-
-    except Exception:
-
-        return False
-
-
-def check_internet_cached():
-    now = time.time()
-    if now - _inet_cache["ts"] < 10:
-        return _inet_cache["ok"]
-    _inet_cache["ok"] = check_internet()
-    _inet_cache["ts"] = now
-    return _inet_cache["ok"]
 
 
 def parse_scan(output):
@@ -780,6 +746,16 @@ def register_routes(app):
         return jsonify({"ok": True})
 
 
+_scan_lock = threading.Lock()
+_scan_thread = None
+
+
 def start_scan_thread():
-    t = threading.Thread(target=scan_loop, daemon=True)
-    t.start()
+    """Запустить скан-поток; повторный вызов — no-op (P1-8 guard)."""
+    global _scan_thread
+    with _scan_lock:
+        if _scan_thread is not None and _scan_thread.is_alive():
+            return _scan_thread
+        _scan_thread = threading.Thread(target=scan_loop, daemon=True)
+        _scan_thread.start()
+        return _scan_thread

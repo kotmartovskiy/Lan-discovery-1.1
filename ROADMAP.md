@@ -160,8 +160,9 @@ security pentest, восстановление из backup на чистую с�
 7. **[P1][DONE — 30.09.2026]** Схема БД: DDL из `get_db()` → однократная
    инициализация (startup), `PRAGMA user_version`, индекс `events(ip, id)`,
    `finally`-закрытие коннектов — см. журнал §9.
-8. **[P1] Фоновые задачи:** guard от повторного запуска сканов (inventory/bluetooth),
-   удалить мёртвый `init_background_tasks` и дубли функций.
+8. **[P1][DONE — 30.09.2026]** Фоновые задачи: guard от повторного запуска
+   сканов (scan/inventory/bluetooth), удалён мёртвый `init_background_tasks`
+   и дубли функций (`app.py` ↔ `core_routes.py`) — см. журнал §9.
 9. **[P1] Observability:** `/api/health` → добавить version/uptime/last-discovery/
    db-status в один ответ.
 10. **[P1] Безопасность окружения:** security-заголовки, cookie-флаги, вычистить
@@ -174,7 +175,7 @@ security pentest, восстановление из backup на чистую с�
 | Фаза | Статус | Комментарий |
 |---|---|---|
 | PHASE 0 Audit | **DONE** | этот документ; код не менялся |
-| PHASE 1 Stabilization | **IN PROGRESS** | задачи 8–9 + обработка отсутствующих подсистем |
+| PHASE 1 Stabilization | **IN PROGRESS** | задача 9 + обработка отсутствующих подсистем |
 | PHASE 2 Configuration | **PENDING** | см. §2 «Configuration» (P2) |
 | PHASE 3 Hardware abstraction | **PENDING** | platform detection/ capabilities |
 | PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
@@ -462,3 +463,55 @@ salt); смена пароля — `len(pw) < 1`; TTL сессий отсутс�
 при синке получит init автоматически при старте; DDL других модулей
 (currencies/inventory/recycling/weather-monitor) — свой idempotent init вне
 `get_db()`, не трогался (полноценная миграционная система — PHASE 5 позже).
+
+### 30.09.2026 — P1-8: фоновые задачи — guard'ы + удаление мёртвого/дублей — **DONE**
+
+**Проблема:** `start_scan_thread()` без guard — повторный вызов дал бы второй
+скан-поток; `/inventory/scan` и `/api/bluetooth/scan` без lock — повторный
+POST → параллельные nmap/bluetoothctl-прогоны (race + лишняя нагрузка);
+в `core_routes.py` жил **мёртвый** `init_background_tasks` (не вызывается
+нигде) вместе с мёртвыми дублями `update_currencies/recycling_background`,
+блоком alarm-helpers (`_alarm_scheduler` и др. — живая копия в `media_routes`)
+и дублями `weather_current`/`check_internet*`/`page_data` из `app.py`
+(два независимых кэша, два источника weather/internet); в `devices_routes`
+— мёртвая пара `check_internet*`.
+
+**Изменения:**
+- `modules/devices_routes.py` — `start_scan_thread()`: `_scan_lock` +
+  `_scan_thread`, повторный вызов возвращает уже запущенный поток
+  (no-op); удалены мёртвые `check_internet/check_internet_cached` + `_inet_cache`;
+- `modules/inventory_routes.py` — модульный `_inv_scan_lock` +
+  `_spawn_inventory_scan()`: `acquire(blocking=False)` → при занятости
+  `False` (маршрут по-прежнему 302), `release` в `finally`; импорт
+  `modules.inventory` вынесен на уровень модуля;
+- `modules/network_routes.py` — `_bt_scan_lock` + `_spawn_bt_scan()`
+  (scan on → 30 c → scan off, `release` в `finally`); ответ
+  `{"ok": true, "already_running": <bool>}`;
+- `modules/core_routes.py` — удалены `init_background_tasks`,
+  `update_*_background`, alarm-блок (`ALARM_FILE/_load_alarms/_save_alarms/
+  _alarm_scheduler` — полностью живёт в `media_routes`),
+  `weather_current/check_internet*/_page_data_cache/_inet_cache`;
+  `page_data()` → делегат `app.page_data` (единый кэш и источник).
+
+**Файлы:** `modules/{core_routes,inventory_routes,network_routes,devices_routes}.py`
+(repo == X96 после деплоя). Бэкапы `*.backup-pre-p08-20260930-072054` (4 файла).
+
+**Тесты (X96, `/tmp/test_p08_guards.py` 32/32 PASS):**
+- unit-guard: scan (повторный вызов → тот же thread), inventory
+  (True → False → после завершения True, ровно 2 прогона, lock свободен),
+  bluetooth (True → False, lock захвачен, `scan on` отдан потоку);
+- удаление: 8 проверок отсутствия символов в core/devices; `media_routes`
+  живой (alarm scheduler + helpers на месте);
+- делегация: `core.page_data() is app.page_data()` (один кэш), ключи
+  weather/internet/interval/max_misses;
+- HTTP: login 302; `/` `/apps` `/currencies` `/inventory` `/history` 200;
+  `/inventory/scan` x2 → 302/302; bt-scan 1-й `already_running:false`,
+  2-й **`already_running:true` (guard подтверждён на сервисе)**;
+  `/api/alarms` 200; health 200;
+- журнал после рестарта: `SCAN OK` каждые 30 с (один поток), без
+  Traceback/ImportError.
+
+**Остаточные риски:** UI inventory-скана не показывает прогресс (вне scope);
+`system_routes`/`weather_routes` имеют локальные обёртки `page_data/
+weather_current`, но делегируют логику в `app`/`weather` — не дублируют её;
+мусорные `app_copy.py`/`patch_app.py`/`app_remote.py` не трогались.
