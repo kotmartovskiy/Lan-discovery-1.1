@@ -652,11 +652,21 @@ def register_routes(app):
 
     # --- File Manager ---
 
+    def _fm_path(raw):
+        """Нормализация пути: строка, без null-байт, абсолютный, без '..'."""
+        if not raw or not isinstance(raw, str) or "\x00" in raw:
+            return None
+        p = os.path.normpath(raw)
+        if not os.path.isabs(p):
+            return None
+        return p
+
     @app.route("/api/filemanager/list")
-    @login_required
+    @admin_required
     def api_filemanager_list():
-        path = request.args.get("path", "/")
-        path = os.path.normpath(path)
+        path = _fm_path(request.args.get("path", "/"))
+        if path is None:
+            return {"ok": False, "error": "Invalid path"}, 400
         if not os.path.exists(path):
             return {"ok": False, "error": "Path not found"}, 404
         if not os.path.isdir(path):
@@ -691,10 +701,11 @@ def register_routes(app):
             return {"ok": False, "error": str(e)}
 
     @app.route("/api/filemanager/read")
-    @login_required
+    @admin_required
     def api_filemanager_read():
-        path = request.args.get("path", "")
-        path = os.path.normpath(path)
+        path = _fm_path(request.args.get("path", ""))
+        if path is None:
+            return {"ok": False, "error": "Invalid path"}, 400
         if not os.path.exists(path):
             return {"ok": False, "error": "File not found"}, 404
         try:
@@ -705,9 +716,11 @@ def register_routes(app):
             return {"ok": False, "error": str(e)}
 
     @app.route("/api/filemanager/mkdir", methods=["POST"])
-    @login_required
+    @admin_required
     def api_filemanager_mkdir():
-        path = request.json.get("path", "")
+        path = _fm_path(request.json.get("path", ""))
+        if path is None:
+            return {"ok": False, "error": "Invalid path"}, 400
         try:
             os.makedirs(path, exist_ok=True)
             return {"ok": True}
@@ -715,9 +728,13 @@ def register_routes(app):
             return {"ok": False, "error": str(e)}
 
     @app.route("/api/filemanager/delete", methods=["POST"])
-    @login_required
+    @admin_required
     def api_filemanager_delete():
-        path = request.json.get("path", "")
+        path = _fm_path(request.json.get("path", ""))
+        if path is None:
+            return {"ok": False, "error": "Invalid path"}, 400
+        if path == "/":
+            return {"ok": False, "error": "Refusing to delete /"}, 400
         try:
             if os.path.isdir(path):
                 shutil.rmtree(path)
@@ -728,34 +745,48 @@ def register_routes(app):
             return {"ok": False, "error": str(e)}
 
     @app.route("/api/filemanager/rename", methods=["POST"])
-    @login_required
+    @admin_required
     def api_filemanager_rename():
         data = request.json
+        old_path = _fm_path(data.get("old_path", ""))
+        new_path = _fm_path(data.get("new_path", ""))
+        if old_path is None or new_path is None:
+            return {"ok": False, "error": "Invalid path"}, 400
         try:
-            os.rename(data["old_path"], data["new_path"])
+            os.rename(old_path, new_path)
             return {"ok": True}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
     @app.route("/api/filemanager/copy", methods=["POST"])
-    @login_required
+    @admin_required
     def api_filemanager_copy():
         data = request.json
+        src = _fm_path(data.get("src", ""))
+        dst = _fm_path(data.get("dst", ""))
+        if src is None or dst is None:
+            return {"ok": False, "error": "Invalid path"}, 400
         try:
-            if os.path.isdir(data["src"]):
-                shutil.copytree(data["src"], data["dst"])
+            if os.path.isdir(src):
+                shutil.copytree(src, dst)
             else:
-                shutil.copy2(data["src"], data["dst"])
+                shutil.copy2(src, dst)
             return {"ok": True}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
     @app.route("/api/filemanager/move", methods=["POST"])
-    @login_required
+    @admin_required
     def api_filemanager_move():
         data = request.json
+        src = _fm_path(data.get("src", ""))
+        dst = _fm_path(data.get("dst", ""))
+        if src is None or dst is None:
+            return {"ok": False, "error": "Invalid path"}, 400
+        if src == "/":
+            return {"ok": False, "error": "Refusing to move /"}, 400
         try:
-            shutil.move(data["src"], data["dst"])
+            shutil.move(src, dst)
             return {"ok": True}
         except Exception as e:
             return {"ok": False, "error": str(e)}

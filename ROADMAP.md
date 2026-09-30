@@ -136,8 +136,11 @@ security pentest, восстановление из backup на чистую с�
 
 1. **[P0][DONE — 30.09.2026]** Закрыть терминал: авторизация SocketIO-подключений
    (session/user + admin), ограничить `cors_allowed_origins` → см. журнал §9.
-2. **[P0] Filemanager:** admin-only (или отдельное право) + базовое ограничение корня
-   (`FILEMANAGER_ROOT`, реально используется только как объявление).
+2. **[P0][DONE — 30.09.2026]** Filemanager: все 7 API-роутов → `@admin_required`,
+   нормализация путей (`_fm_path`: строка/abs/null-байт), запрет `delete /` и
+   `move /`, заглушка «только для admin» в шаблоне — см. журнал §9.
+   Решение: корень `/` для admin оставлен (эквивалентен уже имеющемуся у admin
+   root-терминалу; ограничение корня сломало бы назначение инструмента).
 3. **[P0] Закрыть неавторизованные роуты** `/api/network/check*`; валидация `host`
    (IP/hostname, без `-`-префикса) во всех nettools.
 4. **[P0] Сейф:** честное шифрование (Fernet на отдельном ключе) + миграция существующих
@@ -230,3 +233,29 @@ Cross-Site WebSocket Hijacking закрыт Origin-проверкой python-soc
 «Waiting for system to finish booting…» и «Create root password:» —
 армбиевский profile-sкрипт на медленном первом выводе; не связано с этим
 изменением (логика `terminal_start` не менялась), вынести в отдельную проверку.
+
+### 30.09.2026 — P0-2: filemanager admin-only + валидация путей — **DONE**
+
+**Проблема (B2):** корень `/`, `shutil.rmtree`/`os.remove`/`shutil.move` под
+только `@login_required` — guest мог изменять файловую систему от root.
+
+**Изменения:**
+- `modules/core_routes.py` — 7 роутов `/api/filemanager/*` → `@admin_required`;
+  хелпер `_fm_path()` (строка, без null-байт, абсолютный после `normpath`) → 400;
+  явный запрет `delete /` и `move /`;
+- `templates/apps/filemanager.html` — `{% if current_user.role != 'admin' %}`
+  заглушка (по образцу terminal).
+
+**Файлы:** `modules/core_routes.py`, `templates/apps/filemanager.html`
+(repo == X96 после деплоя). Бэкапы `*.backup-20260930-032856`.
+
+**Тесты (X96, `/tmp/test_filemanager_auth.py`, 16/16 PASS):**
+аноним: list→403, POST без CSRF→400 (CSRFProtect), POST с валидным CSRF→403;
+admin: list→200, страница с UI; не-admin (`user`): list/read→403, страница→заглушка;
+валидация: относительный путь→400, null-байт→400; регресс: health/login/apps.
+Временный пароль `user` тест-account: users.json → бэкап → тест → **восстановлен**.
+
+**Остаточные риски:** guest/editor больше не имеют доступа к filemanager
+(изменение поведения — задокументировать); непроверенные аналогичные проблемы в
+`/api/player/*` (browse/playlist без нормализации) — кандидат в P0-3/отдельно;
+CSRF-заголовков в `base_app.html` в репозитории ещё нет (B6, задача 6).

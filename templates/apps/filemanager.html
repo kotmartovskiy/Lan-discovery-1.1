@@ -1,6 +1,11 @@
 {% extends "base_app.html" %}
 
 {% block content %}
+{% if current_user.role != 'admin' %}
+<div style="padding:40px;text-align:center;color:#aaa;font-family:system-ui,sans-serif">
+⚠️ Файловый менеджер доступен только для admin
+</div>
+{% else %}
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 
@@ -426,4 +431,5 @@ loadDir('right','/');
 renderBreadcrumbs();
 })();
 </script>
+{% endif %}
 {% endblock %}
