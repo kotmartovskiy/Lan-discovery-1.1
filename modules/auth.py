@@ -5,6 +5,7 @@ import time
 
 USERS_PATH = "/etc/lan-discovery/users.json"
 SECRET_KEY_PATH = "/etc/lan-discovery/secret.key"
+SESSION_TTL = 12 * 3600  # TTL сессии, сек (P0-5): старые сессии без login_ts тоже истекают
 
 _login_attempts = {}  # ip -> [count, first_attempt_time]
 
@@ -65,9 +66,18 @@ def get_current_user():
     u = session.get("user")
     if not u:
         return None
+    # P0-5: TTL сессии — нет login_ts (старые сессии) или истёк → выкидываем
+    login_ts = session.get("login_ts")
+    if not login_ts or (time.time() - login_ts) > SESSION_TTL:
+        session.pop("user", None)
+        session.pop("login_ts", None)
+        return None
     users = load_users()
     data = users.get(u)
-    if not data:
+    # P0-5: отключённый/удалённый пользователь тоже выкидывается из сессии
+    if not data or not data.get("enabled", True):
+        session.pop("user", None)
+        session.pop("login_ts", None)
         return None
     return SimpleNamespace(
         username=u,
@@ -154,6 +164,14 @@ def register_routes(app):
             if u and u.get("enabled") and _verify_hash(password, u.get("password_hash", "")):
                 _reset_rate_limit(ip)
                 session["user"] = username
+                session["login_ts"] = time.time()
+                stored = u.get("password_hash", "")
+                if stored and not stored.startswith("$2"):
+                    # P0-5: legacy SHA-256 → однократный re-hash bcrypt
+                    # при первом успешном входе; дальше только bcrypt
+                    u["password_hash"] = _hash(password)
+                    users[username] = u
+                    save_users(users)
                 return redirect(url_for("index"))
             error = "Неверное имя пользователя или пароль"
         return render_template("login.html", error=error)

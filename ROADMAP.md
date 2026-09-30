@@ -101,11 +101,11 @@ security pentest, восстановление из backup на чистую с�
 
 | # | Проблема | Место | Эффект |
 |---|---|---|---|
-| B1 | Веб-терминал без авторизации, root-PTY, CORS `*` | `core_routes.py:906-956`, `app.py:336` | RCE от root для любого, кто достучится до :8080 |
-| B2 | Filemanager: корень `/`, guest может удалять/перемещать файлы | `core_routes.py:655-761` | потеря данных от root |
-| B3 | `POST /api/network/check_host` без авторизации (host → внешняя команда) | `network_routes.py:82-93` | неаутентифицированный SSRF/DoS-прокси |
+| B1 | ~~Веб-терминал без авторизации, root-PTY, CORS `*`~~ **РЕШЁН (P0-1)** — SocketIO admin-only, CORS same-origin; root-PTY и dev-Werkzeug остались (P1-10) | `core_routes.py`, `app.py` | RCE закрыт для не-admin |
+| B2 | ~~Filemanager: корень `/`, guest может удалять/перемещать файлы~~ **РЕШЁН (P0-2)** — 7 API → `@admin_required`, нормализация путей; корень `/` оставлен для admin | `core_routes.py` | потеря данных закрыта |
+| B3 | ~~`POST /api/network/check_host` без авторизации (host → внешняя команда)~~ **РЕШЁН (P0-3)** — `@login_required` + `_valid_host` во всех nettools | `network_routes.py` | неаутентифицированный SSRF/DoS закрыт |
 | B4 | ~~Сейф паролей: base64, HMAC игнорируется, guest читает~~ **РЕШЁН (30.09.2026, P0-4)** — Fernet + `@can_edit` | `core_routes.py` secrets-helpers | пароли открыты — закрыто |
-| B5 | Отключённый пользователь не выкидывается из сессии; SHA-256-фолбэк пароля | `auth.py:35-42,85-93` | обход блокировки учётки |
+| B5 | ~~Отключённый пользователь не выкидывается из сессии; SHA-256-фолбэк пароля~~ **РЕШЁН (30.09.2026, P0-5)** — enabled+TTL в `get_current_user`, lazy re-hash bcrypt, min 8 | `auth.py` | обход блокировки учётки — закрыт |
 | B6 | ~~CSRF-meta отсутствует в `base_app.html` **в репозитории**~~ **РЕШЁН (30.09.2026, P0-6)** — правки X96 забраны в репо | `templates/base_app.html` | регресс CSRF при следующем деплое — закрыт |
 
 Не P0, но рядом: dev-Werkzeug на `0.0.0.0`, нет security-заголовков, root-сервис.
@@ -149,8 +149,10 @@ security pentest, восстановление из backup на чистую с�
    отдельном ключе `/etc/lan-discovery/secret.key` (chmod 600), миграция legacy
    base64+HMAC-записей (HMAC теперь реально проверяется), битые записи не
    двойношифруются, все 4 API → `@can_edit` — см. журнал §9.
-5. **[P0] Auth:** проверка `enabled` в `login_required`/`get_current_user`, отказ от
-   SHA-256-фолбэка (массовый re-hash при первом входе), min. длина пароля, TTL сессии.
+5. **[P0][DONE — 30.09.2026]** Auth: `enabled` + TTL сессии (12ч) проверяются
+   в `get_current_user` (сессия выкидывается), SHA-256 — только на первом входе
+   с мгновенным re-hash в bcrypt, мин. длина пароля 8, дубли хелперов в
+   `core_routes` заменены импортом из `modules.auth` — см. журнал §9.
 6. **[P0][DONE — 30.09.2026]** Синхронизация: X96-правки (CSRF base_app,
    recycling, favicon) забраны в репо, `terminal.html` починен на X96,
    `monitor.py` задеплоен, `.gitattributes` добавлен, `apps\*.html` удалены —
@@ -372,3 +374,43 @@ EOL-only=0, content_diff=0, только на сервере=0 — **repo == X96
 ключ в памяти процесса (ok); конкурентная запись `secrets.json` двумя
 запросами theoretically possible (single-process, низкий риск) — при необходимости
 file-lock в P1.
+
+### 30.09.2026 — P0-5: auth — enabled/TTL/мин. длина/re-hash — **DONE**
+
+**Проблема (B5):** `get_current_user` не проверял `enabled` — отключённый
+пользователь продолжал работать со старой сессией («выключение» не действовало
+до истечения куки); `_verify_hash` принимал SHA-256 навсегда (fast-hash без
+salt); смена пароля — `len(pw) < 1`; TTL сессий отсутствовал; в `core_routes`
+жили дубли `_hash/_verify_hash/load_users/save_users/get_current_user`
+(контекст-процессор мог расходиться с декораторами).
+
+**Изменения:**
+- `modules/auth.py`:
+  - `SESSION_TTL = 12*3600`; `get_current_user` — нет `login_ts` (старые
+    сессии)/истёк TTL/`enabled=false`/нет юзера → `session.pop` + None
+    (logout для всех декораторов и SocketIO);
+  - логин: `session["login_ts"] = now`; legacy SHA-256-хэш → **однократный
+    re-hash bcrypt при первом успешном входе** (без локаута);
+- `modules/core_routes.py`:
+  - дубли хелперов → `from modules.auth import ...` (единый источник);
+  - `POST /api/users/<u>/password`: `len(pw) < 8` → 400
+    (UI `sys-users/block.html` показывает `d.error` — без правок);
+- `requirements.txt` не менялся.
+
+**Файлы:** `modules/auth.py`, `modules/core_routes.py` (repo == X96).
+Бэкапы `*.backup-20260930-035630`.
+
+**Тесты (X96):**
+- юнит `/tmp/test_p05_unit.py` **17/17**: нет login_ts/TTL истёк/отключённый
+  → None + pop; валидная сессия → admin; sha256/bcrypt verify; core делегирует
+  в auth (`is`-идентичность); min-8 в исходнике;
+- HTTP `/tmp/test_p05_auth.py` **23/23**: отключение юзера «вживую» выбивает
+  старую сессию (302) и после включения сессия остаётся мёртвой (re-login);
+  отключённый не может войти; пароль 7 симв. → 400, 8 → 200; вход с SHA-256 →
+  302 и хэш в users.json становится `$2b$…`; регресс pages/health/api/users.
+  users.json: бэкап → setup → тест → **восстановлен**.
+
+**Остаточные риски:** все существующие на момент апгрейда сессии выкидываются
+(нет login_ts) — однократный ре-логин; SHA-256-аккаунты, ни разу не вошедшие,
+остаются sha256 до первого входа (детект: `grep -v '$2' users.json`); TTL
+фиксированный 12ч (конфигурируемый — P2 Configuration).

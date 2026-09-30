@@ -189,63 +189,17 @@ def save_iptv_update_status(data):
 
 
 # ==================== User helpers ====================
+# Единственный источник — modules.auth (P0-5: enabled/TTL/bcrypt-lazy-rehash).
+# Дубликаты удалены, чтобы контекст-процессор и API не расходились с decorators.
 
-def _hash(pw):
-    import bcrypt
-    return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
-
-
-def _verify_hash(pw, stored_hash):
-    import bcrypt
-    try:
-        if stored_hash.startswith("$2"):
-            return bcrypt.checkpw(pw.encode(), stored_hash.encode())
-    except Exception:
-        pass
-    import hashlib
-    return hashlib.sha256(pw.encode()).hexdigest() == stored_hash
-
-
-def load_users():
-    from app import USERS_PATH
-    try:
-        with open(USERS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-
-def save_users(data):
-    from app import USERS_PATH
-    try:
-        with open(USERS_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        return True
-    except Exception:
-        return False
-
-
-def get_current_user():
-    from flask import session
-    from types import SimpleNamespace
-    u = session.get("user")
-    if not u:
-        return None
-    users = load_users()
-    data = users.get(u)
-    if not data:
-        return None
-    return SimpleNamespace(
-        username=u,
-        role=data.get("role", "guest"),
-        enabled=data.get("enabled", True),
-        display_name=data.get("display_name", u),
-    )
-
-
-def get_current_username():
-    from flask import session
-    return session.get("user")
+from modules.auth import (  # noqa: F401
+    _hash,
+    _verify_hash,
+    get_current_username,
+    get_current_user,
+    load_users,
+    save_users,
+)
 
 
 # ==================== Context processor ====================
@@ -530,8 +484,8 @@ def register_routes(app):
             return jsonify({"error": "not found"}), 404
         data = request.get_json() or {}
         pw = data.get("password", "").strip()
-        if len(pw) < 1:
-            return jsonify({"error": "password too short"}), 400
+        if len(pw) < 8:
+            return jsonify({"error": "password too short (min 8)"}), 400
         users[username]["password_hash"] = _hash(pw)
         save_users(users)
         return jsonify({"ok": True})
