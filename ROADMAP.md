@@ -70,7 +70,7 @@ security pentest, восстановление из backup на чистую с�
 | **Observability** | `/api/health` есть (unauth, `system_routes.py:1636`), `/api/status`, `/api/system/health` — но **нет version/uptime/last-discovery в одном месте** | `/api/health` + `/api/version` + `/api/discovery/status` | состояние видно только через UI | **P1** |
 | **Installer** | ~~нет: установка вручную~~ **закрыта (P9, 30.09)**: `install.sh` в корне репо — preflight → code → apt-зависимости → venv → базовый settings (авто-subnet) → db init → systemd-юнит (`deploy/lan-discovery.service`, ExecStart под prefix) → health-retry; флаги `--prefix/--unit-dir/--skip-apt/--no-enable/--dry-run`, идемпотентен (проверено двойным прогоном на X96 в tmp-префиксе, состояние БД/config/юнита не изменилось); `docs/Установка.md` дополнен | `install.sh`: dep-check → config → systemd → db init → health | нестандартный `--prefix`: пути БД/settings захардкожены в коде; полный e2e «чистой машины» без Docker не воспроизведён (проверка — tmp-префикс + dry-run) | **P9** (закрыта) |
 | **Update/rollback** | ~~деплой вручную, нет отката кода~~ **закрыта (P10, 30.09)**: `update.sh` — бэкап (tar кода + settings + sqlite-бэкап БД в `/var/backups/lan-discovery/<ts>` c meta.json/git-rev, ротация `--keep`) → apply (`--from`/`git pull`) → verify py_compile → pip → restart → health-retry; **авто-rollback** при сбое verify/health (восстановление кода/БД + restart + контрольный health), ручной `--rollback [TS]`, `--dry-run`; бэкап БД автоматический + restore из UI уже были | версия → backup → update → health → rollback | нет семантических версий/чейнджлога (трассировка — git-rev в meta.json); `--from` не удаляет исчезнувшие из новой версии файлы | **P10** (закрыта) |
-| **Backup/recovery** | БД: Online Backup API + integrity_check + ротация 14 дней + restore через UI (`system_routes.py:1936`); на OP эММС-бэкапы; **restore на чистую систему не проверен** | документированная и проверенная процедура restore | «production ready только после проверенного restore» | **P2** |
+| **Backup/recovery** | ~~restore на чистую систему не проверен~~ **закрыта (P11, 30.09)**: `backup-db.sh` пишет и `config_*.tar.gz` (тар `/etc/lan-discovery`) рядом с `devices_*.db`; `recovery.sh` — авто-pick последних бэкапов (код `code.tar.gz` + конфиг + БД), verify (py_compile + sqlite integrity/user_version/counts), `--unit`/`--dry-run`/`--no-restart`; **дрил PASS** в изолированном `/tmp/lanrec` (config md5 == боевому, идемпотентность, боевые данные целы); `docs/Восстановление.md`; было: Online Backup API + integrity_check + ротация 14 дней + restore через UI, эММС-бэкапы на OP | документированная и проверенная процедура restore | «production ready только после проверенного restore» | **P11** (закрыта) |
 | **Testing** | ~~pytest/CI нет; 3 ad-hoc скрипта требуют живой панели~~ **закрыта (P13, 30.09)**: `tests/` в репо — 42 unit (discovery/events/hardware/migrations/config, без сети) + 5 live (маркер `live`, скип при недоступности панели), `pytest.ini`+`requirements-dev.txt`, CI на каждый push/PR (ubuntu/py3.11: pytest unit + py_compile); ad-hoc `/tmp/test_p*`-скрипты остались как deploy-проверки фаз | unit + интеграционные в одном прогоне | живые ad-hoc-скрипты фаз не в git (deploy-only) | **P13** (закрыта) |
 | **Documentation** | `docs/` (9 страниц, wiki), `README.md`, `AGENTS.md`; `docs/Архитектура.md:81` **устарел** (11 таблиц vs 16 фактических), нет ARCHITECTURE/SECURITY/CONFIGURATION/API | комплект 1.0 (см. PHASE 14) | документация отстаёт от кода | **P3** |
 | **Repo hygiene** | в корне 60+ одноразовых скриптов (`check_*`, `debug*`, `verify*` — большая часть в `.gitignore`, часть трекается: `patch_app.py`, `ssh_query.py`…); трекаются `modules/*_b64.txt`; ~~`.gitattributes` нет~~ **добавлен 30.09 (P0-6)** | мусор вне корня/git | грязь в репозитории | **P4** |
@@ -322,6 +322,32 @@ security pentest, восстановление из backup на чистую с�
      (update.sh / git pull), таблица флагов, что делает авто-откат,
      где лежат бэкапы и ротация, ручной откат, связь с install.sh —
      см. §9.
+38. **[P11][DONE — 30.09.2026]** Бэкап конфига: `deploy/backup-db.sh`
+     дополнительно кладёт `config_<ts>.tar.gz` (тар `/etc/lan-discovery`:
+     settings/users/secret.key/modules.json/notes/secrets/) рядом с
+     БД-бэкапом, `tar tzf`-проверка целостности, ротация 14 дней; UI-список
+     (`DB_BACKUP_PATTERN=devices_*.db`) tar не подхватывает — юнит-тест
+     фильтра — см. §9.
+39. **[P11][DONE — 30.09.2026]** `recovery.sh`: восстановление из
+     бэкапов — код (`--code-tar`, default последний
+     `/var/backups/lan-discovery/*/code.tar.gz`) + конфиг
+     (`--config-tar`, default последний `/srv/backup-db/config_*.tar.gz`,
+     в `--config-dir`) + БД (`--db`, default последний
+     `/srv/backup-db/devices_*.db`, в префикс) → verify (py_compile
+     системным python3 + sqlite integrity/user_version/counts) →
+     опционально юнит (`--unit`) и restart+health (`--no-restart` для
+     дрила); `--dry-run` — см. §9.
+40. **[P11][DONE — 30.09.2026]** Дрил восстановления на X96: свежий
+     прогон backup-db.sh (БД+конфиг-тар, состав полный, integrity);
+     `recovery.sh` в изолированный `/tmp/lanrec` (код+конфиг+БД,
+     integrity ok, user_version=2, counts>0, settings md5 == боевому);
+     повторный прогон идемпотентен; боевые config/БД в дриле не тронуты —
+     см. §9.
+41. **[P11][DONE — 30.09.2026]** `docs/Восстановление.md`:
+     документированная **проверенная** процедура восстановления на чистую
+     систему (что где лежит, recovery.sh по шагам, ручные альтернативы,
+     проверка после восстановления) — закрывает §2 «production ready
+     только после проверенного restore» — см. §9.
 
 ---
 
@@ -340,7 +366,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 8 Security hardening | **IN PROGRESS** | задачи 1–6 (P0) + 10 (P1-10); root-PTY/dev-Werkzeug дефернуты |
 | PHASE 9 Installer | **DONE** | задачи 32–34: install.sh (8 шагов, идемпотент, dry-run), deploy/lan-discovery.service, docs/Установка.md; проверка на X96 в tmp-префиксе + повторный прогон без изменений данных |
 | PHASE 10 Update/rollback | **DONE** | задачи 35–37: update.sh (backup → apply → verify → pip → restart → health с авто-rollback), docs/Обновление.md; тесты на X96: success/fail+авто-откат (md5 app.py восстановлен, сервис жив)/ручной rollback/ротация |
-| PHASE 11 Backup/Recovery | **PARTIAL** | бэкап БД готов; restore на чистую систему не проверен → не DONE |
+| PHASE 11 Backup/Recovery | **DONE** | задачи 38–41: backup-db.sh (config_*.tar.gz), recovery.sh (код+конфиг+БД+verify+юнит), дрил на X96 в изолированном префиксе (PASS, боевые данные не тронуты, идемпотентность), docs/Восстановление.md, юнит-тест фильтра UI-списка |
 | PHASE 12 Observability | **DONE** | P1-9: `/api/health` + version/uptime/last-discovery/db-status |
 | PHASE 13 Testing | **DONE** | задачи 29–31: pytest-структура (unit 42 / live 5, маркер `live`), CI GitHub Actions (ubuntu/py3.11: pytest unit + py_compile) на каждый push/PR |
 | PHASE 14 Documentation | **PARTIAL** | docs/ есть, `Архитектура.md` устарел, комплекта нет |
@@ -1195,3 +1221,61 @@ rc=1, бэкап 2) → ручной `--rollback` (rc=0, app==original, health o
 health-fail-ветка авто-отката не воспроизводилась искусственно (только
 verify-fail); git-путь (`git pull`) прогнан только dry-run'ом (боевой
 каталог не git-репо).
+
+### 30.09.2026 — PHASE 11 Backup/Recovery (задачи 38–41)
+
+**Что сделано:**
+
+- **`deploy/backup-db.sh` (задача 38)** — после sqlite-копии
+  (`src.backup()`) теперь тарит `/etc/lan-discovery` в
+  `/srv/backup-db/config_<ts>.tar.gz` (settings.json, users.json,
+  secret.key, modules.json, notes/, secrets/), проверка
+  `tarfile.is_tarfile` перед публикацией, ротация 14 дней по обоим
+  паттернам (`devices_*.db` + `config_*.tar.gz`), логи
+  `DB BACKUP OK` / `CONFIG BACKUP OK`. Рабочая копия таймера
+  `/usr/local/sbin/backup-db.sh` обновлена (бэкап
+  `*.backup-pre-p11-*`), дубликат в `deploy/` для git. UI-список
+  (`DB_BACKUP_PATTERN=devices_*.db`, system_routes.py:13) tar не
+  подхватывает.
+- **`recovery.sh` (задача 39)** — восстановление из трёх источников:
+  код (последний `code.tar.gz` из `/var/backups/lan-discovery/`),
+  конфиг (последний `config_*.tar.gz` → `--config-dir`), БД (последний
+  `devices_*.db` → `$PREFIX/devices.db`); авто-pick или явные
+  `--db/--code-tar/--config-tar`; verify: `py_compile` системным
+  python3 по app.py/core/modules + sqlite `integrity_check`,
+  `user_version`, `COUNT(devices)>0`; `--unit` + `--unit-dir`
+  (шаблон `deploy/lan-discovery.service` → sed `{PREFIX}`, юнит в
+  drill-режиме не трогает `/etc/systemd/system`), `--no-restart`,
+  `--dry-run`. Найденные по ходу баги: `ls -1` в multi-arg режиме
+  выдавал заголовки `path:` (заменено на `ls -1d`); двойная
+  склейка пути каталога-бэкапа (`bdir` уже полный) → пустой
+  `CODE_TAR` и молчаливый `die`; `[[ ]] &&` в `main` заменён на `if`
+  (set -e-ловушка); dry-run не должен создавать tmp-каталог.
+- **Дрил (задача 40)** — `/tmp/p11_run.sh`: свежий бэкап
+  (devices_*.db + config_*.tar.gz: tar tzf ok, settings/users/
+  secret.key внутри, integrity ok); UI-фильтр venv-питоном не видит
+  tar; recovery dry-run rc=0; drill в `/tmp/lanrec` (`--config-dir
+  /tmp/lanrec/etc --unit --unit-dir /tmp/lanrec/unit --no-restart`):
+  rc=0, `SYNTAX OK (22 files)`, `DB OK (integrity=ok user_version=2
+  devices=40 events=37184)`, юнит с `ExecStart=/tmp/lanrec/venv/...`,
+  settings.json md5 == боевому; повторный прогон идемпотентен
+  (md5 стабилен); боевые settings/unit/health после дрила целы —
+  **PHASE 11 PASS**.
+- **`docs/Восстановление.md` (задача 41)** — где что лежит (таблица
+  источников), восстановление на рабочей и на чистой системе
+  (`install.sh` → `recovery.sh --unit`), флаги, что verify-ит
+  скрипт, крипт дрила, troubleshooting.
+- **`tests/unit/test_backups.py`** — 4 теста фильтра `db_backup_list`
+  (tar/text-файлы не попадают, пустой/несуществующий каталог, поля
+  и `size_human`); юнит-набор стал **46/46** (X96 venv и локально).
+
+**Тесты:** юнит 46/46 на X96 и локально; дрил P11 PASS (см. выше);
+`bash -n` обоих скриптов. CI после push.
+
+**Остаточные риски:** `--prefix` восстанавливает только код/БД/конфиг —
+хардкоженные пути `SETTINGS_PATH`/`DB` в модулях не переносятся на
+чужой префикс (env-override — отдельная задача); восстановление на
+**полностью чистую** машину прогнано только как
+`install.sh`-примесно (сам дрил шёл поверх установленной системы с
+изолированным префиксом); `config_*.tar.gz` не виден в UI-restore
+(только recovery.sh).
