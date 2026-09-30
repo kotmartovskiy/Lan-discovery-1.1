@@ -69,7 +69,7 @@ security pentest, восстановление из backup на чистую с�
 | **Event system** | ~~только 3 типа, нет severity/source/metadata~~ **закрыта (P7, 30.09)**: events v2 — `severity`/`source`/`metadata` (JSON), фабрика `core/events.py` (`add_event`), `GET /api/events` с фильтрами, бейджи в `/history`; типы событий: NEW/ONLINE/OFFLINE/MAC_CHANGED | формализованные события (device_missing, ip_changed, disk_warning…) | severity/источник/фильтры есть; новые типы (disk_warning, ip_changed) подключаются через `add_event` одной строкой | **P7** (закрыта) |
 | **Observability** | `/api/health` есть (unauth, `system_routes.py:1636`), `/api/status`, `/api/system/health` — но **нет version/uptime/last-discovery в одном месте** | `/api/health` + `/api/version` + `/api/discovery/status` | состояние видно только через UI | **P1** |
 | **Installer** | ~~нет: установка вручную~~ **закрыта (P9, 30.09)**: `install.sh` в корне репо — preflight → code → apt-зависимости → venv → базовый settings (авто-subnet) → db init → systemd-юнит (`deploy/lan-discovery.service`, ExecStart под prefix) → health-retry; флаги `--prefix/--unit-dir/--skip-apt/--no-enable/--dry-run`, идемпотентен (проверено двойным прогоном на X96 в tmp-префиксе, состояние БД/config/юнита не изменилось); `docs/Установка.md` дополнен | `install.sh`: dep-check → config → systemd → db init → health | нестандартный `--prefix`: пути БД/settings захардкожены в коде; полный e2e «чистой машины» без Docker не воспроизведён (проверка — tmp-префикс + dry-run) | **P9** (закрыта) |
-| **Update/rollback** | деплой вручную (`deploy.py`: бэкап → SFTP → py_compile → restart); бэкап БД автоматический + integrity_check + restore из UI — **это уже работает** | версия → backup → update → health → rollback | нет версий/отката кода (только бэкап файлов) | **P3** |
+| **Update/rollback** | ~~деплой вручную, нет отката кода~~ **закрыта (P10, 30.09)**: `update.sh` — бэкап (tar кода + settings + sqlite-бэкап БД в `/var/backups/lan-discovery/<ts>` c meta.json/git-rev, ротация `--keep`) → apply (`--from`/`git pull`) → verify py_compile → pip → restart → health-retry; **авто-rollback** при сбое verify/health (восстановление кода/БД + restart + контрольный health), ручной `--rollback [TS]`, `--dry-run`; бэкап БД автоматический + restore из UI уже были | версия → backup → update → health → rollback | нет семантических версий/чейнджлога (трассировка — git-rev в meta.json); `--from` не удаляет исчезнувшие из новой версии файлы | **P10** (закрыта) |
 | **Backup/recovery** | БД: Online Backup API + integrity_check + ротация 14 дней + restore через UI (`system_routes.py:1936`); на OP эММС-бэкапы; **restore на чистую систему не проверен** | документированная и проверенная процедура restore | «production ready только после проверенного restore» | **P2** |
 | **Testing** | ~~pytest/CI нет; 3 ad-hoc скрипта требуют живой панели~~ **закрыта (P13, 30.09)**: `tests/` в репо — 42 unit (discovery/events/hardware/migrations/config, без сети) + 5 live (маркер `live`, скип при недоступности панели), `pytest.ini`+`requirements-dev.txt`, CI на каждый push/PR (ubuntu/py3.11: pytest unit + py_compile); ad-hoc `/tmp/test_p*`-скрипты остались как deploy-проверки фаз | unit + интеграционные в одном прогоне | живые ad-hoc-скрипты фаз не в git (deploy-only) | **P13** (закрыта) |
 | **Documentation** | `docs/` (9 страниц, wiki), `README.md`, `AGENTS.md`; `docs/Архитектура.md:81` **устарел** (11 таблиц vs 16 фактических), нет ARCHITECTURE/SECURITY/CONFIGURATION/API | комплект 1.0 (см. PHASE 14) | документация отстаёт от кода | **P3** |
@@ -303,6 +303,25 @@ security pentest, восстановление из backup на чистую с�
      Debian/Armbian (3 способа получить код), описание каждого шага
      install.sh и флагов, первый вход (admin/1234 → смена пароля),
      проверка (systemctl/curl health), удаление — см. §9.
+35. **[P10][DONE — 30.09.2026]** `update.sh` (корень репо): бэкап
+     (tar кода + settings.json + sqlite-бэкап devices.db →
+     `/var/backups/lan-discovery/<ts>/` с meta.json, ротация `--keep`,
+     default 5) → apply (`--from DIR` копированием или `git pull
+     --ff-only` если есть `.git`) → verify (`py_compile` app.py+core+
+     modules) → pip -r requirements → `systemctl restart` → health-retry;
+     **авто-rollback** при ошибке verify/health (распаковка бэкапа +
+     restore БД + restart + контрольный health); ручной
+     `--rollback [TS]`, `--dry-run` — см. §9.
+36. **[P10][DONE — 30.09.2026]** Тесты update.sh на X96: dry-run (план);
+     success-путь (`--from` с копией боевых файлов: rc=0, бэкап создан,
+     health ok, код не повреждён); **fail-путь** (битый `app.py` →
+     py_compile → авто-откат до бэкапа: md5 исходного app.py
+     восстановлен, сервис жив, rc≠0); `--rollback` вручную (rc=0,
+     health ok); ротация `--keep 2` — см. §9.
+37. **[P10][DONE — 30.09.2026]** `docs/Обновление.md`: два способа
+     (update.sh / git pull), таблица флагов, что делает авто-откат,
+     где лежат бэкапы и ротация, ручной откат, связь с install.sh —
+     см. §9.
 
 ---
 
@@ -320,7 +339,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 7 Event engine | **DONE** | задачи 21–24: events v2 (severity/source/metadata, SCHEMA_VERSION=2), `core/events.py`, `GET /api/events`, бейджи в /history |
 | PHASE 8 Security hardening | **IN PROGRESS** | задачи 1–6 (P0) + 10 (P1-10); root-PTY/dev-Werkzeug дефернуты |
 | PHASE 9 Installer | **DONE** | задачи 32–34: install.sh (8 шагов, идемпотент, dry-run), deploy/lan-discovery.service, docs/Установка.md; проверка на X96 в tmp-префиксе + повторный прогон без изменений данных |
-| PHASE 10 Update/rollback | **PENDING** | |
+| PHASE 10 Update/rollback | **DONE** | задачи 35–37: update.sh (backup → apply → verify → pip → restart → health с авто-rollback), docs/Обновление.md; тесты на X96: success/fail+авто-откат (md5 app.py восстановлен, сервис жив)/ручной rollback/ротация |
 | PHASE 11 Backup/Recovery | **PARTIAL** | бэкап БД готов; restore на чистую систему не проверен → не DONE |
 | PHASE 12 Observability | **DONE** | P1-9: `/api/health` + version/uptime/last-discovery/db-status |
 | PHASE 13 Testing | **DONE** | задачи 29–31: pytest-структура (unit 42 / live 5, маркер `live`), CI GitHub Actions (ubuntu/py3.11: pytest unit + py_compile) на каждый push/PR |
@@ -1130,3 +1149,49 @@ Docker/WSL ни на боксе, ни локально (проверка = tmp-�
 (`step_deps`) прогнана только в режиме «все пакеты есть»/`--skip-apt`;
 ветка создания `settings.json` (чистая машина) — только dry-run
 (на X96 файл существует → «уже есть»).
+
+### 30.09.2026 — P10: Update/rollback — update.sh (PHASE 10) — **DONE**
+
+**Задачи 35–37 (PHASE 10).** Обновление кода получило бэкап, проверку
+и откат:
+
+- **`update.sh`** (корень репо): backup (`tar` кода: app.py, core/,
+  modules/, templates/, static/, games/, tools/, deploy/, requirements*,
+  install/update/pytest, tests/ + `settings.json` + sqlite-бэкап
+  `devices.db` → `/var/backups/lan-discovery/<YYYYMMDD-HHMMSS>/` c
+  `meta.json` (ts/from/git-rev), ротация `--keep` default 5) → apply
+  (`--from DIR` копированием по CODE_ITEMS; иначе `git pull --ff-only`
+  если есть `.git`) → verify (`py_compile` app.py+core+modules
+  python-хередоком с абсолютными путями) → pip -r requirements →
+  `systemctl restart` → health (`/api/health` retry 30×2с).
+  **Авто-rollback** при провале verify/health: распаковка бэкапа этого
+  запуска (код + settings + restore БД) + restart + контрольный health;
+  при health-сбое, если откат удался — «система здорова, обновление
+  отменено» (rc=1), если нет — «срочная диагностика» (rc=1). Ручной
+  `--rollback [TS]` (без TS — последний бэкап). Флаги: `--from`,
+  `--rollback [TS]`, `--prefix`, `--keep`, `--dry-run`, `--help`.
+- **`docs/Обновление.md`** (install.sh уже ссылался): два способа
+  (update.sh / git pull), таблица шагов, флаги, устройство авто-отката,
+  где бэкапы, ручной откат с предупреждением о потере событий после
+  бэкапа, проверка после обновления.
+
+**Тесты на X96 (`/tmp/p10_run.sh`, очищенный `/var/backups`):**
+dry-run (rc=0, бэкапов 0, app.md5 не изменился) → success `--from`
+(копия боевого кода: rc=0, бэкап 1, app.md5 исходный, health ok) →
+**fail-путь** (в источник добавлен `def broken(:` → verify падает →
+авто-rollback: `app.py` **восстановлен до исходного md5**, health ok,
+rc=1, бэкап 2) → ручной `--rollback` (rc=0, app==original, health ok) →
+`--keep 2` (rc=0, ротация до 2 бэкапов, health ok). Итоговый md5
+`app.py` равен исходному — система ни разу не осталась в битом
+состоянии. Найденные по ходу баги: `backup_path` возвращал полный путь
+(двойная конкатенация) и regex `[0-9]{12}` не матчил дефис в формате
+`YYYYMMDD-HHMMSS` (ручной откат молча падал); тест-скрипт не
+восстанавливал `SRC/app.py` после fail-прогона; `verify` зависел от cwd
+(исправлено на абсолютные пути из argv).
+
+**Остаточные риски:** семантических версий нет (трассировка — git-rev в
+`meta.json`); `--from` не удаляет файлы, исчезнувшие из новой версии
+(копирование поверх — старые файлы остаются до ручной чистки);
+health-fail-ветка авто-отката не воспроизводилась искусственно (только
+verify-fail); git-путь (`git pull`) прогнан только dry-run'ом (боевой
+каталог не git-репо).
