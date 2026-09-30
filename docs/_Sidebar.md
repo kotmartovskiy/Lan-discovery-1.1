@@ -21,3 +21,4 @@
 **Справочник**
 
 - [Полезные команды](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Полезные-команды)
+- [Пентест](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Пентест)
