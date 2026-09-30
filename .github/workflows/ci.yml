@@ -23,6 +23,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
+      - name: Provide /etc/lan-discovery (app imports create dirs there)
+        run: sudo mkdir -p /etc/lan-discovery && sudo chmod 777 /etc/lan-discovery
+
       - name: Unit tests
         run: pytest tests/unit -v
 
