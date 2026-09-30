@@ -9,9 +9,14 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 BASE = r"C:\Users\Lenovo\Documents\Default Project"
 REMOTE = "/opt/lan-discovery"
 
+HOST = os.environ.get("LAN_SSH_HOST", "")
+PASS = os.environ.get("LAN_SSH_PASS", "")
+if not HOST or not PASS:
+    sys.exit("укажите LAN_SSH_HOST и LAN_SSH_PASS в окружении")
+
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect('192.168.3.234', username='root', password='1234', timeout=10)
+ssh.connect(HOST, username=os.environ.get("LAN_SSH_USER", "root"), password=PASS, timeout=10)
 print('Connected.')
 
 # 1. Backup

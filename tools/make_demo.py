@@ -151,6 +151,23 @@ def scrub_name_keys(obj):
         return [scrub_name_keys(x) for x in obj]
     return obj
 
+
+# --- санитайзер рабочей подсети и паролей (публичный слепок) ---
+IP_RE = re.compile(r"\b192\.168\.3\.")
+PW_RE = [
+    (re.compile(r"(?i)(root\s*/\s*)1234"), r"\1••••"),
+    (re.compile(r"(?i)(пароль[^<\n]{0,10}?:?\s*)1234"), r"\1••••"),
+    (re.compile(r"(?i)(password['\"]?\s*[:=]\s*['\"])1234"), r"\1••••"),
+]
+
+
+def scrub_net_secrets(s):
+    """Рабочая подсеть 192.168.3.x → 192.168.1.x, пароли-литералы → ••••."""
+    s = IP_RE.sub("192.168.1.", s)
+    for pat, repl in PW_RE:
+        s = pat.sub(repl, s)
+    return s
+
 BANNER = (
     '<div style="position:fixed;left:0;right:0;bottom:0;background:#12203a;'
     'color:#9fb6e8;font:11px/1.8 system-ui,sans-serif;padding:2px 8px;'
@@ -309,6 +326,7 @@ def scrub(obj):
 
 
 def write_file(rel, data, binary=False):
+    rel = scrub_net_secrets(rel)
     path = os.path.join(OUT, rel)
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -361,13 +379,17 @@ def transform(html, page_map):
 
 
 def login(client):
+    panel_pass = os.environ.get("LAN_PANEL_PASS", "")
+    if not panel_pass:
+        print("нет LAN_PANEL_PASS в окружении (пароль администратора панели)")
+        sys.exit(1)
     r = client.get("/login")
     html = r.get_data(as_text=True)
     m = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html)
     token = m.group(1) if m else ""
     r = client.post(
         "/login",
-        data={"username": "admin", "password": "1234", "csrf_token": token},
+        data={"username": "admin", "password": panel_pass, "csrf_token": token},
         follow_redirects=True)
     if r.status_code != 200 or "traceback" in r.get_data(as_text=True).lower():
         print("LOGIN FAILED", r.status_code)
@@ -407,8 +429,10 @@ def main():
         if "traceback" in body.lower():
             print("PAGE TRACEBACK", path)
             continue
-        page_map[path] = route_file(path)
-        write_file(page_map[path], body)
+        # ключи/значения — уже scrubbed: HTML скрабится до transform,
+        # имена файлов скрабятся в write_file
+        page_map[scrub_net_secrets(path)] = scrub_net_secrets(route_file(path))
+        write_file(page_map[scrub_net_secrets(path)], body)
     print("pages:", len(page_map))
 
     # --- снимки API ---
@@ -498,6 +522,7 @@ def main():
             for old, new in sorted(fixes.items(), key=lambda kv: -len(kv[0])):
                 text = text.replace(old, new)
             text = MAC_RE.sub(fake_mac, text)
+            text = scrub_net_secrets(text)
             try:
                 with open(p, "w", encoding="utf-8") as f:
                     f.write(text)
@@ -514,6 +539,7 @@ def main():
         html = open(path, encoding="utf-8").read()
         html = apply_name_fixes(html, fixes)
         html = MAC_RE.sub(fake_mac, html)
+        html = scrub_net_secrets(html)
         html = transform(html, page_map)
         with open(path, "w", encoding="utf-8") as f:
             f.write(html)

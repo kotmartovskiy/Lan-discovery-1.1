@@ -1,9 +1,13 @@
 import paramiko
+import os
+import sys
 import time
 
-HOST = "192.168.3.234"
-USER = "root"
-PASS = "1234"
+HOST = os.environ.get("LAN_SSH_HOST", "")
+USER = os.environ.get("LAN_SSH_USER", "root")
+PASS = os.environ.get("LAN_SSH_PASS", "")
+if not HOST or not PASS:
+    sys.exit("укажите LAN_SSH_HOST и LAN_SSH_PASS в окружении")
 FILE = "/opt/lan-discovery/app.py"
 
 ssh = paramiko.SSHClient()

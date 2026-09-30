@@ -1,13 +1,19 @@
 import paramiko
 import sys
 import io
+import os
 import time
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
+HOST = os.environ.get("LAN_SSH_HOST", "")
+PASS = os.environ.get("LAN_SSH_PASS", "")
+if not HOST or not PASS:
+    sys.exit("укажите LAN_SSH_HOST и LAN_SSH_PASS в окружении")
+
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect('192.168.3.234', username='root', password='1234', timeout=10)
+ssh.connect(HOST, username=os.environ.get("LAN_SSH_USER", "root"), password=PASS, timeout=10)
 
 FILE = "/opt/lan-discovery/app.py"
 LOCAL = r"C:\Users\Lenovo\Documents\Default Project\app.py"

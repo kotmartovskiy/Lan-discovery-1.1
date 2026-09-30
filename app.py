@@ -217,6 +217,10 @@ app = Flask(__name__)
 app.secret_key = _load_or_create_secret_key()
 csrf = CSRFProtect(app)
 
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = False  # панель работает по HTTP в LAN
+
 from core.module_loader import MODULES_DIR, block_items
 from jinja2 import ChoiceLoader, FileSystemLoader
 
@@ -231,6 +235,14 @@ app.jinja_env.globals["_format_dt"] = _format_dt
 def _no_cache(resp):
     if request.path.startswith("/api/") or request.path.endswith(".json"):
         resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
+
+
+@app.after_request
+def _security_headers(resp):
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    resp.headers.setdefault("Referrer-Policy", "same-origin")
     return resp
 
 

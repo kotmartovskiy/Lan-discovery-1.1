@@ -4,9 +4,14 @@ import os
 
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 
+HOST = os.environ.get("LAN_SSH_HOST", "")
+PASS = os.environ.get("LAN_SSH_PASS", "")
+if not HOST or not PASS:
+    sys.exit("укажите LAN_SSH_HOST и LAN_SSH_PASS в окружении")
+
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-ssh.connect('192.168.3.234', username='root', password='1234')
+ssh.connect(HOST, username=os.environ.get("LAN_SSH_USER", "root"), password=PASS)
 
 def run_cmd(cmd):
     stdin, stdout, stderr = ssh.exec_command(cmd)

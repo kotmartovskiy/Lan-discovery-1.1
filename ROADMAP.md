@@ -101,7 +101,7 @@ security pentest, восстановление из backup на чистую с�
 
 | # | Проблема | Место | Эффект |
 |---|---|---|---|
-| B1 | ~~Веб-терминал без авторизации, root-PTY, CORS `*`~~ **РЕШЁН (P0-1)** — SocketIO admin-only, CORS same-origin; root-PTY и dev-Werkzeug остались (P1-10) | `core_routes.py`, `app.py` | RCE закрыт для не-admin |
+| B1 | ~~Веб-терминал без авторизации, root-PTY, CORS `*`~~ **РЕШЁН (P0-1)** — SocketIO admin-only, CORS same-origin; root-PTY и dev-Werkzeug остались (деферт вне scope задачи 10) | `core_routes.py`, `app.py` | RCE закрыт для не-admin |
 | B2 | ~~Filemanager: корень `/`, guest может удалять/перемещать файлы~~ **РЕШЁН (P0-2)** — 7 API → `@admin_required`, нормализация путей; корень `/` оставлен для admin | `core_routes.py` | потеря данных закрыта |
 | B3 | ~~`POST /api/network/check_host` без авторизации (host → внешняя команда)~~ **РЕШЁН (P0-3)** — `@login_required` + `_valid_host` во всех nettools | `network_routes.py` | неаутентифицированный SSRF/DoS закрыт |
 | B4 | ~~Сейф паролей: base64, HMAC игнорируется, guest читает~~ **РЕШЁН (30.09.2026, P0-4)** — Fernet + `@can_edit` | `core_routes.py` secrets-helpers | пароли открыты — закрыто |
@@ -165,8 +165,9 @@ security pentest, восстановление из backup на чистую с�
    и дубли функций (`app.py` ↔ `core_routes.py`) — см. журнал §9.
 9. **[P1][DONE — 30.09.2026]** Observability: `/api/health` → version/
    uptime/last-discovery/db-status в один ответ — см. журнал §9.
-10. **[P1] Безопасность окружения:** security-заголовки, cookie-флаги, вычистить
-    root/1234 и IP из отслеживаемых файлов (включить `templates/help.html` в sanitize).
+10. **[P1][DONE — 30.09.2026]** Безопасность окружения: security-заголовки,
+     cookie-флаги, чистка root/1234 и IP из отслеживаемых файлов (help.html,
+     скрипты, демо-пайплайн) — см. журнал §9.
 
 ---
 
@@ -182,7 +183,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 5 Database | **PARTIAL** | задача 7 (init/user_version/индекс) done; миграционная система — нет |
 | PHASE 6 Discovery engine | **PENDING** | |
 | PHASE 7 Event engine | **PENDING** | |
-| PHASE 8 Security hardening | **IN PROGRESS** | задачи 1–6 (P0) |
+| PHASE 8 Security hardening | **IN PROGRESS** | задачи 1–6 (P0) + 10 (P1-10); root-PTY/dev-Werkzeug дефернуты |
 | PHASE 9 Installer | **PENDING** | |
 | PHASE 10 Update/rollback | **PENDING** | |
 | PHASE 11 Backup/Recovery | **PARTIAL** | бэкап БД готов; restore на чистую систему не проверен → не DONE |
@@ -557,3 +558,61 @@ weather_current`, но делегируют логику в `app`/`weather` — 
 в P2 Configuration); `service_sec` считается от импорта app.py (≈ старт
 процесса); unauth-доступ `/api/health` сохранён осознанно (мониторинг
 без входа в закрытой LAN; роут добавлен ещё в P0-3-регламенте «по решению»).
+
+
+---
+
+### 30.09.2026 — P1-10: Безопасность окружения — заголовки/куки/чистка секретов + фикс публичной утечки demo — **DONE**
+
+**Проблема:** публичный демо-слепок (`kotmartovskiy.github.io/Lan-discovery-demo`)
+отдавал `SSH root / 1234` и реальную топологию `192.168.3.x` (включая имена
+файлов `device-192.168.3.x.html`); панель не ставила security-заголовков и
+cookie-флагов; 10 отслеживаемых скриптов содержали `password='1234'` и
+рабочие IP.
+
+**Изменения:**
+- `app.py`: `SESSION_COOKIE_HTTPONLY=True`, `SESSION_COOKIE_SAMESITE=Lax`,
+  `SESSION_COOKIE_SECURE=False` (панель по HTTP в LAN — иначе вход сломается);
+  after_request `_security_headers` → `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: same-origin` (setdefault,
+  не дублирует чужие). CSP не вводится — CDN xterm/socket.io (residual).
+- `templates/help.html`: `root / 1234` → «пароль задан при установке»;
+  `(пароль: 1234)` → «пароль — от root-аккаунта…». IP-таблицы в исходнике
+  сохранены (UX панели) — скрабятся при публикации.
+- `tools/make_demo.py`: `scrub_net_secrets()` — `192.168.3.x → 192.168.1.x`,
+  пароль-литералы → `••••`; применяется в HTML- и JSON-проходах **и в именах
+  файлов** (`write_file`, ключи/значения `page_map` — синхронно со скрабом
+  HTML до `transform`); логин генератора — env `LAN_PANEL_PASS` (без литерала).
+- `tools/demo_lint.py`: `check_net_secrets()` — контент (html/json/js/css) и
+  **имена файлов** на `192.168.3.` + паттерны `root/1234`, `пароль: 1234`,
+  `password=1234`; позитив-контроль: старый слепок → 123 ошибки.
+- Скрипты (env, без дефолтов): `deploy.py`, `deploy_templates.py`,
+  `find_tv.py`, `install_xplore.py`, `remote_edit.py`, `ssh_query.py`,
+  `tv_adb.py` → `LAN_SSH_HOST/LAN_SSH_USER/LAN_SSH_PASS` (+`LAN_TV_ADB`,
+  `LAN_TV_IP`); `test_api_auth.py`/`test_status.py`/`test_sys.py` →
+  `LAN_PANEL_PASS`.
+
+**Деплой:** бэкапы `*.backup-pre-p10-20260930-074345` (app.py, help.html,
+make_demo.py); демо регенерировано на боксе (`LAN_PANEL_PASS=…`), скачано,
+`tools/demo_lint.py` → **LINT OK: 188 files, net/secret leaks: 0**.
+
+**Тесты (X96, `/tmp/test_p10_env.py` 27/27 PASS):**
+- заголовки на `/login`, `/api/health`, `/`, `/system`, `/static/style.css`;
+- Set-Cookie: `HttpOnly` + `SameSite=Lax`, без `Secure`; login → 302;
+- health: version 0.9.0, db {status ok, user_version 1, devices 40,
+  events 35836}, uptime, last_discovery (P1-9-регрессия);
+- `/help`: без `root / 1234` и `пароль: 1234`, IP-таблица сохранена (UX);
+- регрессии: CSRF анонимный POST → 400, без сессии → 302, no-store на API,
+  журнал без Traceback, `SCAN OK`.
+
+**Публикация:** чистый слепок отправлен в `Lan-discovery-demo` (GitHub Pages)
+— живая утечка `root/1234` + IP на публичном сайте закрыта.
+
+**Остаточные риски:** root-PTY и dev-Werkzeug (`allow_unsafe_werkzeug`)
+дефернуты вне scope задачи 10; IP в функциональных дефолтах кода
+(`NETWORK`, monitoring/web-хосты, default hosts, `nettools` placeholder,
+исходник `help.html`) — ок для приватного репо, скрабятся демо-пайплайном;
+`patch_app.py`/`remote_edit.py` — исторические one-off (IP внутри payload);
+`AGENTS.md` содержит SSH-креды осознанно (ops-файл приватного репо, не
+публикуется; `sanitize_docs` его не трогает); CSP не введён; регенерация
+демо требует `LAN_PANEL_PASS` в окружении.

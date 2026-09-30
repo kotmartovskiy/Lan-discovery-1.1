@@ -34,7 +34,7 @@
 5. Если правки вносились на сервер (`/opt/lan-discovery/*`) — сначала подтянуть их в локальную копию (SFTP read → правка → commit), чтобы репозиторий соответствовал проду.
 6. Обновление демо-сайта (по запросу):
    ```
-   # на боксе: cd /opt/lan-discovery && venv/bin/python tools/make_demo.py /tmp/demo
+   # на боксе: cd /opt/lan-discovery && LAN_PANEL_PASS=<пароль админа> venv/bin/python tools/make_demo.py /tmp/demo
    # скачать /tmp/demo локально (pscp -r), затем:
    python -X utf8 tools/demo_lint.py <папка-demo>    # exit 0 = чисто
    # скопировать в клон Lan-discovery-demo → add -A → commit → push (Pages пересобирается сам)

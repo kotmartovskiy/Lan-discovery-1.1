@@ -137,6 +137,40 @@ def check_privacy():
     print("macs checked:", n_macs)
 
 
+def check_net_secrets():
+    """Рабочая подсеть и пароли не должны попадать в публичный слепок."""
+    net_re = re.compile(r"192\.168\.3\.")
+    pw_re = re.compile(
+        r"(?i)(?:root\s*/\s*1234|пароль[^<\n]{0,12}?:?\s*1234"
+        r"|password['\"]?\s*[:=]\s*['\"]1234)")
+    n = 0
+    for dirpath, _, files in os.walk(ROOT):
+        for fn in files:
+            p = os.path.join(dirpath, fn)
+            rel = os.path.relpath(p, ROOT)
+            if net_re.search(rel.replace(os.sep, "/")):
+                n += 1
+                err("имя файла содержит рабочую подсеть: " + rel)
+            if not (fn.endswith(".html") or fn.endswith(".json")
+                    or fn.endswith(".js") or fn.endswith(".css")):
+                continue
+            try:
+                text = open(p, encoding="utf-8").read()
+            except Exception:
+                continue
+            for m in net_re.finditer(text):
+                n += 1
+                line = text[:m.start()].count("\n") + 1
+                err("%s:%d: рабочая подсеть 192.168.3.x: %s"
+                    % (rel, line, text.splitlines()[line - 1].strip()[:100]))
+            for m in pw_re.finditer(text):
+                n += 1
+                line = text[:m.start()].count("\n") + 1
+                err("%s:%d: пароль-литерал: %s"
+                    % (rel, line, text.splitlines()[line - 1].strip()[:100]))
+    print("net/secret leaks checked:", n)
+
+
 def check_html():
     n_html = 0
     for dirpath, dirs, files in os.walk(ROOT):
@@ -203,6 +237,7 @@ def main():
     check_secrets()
     check_html()
     check_privacy()
+    check_net_secrets()
     n = sum(len(f) for _, _, f in os.walk(ROOT))
     for w in warns:
         print("WARN:", w)
