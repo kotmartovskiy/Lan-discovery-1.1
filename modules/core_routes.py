@@ -249,6 +249,131 @@ def page_data():
     return _app_page_data()
 
 
+def _help_facts():
+    """Данные «эта панель» + накопители для templates/help.html.
+
+    Справка генерируется по фактическим данным хоста (device-tree, ip,
+    lsblk, settings), а не зашита под X96 Max — корректна на X96,
+    Orange Pi и generic Debian.
+    """
+    import re as _re
+    from modules.system_routes import (
+        about_data, board_title, _block_kind, _root_mount_source,
+        find_typed_block,
+    )
+
+    about = about_data()
+
+    ipv4 = []
+    for iface in about.get("network_physical", []):
+        for a in iface.get("addresses", []):
+            addr = a.get("address", "")
+            if a.get("family") == "inet" and addr \
+                    and not addr.startswith("127."):
+                ipv4.append(addr)
+    primary = next((ip for ip in ipv4 if ip.startswith("192.168.")),
+                   ipv4[0] if ipv4 else "127.0.0.1")
+
+    settings = load_settings()
+    port = (settings.get("web") or {}).get("flask_port", 8080)
+    subnet = (settings.get("network") or {}).get("subnet", "192.168.3.0/24")
+    w = settings.get("weather") or {}
+    lat = float(w.get("latitude", 57.0))
+    lon = float(w.get("longitude", 41.0))
+    coords = "%.1f\u00b0%s, %.1f\u00b0%s" % (
+        abs(lat), "N" if lat >= 0 else "S",
+        abs(lon), "E" if lon >= 0 else "W",
+    )
+
+    root_src = _root_mount_source()
+    m = _re.match(r"(mmcblk\d+|sd[a-z])", root_src.rsplit("/", 1)[-1])
+    root_disk = m.group(1) if m else ""
+    root_kind = _block_kind(root_disk) if root_disk else None
+    kind_labels = {"SD": "SD", "MMC": "eMMC", "HDD": "HDD"}
+    root_kind_label = kind_labels.get(root_kind, root_kind or "\u2014")
+
+    def _kind_label(name, rotational):
+        k = _block_kind(name)
+        if k in kind_labels:
+            return kind_labels[k]
+        return "HDD" if rotational else "SSD"
+
+    disks = []
+    for d in about.get("disks", []):
+        if d.get("type") != "disk":
+            continue
+        name = d["name"]
+        if not _re.match(r"^(mmcblk\d+|sd[a-z]+|vd[a-z]+|xvd[a-z]+|nvme\d+n\d+)$",
+                         name):
+            continue
+        parts = [p for p in about.get("disks", [])
+                 if p.get("type") == "part" and p["name"].startswith(name)]
+        mounts = list(d.get("mountpoints") or [])
+        for p in parts:
+            mounts.extend(p.get("mountpoints") or [])
+        if name == root_disk:
+            role = "системный диск (панель, данные)"
+        elif not mounts:
+            role = "пустой (не используется)"
+        else:
+            role = "данные"
+        disks.append({
+            "dev": "/dev/" + name,
+            "kind": _kind_label(name, d.get("rotational")),
+            "size": d.get("size", "\u2014"),
+            "mounts": ", ".join(mounts) or "\u2014",
+            "role": role,
+        })
+
+    lan = [
+        {"title": "X96 Max (панель)", "ip": "192.168.3.243",
+         "desc": "Панель X96 Max (основной сервер)"},
+        {"title": "X96 Max (WiFi)", "ip": "192.168.3.244",
+         "desc": "WiFi-интерфейс X96 Max"},
+        {"title": "Orange Pi (LAN)", "ip": "192.168.3.234",
+         "desc": "Удалённый сервер (кабель отвален \u2014 не отвечает)"},
+        {"title": "Orange Pi (WiFi AP)", "ip": "192.168.3.235",
+         "desc": "Доступ к Orange Pi через его WiFi AP"},
+        {"title": "ThinkPad T480", "ip": "192.168.3.236",
+         "display": "192.168.3.236 / .239", "desc": "Рабочая станция"},
+        {"title": "Роутер", "ip": "192.168.3.1",
+         "desc": "Шлюз, веб-интерфейс"},
+        {"title": "DNS-сервер", "ip": "192.168.3.51",
+         "desc": "Локальный DNS"},
+    ]
+    for n in lan:
+        n["here"] = (n["ip"] == primary)
+        n.setdefault("display", n["ip"])
+
+    sd_dev = find_typed_block("SD")
+    emmc_dev = find_typed_block("MMC")
+
+    return {
+        "hf": {
+            "board": board_title(),
+            "hostname": about.get("os", {}).get("hostname", ""),
+            "os": about.get("os", {}).get("pretty_name", ""),
+            "primary_ip": primary,
+            "all_ips": ipv4,
+            "port": port,
+            "subnet": subnet,
+            "panel_url": "http://%s:%s" % (primary, port),
+            "restore_url": "http://%s:8081" % primary,
+            "coords": coords,
+            "lat": lat,
+            "lon": lon,
+            "region": w.get("region_name", "Иваново"),
+            "disks": disks,
+            "lan": lan,
+            "root_src": root_src or "\u2014",
+            "root_kind": root_kind or "",
+            "root_kind_label": root_kind_label,
+            "sd_dev": sd_dev or "",
+            "emmc_dev": emmc_dev or "",
+        }
+    }
+
+
 # ==================== Routes ====================
 
 def register_routes(app):
@@ -307,10 +432,11 @@ def register_routes(app):
     @app.route("/help")
     @login_required
     def help_page():
-        page = page_data()
+        data = dict(page_data())
+        data.update(_help_facts())
 
         return render_template("help.html",
-            **page
+            **data
         )
 
     # --- Currencies page ---

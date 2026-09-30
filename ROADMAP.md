@@ -1670,3 +1670,56 @@ base/login/weather-update) → pscp → `py_compile` OK → **pytest 63/63**
 МЧС-статья без разбираемой даты окончания живёт максимум 3 дня;
 шаблоны, отрендеренные без `page_data`, не показывают суффикс (guarded
 `{% if panel_name %}`); OP ещё предупреждён к деплою этой версии.
+
+### 01.10.2026 - ui: динамическая справка /help (не зашита под X96) - **DONE**
+
+**Проблема (жалоба):** `/help` на Orange Pi описывал X96 Max — плата
+«X96 Max (Amlogic S905X)», IP `.243/.244`, restore `:8081@.243`, диск-таблица
+(SD-система, пустая eMMC, нет HDD), `ssh root@192.168.3.243`, «системный
+раздел SD», клонирование с `mmcblk1/mmcblk2` — на OP всё иначе (eMMC
+-система, HDD `/srv`, SD `/mnt/sd`, primary `.235`).
+
+**Изменения:**
+- `modules/core_routes.py` — `_help_facts()`: `board_title()`/hostname/OS из
+  `about_data()`; primary IPv4 (предпочтение `192.168.*`, только
+  `network_physical` — без docker `172.17.*`); порт `web.flask_port`,
+  `network.subnet`, координаты+регион из `settings.weather`; таблица
+  накопителей из lsblk **с фильтром имён** (`mmcblk*/sd*/vd*/nvme*` — без
+  `ram0..N`), роли: системный/данные/пустой; LAN-таблица с маркером
+  **«эта панель»** по `primary_ip`; `root_src/root_kind( label)`,
+  `sd_dev/emmc_dev` через `find_typed_block`; `help_page()` —
+  `dict(page_data()) + hf` (без мутации кэша `page_data`);
+- `templates/help.html` — обзор («на базе {board}»), порт, координаты
+  Open-Meteo, блок «Основное устройство» (IP-строки из фактов), «Накопители»
+  `{% for %}`, LAN-таблица `{% for %}` с маркером, регион погоды,
+  «Управление сервером {board}», «системный раздел {root_kind_label}»
+  (2 места), curl-координаты из settings, клонирование (root/sd/emmc
+  динамически, строки guard'ятся `{% if hf.sd_dev/emmc_dev %}`),
+  `ssh root@{primary_ip}`, subnet в nmap/FAQ;
+- `tests/unit/test_help.py` — **2 unit-теста**: рендер `/help` (login via
+  monkeypatched `load_users` + session) — hf-значения на месте, старый
+  X96-хардкод отсутствует (conditional: не для самого X96); структура
+  `_help_facts()` (порты, диски с dev/kind/role, ≤1 маркер).
+
+**Деплой (оба узла):** бэкапы `modules/core_routes.py.backup-help*` +
+`templates/help.html.backup-help*` → pscp → `py_compile` OK →
+**pytest 65/65** (63 + 2) на X96 и OP → рестарт → active;
+sha1 `core_routes.py` локаль == X96 == OP.
+
+**Проверка `/help` (probe, оба узла, HTTP 200):**
+- X96: «на базе X96 Max, hostname armbian», LAN `.243` + «Другой IP .244»,
+  панель/restore `http://192.168.3.243:8080/8081`, диски `mmcblk1 (SD)
+  -системный` + `mmcblk2 (eMMC) пустой`, «эта панель» на строке X96,
+  `ssh root@192.168.3.243`, «системный раздел SD», клонирование
+  `/dev/mmcblk1p2, SD`;
+- OP: «на базе Xunlong Orange Pi Plus / Plus 2, hostname orangepiplus»,
+  LAN `.235` **без** docker IP, панель/restore `http://192.168.3.235:8080/8081`,
+  диски `sda (HDD) /srv данные`, `mmcblk0 (SD) /mnt/sd данные`,
+  `mmcblk2 (eMMC) 14.6G системный`, «эта панель» на строке Orange Pi
+  (WiFi AP), `ssh root@192.168.3.235`, «системный раздел eMMC»,
+  клонирование `/dev/mmcblk2p1, eMMC`.
+
+**Остаточные заметки:** LAN-таблица (7 хостов) — curated-список домашней
+сети, IP в ней остаются статичными (это описание инфраструктуры, а не
+хоста); на свежей generic-установке без `192.168.*` primary упадёт в
+`127.0.0.1`/первый IPv4 — маркер «эта панель» просто не совпадёт.
