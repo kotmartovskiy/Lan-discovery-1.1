@@ -65,7 +65,7 @@ security pentest, восстановление из backup на чистую с�
 | **Hardware abstraction** | `core/hardware.py`: `detect_platform()`/`thermal_temp()`/`hdd_device()`/`emmc_device()`/`sd_device()` — thermal-перебор зон и динамический детект дисков вместо хардкодов (`thermal_zone0`, `mmcblk2`, `/dev/sda`); `platform`-блок в `/api/health`; остаток: пути `/opt|/etc|/srv` (конфиг, PHASE 2) | `detect_platform()` + capabilities + адаптеры | закрыта (пути — в PHASE 2) | **P2** (закрыта) |
 | **Переносимость (X96)** | новый код **уже работает** на aarch64/Debian 12; старый — на armv7l/Debian 13 | один код на обеих | две версии в проде (§9) | **P2** |
 | **Database** | WAL + busy_timeout есть в ключевых точках; **нет** версионирования схемы (`user_version=0`), **нет** индекса `events(ip)`, **нет** retention (events = 36 327 строк), идентичность = **IP** (не MAC); 8 таблиц weather не имеют CREATE в репо (схема живёт только на серверах) | `user_version` + миграции, индексы, retention, идентичность MAC+IP+hostname | рост БД бесконечен; восстановление на чистой машине может создать неполную схему | **P1** |
-| **Discovery engine** | скан плотно связан с UI-роутами (`devices_routes.py`), сеть захардкожена, ручного выбора подсети/интерфейса нет, MAC-смена **не пишется в events** (`devices_routes.py:354-386`) | scanner → normalizer → DB → events → API, manual/scheduled scan по выбору | нет гибкости сканирования, слабая трассируемость изменений | **P2** |
+| **Discovery engine** | ~~скан плотно связан с UI-роутами, сеть захардкожена, нет ручного выбора, MAC-смена не пишется в events~~ **закрыта (P6, 30.09)**: движок вынесен в `core/discovery.py` (scanner `run_scan` → normalizer `parse_scan` → `reconcile` → events), интерфейсы/подсеть из `network.scan_ifaces`/`subnet`, ручной `POST /api/scan` + кнопка в UI, событие `MAC_CHANGED` | scanner → normalizer → DB → events → API, manual/scheduled scan по выбору | ручной скан и scheduled есть; выбор интерфейса — через `scan_ifaces` (не через UI-форму) | **P6** (закрыта) |
 | **Event system** | только 3 типа (`NEW/ONLINE/OFFLINE`) в таблице `events`; нет severity/source/metadata | формализованные события (device_missing, ip_changed, disk_warning…) | нет фундамента для уведомлений | **P3** |
 | **Observability** | `/api/health` есть (unauth, `system_routes.py:1636`), `/api/status`, `/api/system/health` — но **нет version/uptime/last-discovery в одном месте** | `/api/health` + `/api/version` + `/api/discovery/status` | состояние видно только через UI | **P1** |
 | **Installer** | нет: установка вручную по `docs/Установка.md` (venv + systemd вручную) | `install.sh`: dep-check → config → systemd → db init → health | воспроизводимость установки на новое устройство | **P3** |
@@ -204,6 +204,28 @@ security pentest, восстановление из backup на чистую с�
      на X96: eMMC=`mmcblk2`, SD=`mmcblk1`, hdd=None, thermal 48°C,
      smart → «диск не обнаружен»), см. журнал §9.
 
+**PHASE 6 — Discovery engine (задачи P6):**
+
+17. **[P6][DONE — 30.09.2026]** Выделен движок: новый `core/discovery.py` —
+     `parse_scan` (normalizer), `run_scan` (scanner: один цикл по
+     `network.scan_ifaces`, raw-вывод nmap **без двойного парсинга/синтеза**,
+     FileNotFoundError → None), `reconcile(con, current, now)` (вся DB-логика:
+     NEW/ONLINE/OFFLINE/misses + **MAC_CHANGED**), `scan_loop`, статус,
+     `start_scan_thread`; `devices_routes.py` → реэкспорт + роуты; импорты
+     `app.py`/`system_routes` не изменились — см. журнал §9.
+18. **[P6][DONE — 30.09.2026]** Manual scan: `POST /api/scan`
+     (`{subnet?, ifaces?}` one-shot, admin-only, не пишет settings) →
+     run_scan + reconcile, JSON `{ok, devices, stats, subnet}`; кнопка
+     «🔍 Сканировать» в `templates/devices.html` (только admin;
+     fetch-wrapper base.html сам ставит X-CSRFToken).
+19. **[P6][DONE — 30.09.2026]** Трассируемость: смена MAC → событие
+     `MAC_CHANGED` в `events` (name/device_type по-прежнему обнуляются);
+     видно в `/history` и на странице устройства.
+20. **[P6][DONE — 30.09.2026]** Тест PHASE 6 — 30/30 PASS (unit parse_scan/
+     reconcile на временной БД: NEW → MAC_CHANGED → misses → OFFLINE → ONLINE,
+     живой run_scan 22 хоста, POST /api/scan 403/400/ok, кнопка в devices,
+     регрессии health/platform), см. журнал §9.
+
 ---
 
 ## 7. Статусы фаз roadmap
@@ -216,7 +238,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 3 Hardware abstraction | **DONE** | задачи 15–16: `core/hardware.py` (detect_platform/thermal/storage), убраны хардкоды thermal_zone0/mmcblk2/sda, platform в health |
 | PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
 | PHASE 5 Database | **PARTIAL** | задача 7 (init/user_version/индекс) done; миграционная система — нет |
-| PHASE 6 Discovery engine | **PENDING** | |
+| PHASE 6 Discovery engine | **DONE** | задачи 17–20: `core/discovery.py` (scanner/normalizer/reconcile), `POST /api/scan` + кнопка, событие MAC_CHANGED |
 | PHASE 7 Event engine | **PENDING** | |
 | PHASE 8 Security hardening | **IN PROGRESS** | задачи 1–6 (P0) + 10 (P1-10); root-PTY/dev-Werkzeug дефернуты |
 | PHASE 9 Installer | **PENDING** | |
@@ -789,3 +811,42 @@ overview), live-сервис; журнал без Traceback, `SCAN OK: 6–8 dev
 прекращается (прогресс недоступен, сама клонировка не затронута); платформенные
 интерфейсы (`end0→eth0`, `wlan1→wlan0`) по-прежнему перебором в
 `devices_routes.run_scan` (капабилити-уровень, не board-абстракция).
+
+### 30.09.2026 — P6: Discovery engine — core/discovery.py + manual scan (PHASE 6) — **DONE**
+
+**Задачи 17–20 (PHASE 6).** Движок сканирования вынесен из UI-роутов
+в отдельный модуль:
+
+- **`core/discovery.py` (новый):** `run_scan(subnet, ifaces)` — scanner:
+  единый цикл по `network.scan_ifaces` (дефолт `end0/eth0/wlan1/wlan0`,
+  вместо двух хардкод-списков wired/wifi), возвращает **raw-вывод nmap**
+  (убран двойной парсинг: раньше run_scan парсил, синтезировал текст, а
+  `parse_scan` парсил его обратно); None при отсутствии nmap (P1-11) или
+  пустой сети; self_ips дописываются в том же формате. `parse_scan` —
+  normalizer; `reconcile(con, current, now)` — вся DB-логика (upsert,
+  NEW/ONLINE/OFFLINE/misses) с новым событием **MAC_CHANGED**; `scan_loop`,
+  `_scan_status`/`get_scan_status`, `start_scan_thread` (guard P1-8).
+- **`modules/devices_routes.py`:** только схема БД (`init_db_schema`/`get_db`)
+  + роуты + реэкспорт движка — импорты `app.py` (`start_scan_thread`,
+  `init_db_schema`) и `system_routes.get_scan_status` не изменились.
+- **`POST /api/scan` (новый, admin-only):** one-shot ручной скан с
+  опциональными `{subnet, ifaces}` (не пишет settings), возвращает
+  `{ok, devices, stats, subnet}`; аноним → 403, мусорные ifaces → 400.
+- **UI:** кнопка «🔍 Сканировать» в шапке `devices.html` (только admin);
+  CSRF ставит глобальный fetch-wrapper `base.html`.
+- **`docs/Конфигурация.md`:** строка `network.scan_ifaces`, ссылки на
+  `core.discovery.*` вместо `devices_routes.*`.
+
+**Деплой:** бэкапы `*.backup-pre-p6-*` (devices_routes, devices.html),
+py_compile OK, restart → active; тест `/tmp/test_p61_discovery.py` —
+**30/30 PASS**: unit (parse_scan 3 хоста/hostname/MAC-регистр; reconcile на
+tmp-БД: NEW → без событий → MAC_CHANGED+сброс name → 6 пропусков → OFFLINE →
+ONLINE; живой run_scan 22 хоста + self_ips), API (аноним 403, ifaces 400,
+manual scan 22 devices + stats, кнопка в `/`, `/history`, health
+`last_discovery.scan/thread_alive`, platform-регрессия P3), live-сервис
+(`SCAN OK: 18–22 devices`, журнал без Traceback).
+
+**Остаточные риски:** ручной скан не сериализован с фоновым (параллельный
+nmap возможен — терпимо, busy_timeout защищает БД); выбор интерфейса/подсети
+через API и settings, а не через UI-форму; хардкод интерфейсов `end0→eth0`
+перебором закрыт (оставался после P3) — теперь единый `scan_ifaces`.

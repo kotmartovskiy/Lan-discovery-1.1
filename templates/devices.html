@@ -6,6 +6,9 @@
 Онлайн: {{ online }} ·
 Сканирование каждые {{ interval }} сек. ·
 OFFLINE после {{ max_misses }} пропусков
+{% if current_user.role == 'admin' %}
+· <button id="scanNowBtn" onclick="scanNow()" style="background:#1b5e20;color:#fff;border:1px solid #2e7d32;border-radius:4px;padding:3px 10px;cursor:pointer;">🔍 Сканировать</button>
+{% endif %}
 </div>
 
 <table>
@@ -111,4 +114,31 @@ OFFLINE после {{ max_misses }} пропусков
 {% endfor %}
 
 </table>
+
+{% if current_user.role == 'admin' %}
+<script>
+async function scanNow() {
+    var btn = document.getElementById('scanNowBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Сканирование...';
+    try {
+        var r = await fetch('/api/scan', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: '{}'
+        });
+        var d = await r.json();
+        if (d.ok) {
+            location.reload();
+            return;
+        }
+        alert('Скан не выполнен: ' + (d.error || ('HTTP ' + r.status)));
+    } catch (e) {
+        alert('Скан не выполнен: ' + e);
+    }
+    btn.disabled = false;
+    btn.textContent = '🔍 Сканировать';
+}
+</script>
+{% endif %}
 {% endblock %}
