@@ -63,7 +63,7 @@ security pentest, восстановление из backup на чистую с�
 | **Stability: systemd** | `Restart=always`, `RestartSec=5`, `After=network-online` — корректно; ~~сервис работает от root и dev-сервер Werkzeug~~ **закрыта (P8, 30.09)**: systemd-хардening в юните (`PrivateTmp`, `ProtectKernel{Tunables,Modules,ControlGroups}`, `LockPersonality`, `RestrictRealtime`; verify + рестарт + смоук на X96), «root by design» + dev-Werkzeug зафиксированы threat model в `docs/Безопасность.md` (вариант «задокументированное root by design»); `ProtectHome`/`SystemCallFilter` осознанно не включены | non-root + (wsgi) либо задокументированное «root by design» | root-веб-сервер | **P1** (закрыта через P8) |
 | **Configuration** | сеть/скан/интерфейсы/порт подключены к `/etc/lan-discovery/settings.json` через `_cfg` (P2: `subnet`, `scan_interval`/`max_misses`, `wifi_ifaces`, `traffic_ifaces`, `self_ips`, `web.flask_host`/`flask_port`; удалён мёртвый `app.NETWORK`); пути `/opt|/etc|/srv` остаются в коде (задокументированы в `docs/Конфигурация.md`) | единый конфиг: defaults + settings.json overrides | частично: пути захардкожены осознанно | **P2** (закрыта) |
 | **Hardware abstraction** | `core/hardware.py`: `detect_platform()`/`thermal_temp()`/`hdd_device()`/`emmc_device()`/`sd_device()` — thermal-перебор зон и динамический детект дисков вместо хардкодов (`thermal_zone0`, `mmcblk2`, `/dev/sda`); `platform`-блок в `/api/health`; остаток: пути `/opt|/etc|/srv` (конфиг, PHASE 2) | `detect_platform()` + capabilities + адаптеры | закрыта (пути — в PHASE 2) | **P2** (закрыта) |
-| **Переносимость (X96)** | новый код **уже работает** на aarch64/Debian 12; старый — на armv7l/Debian 13 | один код на обеих | две версии в проде (§9) | **P2** |
+| **Переносимость (X96)** | ~~новый код уже работает на aarch64/Debian 12; старый — на armv7l/Debian 13~~ **закрыта (P4, 01.10)**: новая версия задеплоена и на Orange Pi (armv7l/Debian 13, venv `--system-site-packages` + apt cffi/cryptography/bcrypt — на armhf нет wheel, install.sh поправлен), md5==repo, unit 54/54, health/login — одна версия на обеих | один код на обеих | две версии в проде — **устранено** | **P2** (закрыта) |
 | **Database** | ~~нет версионирования/индексов/retention, 8 таблиц без CREATE в репо~~ **закрыта (P5, 30.09)**: нумерованные `MIGRATIONS` по `user_version` (v1 базовая, v2 events), ensure 8 «серверных» таблиц (DDL из боевой БД) + индексы `events(ip,id)`/`events(event,id)`/`weather_observations`, retention `events.retention_days` (180д, чистка при старте + ежедневный поток); WAL + busy_timeout | `user_version` + миграции, индексы, retention, идентичность MAC+IP+hostname | идентичность = IP (не MAC) — отложено до нужды | **P5** (закрыта частично: identity отложен) |
 | **Discovery engine** | ~~скан плотно связан с UI-роутами, сеть захардкожена, нет ручного выбора, MAC-смена не пишется в events~~ **закрыта (P6, 30.09)**: движок вынесен в `core/discovery.py` (scanner `run_scan` → normalizer `parse_scan` → `reconcile` → events), интерфейсы/подсеть из `network.scan_ifaces`/`subnet`, ручной `POST /api/scan` + кнопка в UI, событие `MAC_CHANGED` | scanner → normalizer → DB → events → API, manual/scheduled scan по выбору | ручной скан и scheduled есть; выбор интерфейса — через `scan_ifaces` (не через UI-форму) | **P6** (закрыта) |
 | **Event system** | ~~только 3 типа, нет severity/source/metadata~~ **закрыта (P7, 30.09)**: events v2 — `severity`/`source`/`metadata` (JSON), фабрика `core/events.py` (`add_event`), `GET /api/events` с фильтрами, бейджи в `/history`; типы событий: NEW/ONLINE/OFFLINE/MAC_CHANGED | формализованные события (device_missing, ip_changed, disk_warning…) | severity/источник/фильтры есть; новые типы (disk_warning, ip_changed) подключаются через `add_event` одной строкой | **P7** (закрыта) |
@@ -388,6 +388,33 @@ security pentest, восстановление из backup на чистую с�
 50. **[P8][DONE — 30.09.2026]** Итог PHASE 8: §2 (заголовки/куки и
      секреты в git закрыты P1-10, systemd/root — P8), §4 B1 — финальная
      отметка, регресс unit+CI+live, §7 → DONE, §9 — см. журнал.
+51. **[P4][DONE — 01.10.2026]** Предусловия деплоя на Orange Pi
+     (192.168.3.235/234): бэкапы `*.backup-pre-p4-*` в
+     `/root/p4-backups/` (код 4.2MB без venv/backups/БД, юнит,
+     `/etc/lan-discovery/`, sqlite backup `devices.db` 5.6MB), сервис
+     остановлен, недостающие apt-пакеты (`traceroute`, `dnsutils`);
+     старая схема `user_version=0`, 15 таблиц — миграции аддитивные.
+52. **[P4][DONE — 01.10.2026]** Деплой: `git archive` HEAD → OP
+     поверх `/opt/lan-discovery` (md5 `app.py` == repo); **открытие:
+     на armhf у cffi/bcrypt/cryptography нет wheel**, pip падал на
+     сборке cffi (`arm-linux-gnueabihf-gcc`) — решение: системные
+     `python3-{cffi,cryptography,bcrypt}` из Debian 13 +
+     `venv --system-site-packages` (остальное — pure pip);
+     `install.sh --skip-apt` → юнит по шаблону (venv+хардening),
+     `init_db_schema()` → миграции v0→v2, health OK.
+53. **[P4][DONE — 01.10.2026]** Верификация на OP: md5 `app.py` == repo,
+     **unit 54/54 PASS** (Python 3.13/armv7l), смоук login 302 /
+     status 200 / health 200 / filemanager 200 (вход на 127.0.0.1 и
+     192.168.3.235; `.234` — известный отвал LAN-кабеля, не регресс),
+     `journalctl` чист, данные целы (settings/secret.key не тронуты;
+     admin-hеш → bcrypt — штатный lazy rehash P0-5), доставлен
+     `iputils-tracepath` (health: tracepath true).
+54. **[P4][DONE — 01.10.2026]** Итог PHASE 4: §2 «Переносимость» —
+     закрыта (одна версия на обеих), install.sh починен для armhf
+     (apt cffi/cryptography/bcrypt + `--system-site-packages`),
+     решение оператора: **обе панели сканируют LAN** (двойное
+     сканирование оставлено, `scan_interval` не менялся), §7 → DONE,
+     §9 — см. журнал.
 
 ---
 
@@ -399,7 +426,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 1 Stabilization | **DONE** | задачи 7–11 done |
 | PHASE 2 Configuration | **DONE** | задачи 12–14: хардкоды → `_cfg`, тест override, docs/Конфигурация.md |
 | PHASE 3 Hardware abstraction | **DONE** | задачи 15–16: `core/hardware.py` (detect_platform/thermal/storage), убраны хардкоды thermal_zone0/mmcblk2/sda, platform в health |
-| PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
+| PHASE 4 X96 Max port | **DONE** | задачи 51–54: новая версия задеплоена на Orange Pi (armv7l/Debian 13): md5==repo, unit 54/54, health/login OK, миграции v0→v2; install.sh починен для armhf; §2 «Переносимость» закрыта — одна версия на обеих |
 | PHASE 5 Database | **DONE** | задачи 25–28: MIGRATIONS-карта по user_version, ensure 8 «серверных» таблиц, retention events (180д), тест 24/24 |
 | PHASE 6 Discovery engine | **DONE** | задачи 17–20: `core/discovery.py` (scanner/normalizer/reconcile), `POST /api/scan` + кнопка, событие MAC_CHANGED |
 | PHASE 7 Event engine | **DONE** | задачи 21–24: events v2 (severity/source/metadata, SCHEMA_VERSION=2), `core/events.py`, `GET /api/events`, бейджи в /history |
@@ -1438,3 +1465,62 @@ dev-Werkzeug, плюс отсутствие security-регресса в реп�
 sudo-моста — зафиксировано в docs); `ProtectHome`/syscall-фильтры
 выключены осознанно (root by design); brute-force `/login` из LAN без
 rate-limit.
+
+### 01.10.2026 — PHASE 4: деплой новой версии на Orange Pi — **DONE**
+
+**Контекст:** repo == X96 достигнуто ещё в §5, но Orange Pi
+(armv7l/Debian 13) продолжал работать на старой монолитной версии
+(app.py 566 строк, без `core/`/git/lifecycle-скриптов, юнит на
+системном python) — «две версии в проде» и двойное сканирование LAN.
+
+**Что сделано:**
+
+- **Задача 51 — бэкапы:** сервис остановлен; в `/root/p4-backups/`
+  (`*.backup-pre-p4-20261001-*`): `lan-code-*.tar.gz` (4.2MB, без
+  venv/backups/БД — первая попытка tar застряла на локальных 988MB
+  бэкапах OP, исключены), sqlite backup `devices.db` (5.6MB),
+  копии юнита и `/etc/lan-discovery/`. Схема БД: `user_version=0`,
+  15 таблиц — миграции в новом коде аддитивные (CREATE IF NOT EXISTS +
+  ALTER ADD COLUMN с проверкой колонок), перенос безопасен.
+- **Задача 52 — деплой:** `git archive` HEAD (1.5MB) поверх
+  `/opt/lan-discovery` (md5 `app.py` = repo). **Открытие:** на armhf
+  (armv7l) у `cffi`/`bcrypt`/`cryptography` нет manylinux-wheel —
+  pip падал на сборке cffi (`No arm-linux-gnueabihf-gcc`).
+  **Решение:** системные `python3-{cffi,cryptography,bcrypt}` из
+  Debian 13 (1.17.1/43.0.0/4.2.0 — удовлетворяют пинам
+  requirements) + `python3 -m venv --system-site-packages`, всё
+  остальное (Flask 3.1, Flask-SocketIO 5.5, Flask-WTF, pytest…) —
+  чистый pip (pure wheels). `install.sh --skip-apt`: config не тронут
+  (settings.json существует), `init_db_schema()` → миграции
+  **v0→v2** (`DB SCHEMA INIT: version=2`, данные: devices=40,
+  events=36782 — на месте), юнит по шаблону (venv + хардening P8),
+  enable --now → health OK. `install.sh` починен для armhf
+  (step_deps += python3-cffi/cryptography/bcrypt, step_venv +=
+  `--system-site-packages`) — чистая установка на armhf теперь
+  работает; существующие установки не затронуты (venv не
+  пересоздаётся).
+- **Задача 53 — верификация:** md5 `app.py` == repo;
+  **unit 54/54 PASS** на OP (Python 3.13.5/armv7l); смоук —
+  login 302 / status 200 / health 200 / filemanager `/root` 200 с
+  127.0.0.1 и 192.168.3.235 (`.234` — No route to host: известный
+  отвал LAN-кабеля, не регресс); повторный вход после bcrypt-rehash
+  работает; `journalctl` чист; `settings.json`/`secret.key` не
+  тронуты, `users.json` — admin-hеш стал bcrypt `$2b$12$…` —
+  **штатный lazy rehash P0-5** при первом входе (user/guest остались
+  SHA-256); доставлен `iputils-tracepath` (стартовый WARNING
+  `MISSING DEPS: tracepath` ушёл, health: tracepath true).
+- **Решение оператора:** обе панели активны и сканируют LAN каждые
+  30с (**двойное сканирование оставлено** — в `_scan_interval()`
+  `0` превращается в `30` через `or 30`, отключения авто-скана в
+  коде нет; менять не стали).
+- **ROADMAP:** §2 «Переносимость (X96)» → закрыта; §6 задачи 51–54
+  DONE; §7 PHASE 4 → **DONE**.
+
+**Тесты:** unit 54/54 на обоих узлах (X96 aarch64 + OP armv7l);
+health/login-смоук на OP зелёный.
+
+**Остаточные риски:** двойное сканирование LAN (осознанно);
+`LAN .234` недоступен до физического восстановления кабеля; на OP
+два пустых легаси-БД (`events.db`, `lan.db`) оставлены как есть;
+пакетная сборка cffi из sdist на armhf без компилятора по-прежнему
+невозможна — armhf-окружение обязано идти через apt-зависимости.

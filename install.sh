@@ -100,8 +100,11 @@ step_deps() {
         log "step: deps — пропущено (--skip-apt)"
         return
     fi
+    # python3-cffi/cryptography/bcrypt — без wheel на armhf (armv7l):
+    # pip падает на сборке cffi без компилятора, ставим из Debian в
+    # системный site, venv создаётся с --system-site-packages (PHASE 4).
     local pkgs=(nmap traceroute dnsutils iw bluez smartmontools ffmpeg mpv
-                python3-venv)
+                python3-venv python3-cffi python3-cryptography python3-bcrypt)
     local missing=()
     for p in "${pkgs[@]}"; do
         dpkg -s "$p" >/dev/null 2>&1 || missing+=("$p")
@@ -119,8 +122,8 @@ step_deps() {
 step_venv() {
     local venv="$PREFIX/venv"
     if [[ ! -x "$venv/bin/python" ]]; then
-        log "step: venv — создаю $venv"
-        run python3 -m venv "$venv"
+        log "step: venv — создаю $venv (--system-site-packages: apt-пакеты cffi/cryptography/bcrypt)"
+        run python3 -m venv --system-site-packages "$venv"
     else
         log "step: venv — уже есть"
     fi
