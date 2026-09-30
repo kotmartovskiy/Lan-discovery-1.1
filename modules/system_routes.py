@@ -1,7 +1,7 @@
 import sqlite3, json, subprocess, os, platform, glob, logging, shutil, time, threading, re, socket
 from datetime import datetime
 from pathlib import Path
-from flask import render_template, jsonify, request, redirect, url_for
+from flask import render_template, jsonify, request, redirect, url_for, current_app
 from concurrent.futures import ThreadPoolExecutor
 
 DB = "/opt/lan-discovery/devices.db"
@@ -1724,6 +1724,7 @@ def register_routes(app):
             host_uptime = None
 
         scan_st = get_scan_status()
+        caps = current_app.config.get("CAPABILITIES") or {}
 
         return jsonify({
             "ok": ok,
@@ -1743,6 +1744,8 @@ def register_routes(app):
                 "thread_alive": scan_st["thread_alive"],
             },
             "db": db_status,
+            "capabilities": caps,
+            "missing_deps": [n for n, ok_flag in caps.items() if not ok_flag],
         }), status_code
 
     @app.route("/system")

@@ -204,7 +204,7 @@ def run_scan():
 
     devices = {}
 
-    for iface in ["end0"]:
+    for iface in ["end0", "eth0"]:
         try:
             r = subprocess.run(
                 ["nmap", "-sn", "-PR", "-e", iface, "--host-timeout", "3s", NETWORK],
@@ -222,11 +222,16 @@ def run_scan():
                         mp = line.split("MAC Address:")[1].strip().split("(")
                         devices[ip] = mp[0].strip()
                         ip = None
+                if devices:
+                    break
+        except FileNotFoundError:
+            log.error("SCAN: nmap не установлен — сканирование недоступно")
+            return None
         except Exception:
             pass
 
     if not devices:
-        for iface in ["wlan1"]:
+        for iface in ["wlan1", "wlan0"]:
             try:
                 r = subprocess.run(
                     ["nmap", "-sn", "-PR", "-e", iface, "--host-timeout", "3s", NETWORK],
@@ -244,6 +249,11 @@ def run_scan():
                             mp = line.split("MAC Address:")[1].strip().split("(")
                             devices[ip] = mp[0].strip()
                             ip = None
+                    if devices:
+                        break
+            except FileNotFoundError:
+                log.error("SCAN: nmap не установлен — сканирование недоступно")
+                return None
             except Exception:
                 pass
 
@@ -291,6 +301,10 @@ def scan_loop():
                 _scan_status["last_scan"] = datetime.now().strftime(
                     "%d.%m.%Y %H:%M:%S"
                 )
+                _scan_status["last_error"] = (
+                    "сканирование недоступно (см. журнал)"
+                )
+                _scan_status["errors"] += 1
                 time.sleep(SCAN_INTERVAL)
                 continue
 

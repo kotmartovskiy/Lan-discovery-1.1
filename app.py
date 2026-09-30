@@ -6,9 +6,11 @@ import re
 import sqlite3
 import logging
 import subprocess
+import shutil
 import threading
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from html import escape as _html_escape
 
 sys.path.insert(0, "/opt/lan-discovery")
 
@@ -244,6 +246,45 @@ def _security_headers(resp):
     resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     resp.headers.setdefault("Referrer-Policy", "same-origin")
     return resp
+
+
+# ==================== P1-11: барьер отсутствующих подсистем ====================
+
+CAPABILITY_PROBES = (
+    "nmap", "ping", "tracepath", "host", "iw",
+    "bluetoothctl", "smartctl", "ffmpeg", "mpv", "lsblk",
+)
+
+
+def probe_capabilities():
+    """Какие внешние бинарии доступны в PATH (однократно при старте)."""
+    return {name: shutil.which(name) is not None
+            for name in CAPABILITY_PROBES}
+
+
+app.config["CAPABILITIES"] = probe_capabilities()
+_missing_deps = [n for n, ok in app.config["CAPABILITIES"].items() if not ok]
+if _missing_deps:
+    app.logger.warning("MISSING DEPS: %s", ", ".join(_missing_deps))
+
+
+@app.errorhandler(FileNotFoundError)
+def _missing_dependency_error(e):
+    """Системный барьер: отсутствующий бинарь/файл → 503, а не 500."""
+    dep = getattr(e, "filename", None) or str(e)
+    app.logger.warning("MISSING DEP %s %s -> %s",
+                       request.method, request.path, dep)
+    msg = "не установлена зависимость: %s" % dep
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": msg, "dependency": dep}), 503
+    page = ("<!doctype html><html lang='ru'><meta charset='utf-8'>"
+            "<title>503 — функция недоступна</title>"
+            "<body style='font-family:sans-serif'>"
+            "<h1>503 — функция недоступна</h1><p>%s</p>"
+            "<p>Установите недостающий пакет и перезапустите панель "
+            "(<code>systemctl restart lan-discovery</code>).</p>"
+            "<p><a href='/'>На главную</a></p></body></html>") % _html_escape(dep)
+    return page, 503, {"Content-Type": "text/html; charset=utf-8"}
 
 
 @app.context_processor

@@ -168,6 +168,11 @@ security pentest, восстановление из backup на чистую с�
 10. **[P1][DONE — 30.09.2026]** Безопасность окружения: security-заголовки,
      cookie-флаги, чистка root/1234 и IP из отслеживаемых файлов (help.html,
      скрипты, демо-пайплайн) — см. журнал §9.
+11. **[P1][DONE — 30.09.2026]** Обработка отсутствующих подсистем: probe
+     capabilities (nmap/iw/smartctl/…) → `/api/health`, глобальный
+     `FileNotFoundError` → дружелюбный 503 (JSON для API), честный отказ
+     discovery без nmap (фикс фиктивного `SCAN OK` + интерфейсы `eth0/wlan0`)
+     — см. журнал §9.
 
 ---
 
@@ -176,7 +181,7 @@ security pentest, восстановление из backup на чистую с�
 | Фаза | Статус | Комментарий |
 |---|---|---|
 | PHASE 0 Audit | **DONE** | этот документ; код не менялся |
-| PHASE 1 Stabilization | **IN PROGRESS** | задачи 7–9 done; остаётся обработка отсутствующих подсистем |
+| PHASE 1 Stabilization | **DONE** | задачи 7–11 done |
 | PHASE 2 Configuration | **PENDING** | см. §2 «Configuration» (P2) |
 | PHASE 3 Hardware abstraction | **PENDING** | platform detection/ capabilities |
 | PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
@@ -616,3 +621,54 @@ make_demo.py); демо регенерировано на боксе (`LAN_PANEL
 `AGENTS.md` содержит SSH-креды осознанно (ops-файл приватного репо, не
 публикуется; `sanitize_docs` его не трогает); CSP не введён; регенерация
 демо требует `LAN_PANEL_PASS` в окружении.
+
+### 30.09.2026 — P1-11: Изоляция сбоев — барьер отсутствующих подсистем + фикс фиктивного discovery — **DONE**
+
+**Проблема:** панель не имела ни одного errorhandler; отсутствующий внешний
+бинарь (nmap, iw, host, tracepath, smartctl…) давал грубый 500 с errno;
+зависимости нигде не декларировались. В ходе задачи обнаружен скрытый баг:
+на X96 discovery **фальшивил успех** — `SCAN OK: 4 devices` каждые 30с, при
+этом nmap не был установлен вообще, а `run_scan` был захардкожен на интерфейсы
+Orange Pi (`end0`/`wlan1`; на X96 — `eth0`/`wlan0`), поэтому реально сканировались
+только `self_ips` — online держался 4 с 28.09 (реальные хосты заморожены в БД).
+
+**Изменения:**
+- `app.py`: `import shutil` + `from html import escape`; блок P1-11 перед Auth:
+  `CAPABILITY_PROBES` (nmap, ping, tracepath, host, iw, bluetoothctl, smartctl,
+  ffmpeg, mpv, lsblk) → `probe_capabilities()` → `app.config["CAPABILITIES"]` +
+  warning `MISSING DEPS: …` при старте; глобальный
+  `@app.errorhandler(FileNotFoundError)` → warning в журнал, `/api/*` → JSON 503
+  `{ok:false, error:"не установлена зависимость: …", dependency}`,
+  страницы → HTML 503 «функция недоступна» (экранировано, со ссылкой на главную).
+- `modules/system_routes.py`: `current_app`; `/api/health` += `capabilities`
+  (карта бинарей) и `missing_deps` (список отсутствующих) — легаси-ключи P1-9
+  не тронуты.
+- `modules/devices_routes.py`: `run_scan` — отдельный `except FileNotFoundError`
+  → `log.error("SCAN: nmap не установлен …")` + `return None` (никакого
+  фиктивного OK); ветка `output is None` в `scan_loop` → `last_error` +
+  `errors += 1` (консистентно с обычной except-веткой); перебор интерфейсов
+  `end0 → eth0` и `wlan1 → wlan0` с `break` при найденных хостах.
+- На X96 установлена зависимость: `apt-get install nmap` (7.93).
+
+**Деплой:** бэкапы `*.backup-pre-p11-20260930-082725` (app.py,
+system_routes.py) + `*.backup-pre-p11-*` (devices_routes.py, два этапа),
+py_compile OK, `systemctl restart lan-discovery` → active.
+
+**Тесты (X96, `/tmp/test_p11_deps.py` 30/30 PASS):**
+- Part A: capabilities == re-probe `shutil.which`; синтетические роуты с
+  несуществующим бинарём → API 503 JSON (`ok:false`+`dependency`) и HTML 503;
+- Part B: `PATH=""` — ping/dns/wifi-scan/inventory-scan/главная → **не 500**
+  (ping/dns → `ok:false`, inventory → штатный 302); `run_scan()` без nmap →
+  `None` (не строка self_ips);
+- Part C: health в процессе — capabilities/missing_deps + все поля P1-9;
+- Part D: живой сервис — health 200, `missing_deps: [tracepath, host]`,
+  nosniff/X-Frame-Options (P1-10-регрессия);
+- результат после фикса: `SCAN OK: 19 devices`, online 4 → 19, `last_seen`
+  реальных хостов обновляется; журнал без Traceback/SCAN ERROR.
+
+**Остаточные риски:** импорты Python-модулей остаются fail-fast (изоляция
+импортов не вводилась — задокументировано); route-level broad except по-прежнему
+возвращает 200 `ok:false` с текстом ошибки (криптический errno); барьер ловит
+только `FileNotFoundError` (не OSError/TimeoutExpired); `tracepath`/`host` не
+установлены и видны в `missing_deps` (демонстрация честной деградации);
+`INVENTORY ERROR` печатается в лог фонового потока (не HTTP-статус).
