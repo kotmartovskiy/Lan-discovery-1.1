@@ -64,7 +64,7 @@ security pentest, восстановление из backup на чистую с�
 | **Configuration** | сеть/скан/интерфейсы/порт подключены к `/etc/lan-discovery/settings.json` через `_cfg` (P2: `subnet`, `scan_interval`/`max_misses`, `wifi_ifaces`, `traffic_ifaces`, `self_ips`, `web.flask_host`/`flask_port`; удалён мёртвый `app.NETWORK`); пути `/opt|/etc|/srv` остаются в коде (задокументированы в `docs/Конфигурация.md`) | единый конфиг: defaults + settings.json overrides | частично: пути захардкожены осознанно | **P2** (закрыта) |
 | **Hardware abstraction** | `core/hardware.py`: `detect_platform()`/`thermal_temp()`/`hdd_device()`/`emmc_device()`/`sd_device()` — thermal-перебор зон и динамический детект дисков вместо хардкодов (`thermal_zone0`, `mmcblk2`, `/dev/sda`); `platform`-блок в `/api/health`; остаток: пути `/opt|/etc|/srv` (конфиг, PHASE 2) | `detect_platform()` + capabilities + адаптеры | закрыта (пути — в PHASE 2) | **P2** (закрыта) |
 | **Переносимость (X96)** | новый код **уже работает** на aarch64/Debian 12; старый — на armv7l/Debian 13 | один код на обеих | две версии в проде (§9) | **P2** |
-| **Database** | WAL + busy_timeout есть в ключевых точках; **нет** версионирования схемы (`user_version=0`), **нет** индекса `events(ip)`, **нет** retention (events = 36 327 строк), идентичность = **IP** (не MAC); 8 таблиц weather не имеют CREATE в репо (схема живёт только на серверах) | `user_version` + миграции, индексы, retention, идентичность MAC+IP+hostname | рост БД бесконечен; восстановление на чистой машине может создать неполную схему | **P1** |
+| **Database** | ~~нет версионирования/индексов/retention, 8 таблиц без CREATE в репо~~ **закрыта (P5, 30.09)**: нумерованные `MIGRATIONS` по `user_version` (v1 базовая, v2 events), ensure 8 «серверных» таблиц (DDL из боевой БД) + индексы `events(ip,id)`/`events(event,id)`/`weather_observations`, retention `events.retention_days` (180д, чистка при старте + ежедневный поток); WAL + busy_timeout | `user_version` + миграции, индексы, retention, идентичность MAC+IP+hostname | идентичность = IP (не MAC) — отложено до нужды | **P5** (закрыта частично: identity отложен) |
 | **Discovery engine** | ~~скан плотно связан с UI-роутами, сеть захардкожена, нет ручного выбора, MAC-смена не пишется в events~~ **закрыта (P6, 30.09)**: движок вынесен в `core/discovery.py` (scanner `run_scan` → normalizer `parse_scan` → `reconcile` → events), интерфейсы/подсеть из `network.scan_ifaces`/`subnet`, ручной `POST /api/scan` + кнопка в UI, событие `MAC_CHANGED` | scanner → normalizer → DB → events → API, manual/scheduled scan по выбору | ручной скан и scheduled есть; выбор интерфейса — через `scan_ifaces` (не через UI-форму) | **P6** (закрыта) |
 | **Event system** | ~~только 3 типа, нет severity/source/metadata~~ **закрыта (P7, 30.09)**: events v2 — `severity`/`source`/`metadata` (JSON), фабрика `core/events.py` (`add_event`), `GET /api/events` с фильтрами, бейджи в `/history`; типы событий: NEW/ONLINE/OFFLINE/MAC_CHANGED | формализованные события (device_missing, ip_changed, disk_warning…) | severity/источник/фильтры есть; новые типы (disk_warning, ip_changed) подключаются через `add_event` одной строкой | **P7** (закрыта) |
 | **Observability** | `/api/health` есть (unauth, `system_routes.py:1636`), `/api/status`, `/api/system/health` — но **нет version/uptime/last-discovery в одном месте** | `/api/health` + `/api/version` + `/api/discovery/status` | состояние видно только через UI | **P1** |
@@ -243,6 +243,29 @@ security pentest, восстановление из backup на чистую с�
      reconcile, миграция v2 на боевой БД, API-фильтры, UI, регрессии P6/P3,
      live health `user_version=2`), см. журнал §9.
 
+**PHASE 5 — Database (задачи P5):**
+
+25. **[P5][DONE — 30.09.2026]** Формальная система миграций:
+     `MIGRATIONS = ((1, _m1), (2, _m2))` в `init_db_schema` — строго по
+     `PRAGMA user_version`, каждый шаг своя функция с логом; v1 = базовая
+     схема devices/events, v2 = severity/source/metadata + `idx_events_event`
+     + backfill; на чистой БД путь 0→1→2 исполняется пошагово — см. §9.
+26. **[P5][DONE — 30.09.2026]** Ensure-таблиц: `CREATE TABLE IF NOT EXISTS`
+     для 8 таблиц, у которых CREATE жил только на сервере (env_data,
+     mchs_alerts, weather_alerts/daily/forecast/forecast_history/hourly/
+     observations — точный DDL из боевой БД) + индекс
+     `idx_weather_observations_timestamp_unique` — восстановление на чистой
+     системе даёт полную схему — см. §9.
+27. **[P5][DONE — 30.09.2026]** Retention событий: settings
+     `events.retention_days` (default 180, 0 = выкл),
+     `core/events.cleanup_old_events()` (парсинг DD.MM.YYYY, DELETE
+     батчами) — чистка при старте + ежедневный daemon-поток
+     `retention_loop` из `app.py __main__` — см. §9.
+28. **[P5][DONE — 30.09.2026]** Тест PHASE 5 — 24/24 PASS (пошаговый путь
+     v1→v2 на чистой БД с логами `DB MIGRATION`, ensure 8 таблиц, retention
+     unit, боевая БД integrity ok, health/user_version=2, регрессии,
+     live) — см. журнал §9.
+
 ---
 
 ## 7. Статусы фаз roadmap
@@ -254,7 +277,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 2 Configuration | **DONE** | задачи 12–14: хардкоды → `_cfg`, тест override, docs/Конфигурация.md |
 | PHASE 3 Hardware abstraction | **DONE** | задачи 15–16: `core/hardware.py` (detect_platform/thermal/storage), убраны хардкоды thermal_zone0/mmcblk2/sda, platform в health |
 | PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
-| PHASE 5 Database | **PARTIAL** | задача 7 (init/user_version/индекс) done; миграционная система — нет |
+| PHASE 5 Database | **DONE** | задачи 25–28: MIGRATIONS-карта по user_version, ensure 8 «серверных» таблиц, retention events (180д), тест 24/24 |
 | PHASE 6 Discovery engine | **DONE** | задачи 17–20: `core/discovery.py` (scanner/normalizer/reconcile), `POST /api/scan` + кнопка, событие MAC_CHANGED |
 | PHASE 7 Event engine | **DONE** | задачи 21–24: events v2 (severity/source/metadata, SCHEMA_VERSION=2), `core/events.py`, `GET /api/events`, бейджи в /history |
 | PHASE 8 Security hardening | **IN PROGRESS** | задачи 1–6 (P0) + 10 (P1-10); root-PTY/dev-Werkzeug дефернуты |
@@ -910,3 +933,54 @@ health `user_version=2` (первый прогон упал на Part D — се
 индексируется (поиск по нему — полный проход); IP_CHANGED/disk_warning не
 реализованы (отложены до нужды — карта и фабрика к ним готовы); уведомления
 (notify) — отдельная фаза.
+
+### 30.09.2026 — P5: Database — миграции, ensure-таблицы, retention (PHASE 5) — **DONE**
+
+**Задачи 25–28 (PHASE 5).** Схема БД получила формальную миграционную
+систему и полноту на чистой установке:
+
+- **Нумерованные миграции** (`modules/devices_routes.py`): карта
+  `MIGRATIONS = ((1, _migration_v1), (2, _migration_v2))` — шаги применяются
+  строго по `PRAGMA user_version` (не по table_info-эвристике), каждый шаг —
+  своя функция с логом `DB MIGRATION: applied vN`. Шаг v1 — базовая схема
+  devices/events (старый DDL) + индекс `events(ip,id)`; шаг v2 — колонки
+  devices (hostname/is_new/misses/name/device_type), события v2
+  (severity/source/metadata), backfill и `idx_events_event(event,id)`.
+  На чистой БД путь 0→1→2 исполняется пошагово (подтверждено тестом);
+  на боевой (уже v2) шаги пропускаются. Старый монолитный блок
+  (CREATE + «if колонка отсутствует») заменён шагами.
+- **Ensure 8 таблиц (P5-26):** `_ensure_extra_tables()` — точный DDL из
+  боевой БД для таблиц, чьи CREATE жили только на серверах: `env_data`,
+  `mchs_alerts`, `weather_alerts`, `weather_daily`, `weather_forecast`,
+  `weather_forecast_history`, `weather_hourly`, `weather_observations` +
+  уникальный индекс `idx_weather_observations_timestamp_unique`.
+  Их читает `weather_routes`/`app.py`, пишет `deploy/weather-update.py` —
+  до P5 восстановление на чистой машине давало неполную схему
+  (закрыт §2-gap «8 таблиц weather не имеют CREATE в репо»).
+- **Retention (P5-27):** настройка `events.retention_days` (default 180,
+  `0` = выкл) → `core/events.cleanup_old_events(con, days)` — парсинг
+  `DD.MM.YYYY HH:MM:SS` в Python (строковое сравнение дат тут невозможно),
+  DELETE батчами по 500 id, коммит внутри. Чистка выполняется при старте
+  сервиса (в `init_db_schema`, ошибки не валят init) и ежедневно фоновым
+  daemon-потоком `retention_loop` (запуск в `app.py __main__` рядом с
+  остальными потоками).
+- **`docs/Конфигурация.md`:** секция `events` с ключом `retention_days`.
+
+**Деплой:** бэкапы файлов `*.backup-pre-p5-*` (app.py по регламенту) +
+**бэкап БД до рестарта** (`devices.db.backup-pre-p5-*`, integrity ok);
+py_compile OK, restart → active; тест `/tmp/test_p51_migrations.py` —
+**24/24 PASS**: пошаговость (v1 без severity/v2 с ними, шаг не ставит
+версию сам), полный init на чистой БД (`DB MIGRATION: applied v1/v2`,
+user_version=2, ядро + 8 ensure-таблиц + 3 индекса), retention unit
+(2 старых удалено / свежее цело / days=0 → выкл), боевая БД (все таблицы,
+integrity ok, 37 129 событий и 40 устройств целы), API (health
+`db.user_version=2`, `/`, `/history`, `/api/events`), live health.
+
+**Остаточные риски:** идентичность устройства = IP (MAC+IP+hostname —
+отложено, отдельный крупный рефакторинг); retention чистит только `events`
+(другие растущие таблицы: `weather_forecast_history` 16 693 строк,
+`currency_history` — под вопросом, нужны ли); DDL остальных таблиц
+(currency/inventory/recycling) создаётся ленивыми init их модулей, а не
+единой точкой — при чистом старте порядок зависит от вызова
+`init_inventory_db`/first-use; временные метки событий строковые —
+retention парсит их в Python.

@@ -419,6 +419,9 @@ if __name__ == "__main__":
     threading.Thread(target=update_recycling_background, daemon=True).start()
     threading.Thread(target=_schedule_currencies, daemon=True).start()
 
+    from core.events import retention_loop
+    threading.Thread(target=retention_loop, daemon=True).start()
+
     socketio.run(app,
                  host=_cfg("web", "flask_host", "0.0.0.0"),
                  port=int(_cfg("web", "flask_port", 8080) or 8080),

@@ -9,7 +9,11 @@ user), `metadata` (JSON-текст).
 получает severity=info; известные — из `EVENT_SEVERITY`.
 """
 import json
-from datetime import datetime
+import logging
+import time
+from datetime import datetime, timedelta
+
+log = logging.getLogger("lan-discovery")
 
 EVENT_SEVERITY = {
     "NEW": "info",
@@ -86,3 +90,57 @@ def event_to_dict(row):
         "source": row[7],
         "metadata": meta,
     }
+
+
+def cleanup_old_events(con, days):
+    """Удалить события старше days дней (P5-27).
+
+    timestamp в формате DD.MM.YYYY HH:MM:SS — парсится в Python, удаление
+    батчами по id. days <= 0 → no-op (retention выключен). Коммитит сама.
+    """
+    if not days or int(days) <= 0:
+        return 0
+    cutoff = datetime.now() - timedelta(days=int(days))
+
+    stale = []
+    for row in con.execute("SELECT id, timestamp FROM events"):
+        try:
+            ts = datetime.strptime(row[1], "%d.%m.%Y %H:%M:%S")
+        except Exception:
+            continue
+        if ts < cutoff:
+            stale.append(row[0])
+
+    removed = 0
+    for i in range(0, len(stale), 500):
+        batch = stale[i:i + 500]
+        cur = con.execute(
+            "DELETE FROM events WHERE id IN (%s)"
+            % ",".join("?" * len(batch)),
+            batch,
+        )
+        removed += cur.rowcount
+    if removed:
+        con.commit()
+        log.info(f"EVENTS RETENTION: removed {removed} events "
+                 f"older than {days} days")
+    return removed
+
+
+def retention_loop(interval=86400):
+    """Ежедневная чистка events по events.retention_days (P5-27)."""
+    while True:
+        time.sleep(interval)
+        try:
+            from app import _cfg
+            days = int(_cfg("events", "retention_days", 180) or 0)
+            if days <= 0:
+                continue
+            from modules.devices_routes import get_db
+            con = get_db()
+            try:
+                cleanup_old_events(con, days)
+            finally:
+                con.close()
+        except Exception as e:
+            log.error(f"EVENTS RETENTION ERROR: {e}")
