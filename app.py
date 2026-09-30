@@ -179,6 +179,21 @@ def recycling_category_name(cat):
             "electronics": "Электроника"}.get(cat, cat)
 
 
+def panel_name():
+    """Имя панели для шапки/вкладки: settings.panel_name, иначе hostname.
+
+    Позволяет различать несколько открытых панелей (X96 Max / Orange Pi).
+    """
+    name = str(load_settings().get("panel_name") or "").strip()
+    if name:
+        return name
+    try:
+        import socket
+        return socket.gethostname()
+    except Exception:
+        return ""
+
+
 def page_data():
     now = time.time()
     if _page_data_cache["data"] is not None and now - _page_data_cache["ts"] < 10:
@@ -187,7 +202,8 @@ def page_data():
         "internet": check_internet_cached(),
         "interval": _scan_interval(),
         "max_misses": _max_misses(),
-        "weather": weather_current()
+        "weather": weather_current(),
+        "panel_name": panel_name()
     }
     _page_data_cache["data"] = data
     _page_data_cache["ts"] = now

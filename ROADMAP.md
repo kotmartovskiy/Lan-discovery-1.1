@@ -1604,3 +1604,69 @@ admin/1234 по умолчанию — сменить в эксплуатаци�
 нагрузкой (p50 > 3s при 20 потоках) — гunicorn-переход отложен;
 brute-force `/login` без rate-limit; двойное сканирование LAN (P4,
 осознанно); LAN `.234` до физического восстановления кабеля.
+
+### 01.10.2026 — Weather: stale-предупреждения/прогноз + panel_name в шапке + Flask-SocketIO pin — **DONE**
+
+**Жалобы:** на `/weather` висят неактуальные предупреждения, недельный
+прогноз тоже; ранее — терминал на OP не работал.
+
+**Диагностика:**
+
+- **Прогноз:** в `weather_forecast` лежали просроченные хвосты
+  (28–30.09 при свежих 01–07.10, fetched_at обновлялся каждые 15 мин);
+  ридер `ORDER BY forecast_date LIMIT 7` без фильтра отдавал первые
+  (старые) 7 строк → на странице даты из прошлого. Причина хвостов —
+  `weather-update.py` делал только `INSERT OR REPLACE` без DELETE.
+- **Предупреждения:** на X96 стоял урезанный `deploy/weather-update.py`
+  (30.09, без фетчеров алертов) → `weather_alerts`/`mchs_alerts`
+  замёрзли на 28.09 (писателя в git не было — docs признавали это);
+  на OP работал полный легаси-скрипт 894 строки из `/usr/local/sbin`
+  (метеoinfo + МЧС), поэтому там данные были свежие.
+- **Терминал на OP:** Debian `python3-flask-socketio 5.5.1` падает с
+  Flask 3.1: `AttributeError: property 'session' of 'RequestContext'
+  object has no setter` в `_handle_event` → connect-хендлер отклонялся
+  («One or more namespaces failed to connect»). На X96 стоял pip
+  5.6.1 — работал.
+
+**Изменения:**
+
+- `deploy/weather-update.py` — перенесены из легаси `fetch_weather_alert`
+  (meteoinfo.ru/informer/meteoalert, POST-код региона из `REGION_CODES`)
+  и `fetch_mchs_alert` (37.mchs.gov.ru, regex карточки статьи + тело),
+  вызовы после коммита погоды, каждый в своём try/except (сбой
+  источника не валит observations/forecast); `DELETE FROM weather_forecast
+  WHERE forecast_date < today` — чистка хвостов;
+- `modules/weather_routes.py` — ридеры: `weather_forecast` фильтр
+  `forecast_date >= сегодня`; `weather_alerts` — свежесть 24 ч
+  (`substr(fetched_at,1,16) >= now-24h`); `mchs_alerts` — если в тексте
+  нет «до HH:MM D месяца YYYY года», статьи старше 3 дней по
+  `published_at` прячутся;
+- `tests/unit/test_weather.py` — **9 unit-тестов** (хвосты прогноза,
+  LIMIT 7, свежесть/пустота гидромет-алертов, expiry МЧС, старость без
+  expiry, свежие показываются, будущий expiry важнее возраста);
+- `app.py` — `panel_name()` (settings `panel_name` → fallback
+  `socket.gethostname()`), добавлен в `page_data()`;
+  `templates/base.html` — суффикс в `<title>` и в `<h1>` шапки;
+  `templates/login.html` + `modules/auth.py` — то же на странице входа:
+  несколько открытых панелей различимы: «LAN Discovery (x96max)»;
+- `requirements.txt` — `Flask-SocketIO>=5.6,<6.0` (фикс Flask 3.1;
+  на OP версия уже поднята pip'ом вручную в этой сессии).
+
+**Деплой X96:** бэкапы `*.backup-p16-*` (app/weather_routes/auth/
+base/login/weather-update) → pscp → `py_compile` OK → **pytest 63/63**
+(54 + 9 новых) → `deploy/weather-update.py` → `/usr/local/sbin/` →
+ручной прогон: `WEATHER ALERT OK: нет предупреждений`,
+`MCHS ALERT OK: Экстренное предупреждение на 30 сентября по 01 октября
+2026 года`, `WEATHER UPDATE OK (прогноз: 7 дн.)` → `panel_name=x96max`
+в settings.json → рестарт → active.
+
+**Проверка страницы (X96):** `<title>LAN Discovery (x96max)`, шапка с
+суффиксом; даты прогноза **1–7 окт.** (28–30.09 удалены из БД);
+«Туман» от 28.09 и МЧС 28–29.09 исчезли; свежий МЧС 30.09–01.10 виден;
+`weather_alerts` — свежая строка с `alert=NULL` (не рендерится).
+
+**Остаточные риски:** недоступность meteoinfo >24 ч — блок
+гидромет-предупреждений исчезнет (осознанно: пусто лучше устаревшего);
+МЧС-статья без разбираемой даты окончания живёт максимум 3 дня;
+шаблоны, отрендеренные без `page_data`, не показывают суффикс (guarded
+`{% if panel_name %}`); OP ещё предупреждён к деплою этой версии.

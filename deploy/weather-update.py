@@ -7,11 +7,14 @@
   weather_daily          — агрегаты текущего дня из наблюдений
   weather_forecast       — прогноз на 7 дней (+ восход/заход)
   weather_forecast_history — архив ежедневных прогнозов
+  weather_alerts         — гидромет-предупреждение (meteoinfo.ru информер)
+  mchs_alerts            — последнее экстренное предупреждение (37.mchs.gov.ru)
 
 Координаты/регион берутся из /etc/lan-discovery/settings.json (секция weather).
 """
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -56,6 +59,148 @@ def fetch(query, tries=2, timeout=12, pause=5):
                 last = e
                 time.sleep(pause)
     raise last
+
+
+REGION_CODES = {
+    "ivanovo": "019",
+    "yaroslavl": "076",
+    "kostroma": "044",
+    "vladimir": "33",
+    "nizhny_novgorod": "52",
+    "ryazan": "62",
+    "moscow": "50",
+    "moscow_region": "50",
+    "tver": "69",
+}
+
+
+def fetch_weather_alert(w):
+    """Гидромет-предупреждение с информера meteoinfo.ru (POST-регион)."""
+    region_code = w.get("region_code", "ivanovo")
+    post_code = REGION_CODES.get(region_code, "019")
+
+    url = "https://meteoinfo.ru/informer/meteoalert/"
+    request = urllib.request.Request(
+        url,
+        data=f"a={post_code}".encode(),
+        method="POST",
+        headers={"User-Agent": "lan-discovery-weather"},
+    )
+    with urllib.request.urlopen(request, timeout=15) as response:
+        html = response.read().decode("utf-8", "ignore")
+
+    match = re.search(
+        r"Ивановская обл\..{0,1500}?<img[^>]+title=\"([^\"]+)\"",
+        html,
+        re.I | re.S,
+    )
+    if not match:
+        return None
+    alert = match.group(1).strip()
+    if alert == "Оповещения о погоде не требуется":
+        alert = None
+    return alert
+
+
+def update_weather_alert(con, w, now):
+    fetched_at = now.isoformat(timespec="minutes")
+    try:
+        alert = fetch_weather_alert(w)
+    except Exception as e:
+        print("=== WEATHER ALERT ERROR: %s" % e, file=sys.stderr)
+        return
+    con.execute(
+        """INSERT INTO weather_alerts (id, fetched_at, region, alert, source_window)
+           VALUES (1, ?, ?, ?, 'ближайшие 24 часа')
+           ON CONFLICT(id) DO UPDATE SET
+               fetched_at=excluded.fetched_at, region=excluded.region,
+               alert=excluded.alert, source_window=excluded.source_window""",
+        (fetched_at, w.get("region_name", "Иваново"), alert),
+    )
+    con.commit()
+    print("=== WEATHER ALERT OK: %s" % (alert or "нет предупреждений"))
+
+
+def fetch_mchs_alert():
+    """Последнее экстренное предупреждение с регионального сайта МЧС."""
+    list_url = (
+        "https://37.mchs.gov.ru/deyatelnost/press-centr/"
+        "operativnaya-informaciya/shtormovye-i-ekstrennye-preduprezhdeniya"
+    )
+    request = urllib.request.Request(
+        list_url, headers={"User-Agent": "lan-discovery-weather"}
+    )
+    with urllib.request.urlopen(request, timeout=15) as response:
+        html = response.read().decode("utf-8", "ignore")
+
+    match = re.search(
+        r"<a class=\"articles-item__title\" href=\"([^\"]+)\">([^<]+)</a>",
+        html,
+        re.I,
+    )
+    if not match:
+        return None
+
+    path = match.group(1)
+    title = re.sub(r"\s+", " ", match.group(2)).strip()
+    article_url = (
+        path if path.startswith("http") else "https://37.mchs.gov.ru" + path
+    )
+
+    request = urllib.request.Request(
+        article_url, headers={"User-Agent": "lan-discovery-weather"}
+    )
+    with urllib.request.urlopen(request, timeout=15) as response:
+        article_html = response.read().decode("utf-8", "ignore")
+
+    published = re.search(
+        r"<meta[^>]+itemprop=\"datePublished\"[^>]+(?:datetime|content)=\"([^\"]+)\"",
+        article_html,
+        re.I,
+    )
+    body = re.search(
+        r"<article[^>]+itemprop=\"articleBody\"[^>]*>(.*?)</article>",
+        article_html,
+        re.I | re.S,
+    )
+
+    text = None
+    if body:
+        text = re.sub(r"<br\s*/?>", "\n", body.group(1), flags=re.I)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"&nbsp;", " ", text, flags=re.I)
+        text = re.sub(r"\s+", " ", text).strip()
+
+    return {
+        "title": title,
+        "published_at": published.group(1).strip() if published else None,
+        "text": text,
+        "source_url": article_url,
+    }
+
+
+def update_mchs_alert(con, now):
+    fetched_at = now.isoformat(timespec="minutes")
+    try:
+        alert = fetch_mchs_alert()
+    except Exception as e:
+        print("=== MCHS ALERT ERROR: %s" % e, file=sys.stderr)
+        return
+    if not alert:
+        print("=== MCHS ALERT: предупреждение не найдено")
+        return
+    con.execute(
+        """INSERT INTO mchs_alerts (id, fetched_at, published_at, title, text, source_url)
+           VALUES (1, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+               fetched_at=excluded.fetched_at, published_at=excluded.published_at,
+               title=excluded.title, text=excluded.text,
+               source_url=excluded.source_url""",
+        (fetched_at, alert["published_at"], alert["title"],
+         alert["text"], alert["source_url"]),
+    )
+    con.commit()
+    print("=== MCHS ALERT OK: %s" % alert["title"])
 
 
 def main():
@@ -156,6 +301,9 @@ def main():
         )
 
     # --- прогноз на 7 дней (направление ветра — с полудня) ---
+    # Чистим просроченные даты, иначе LIMIT 7 в ридере отдаёт старые хвосты.
+    con.execute("DELETE FROM weather_forecast WHERE forecast_date < ?", (today,))
+
     noon_wdir = {}
     for i, t in enumerate(times):
         if len(t) >= 13 and int(t[11:13]) == 12:
@@ -196,6 +344,10 @@ def main():
         )
 
     con.commit()
+
+    # --- предупреждения (meteoinfo + МЧС), сбой источника не валит погоду ---
+    update_weather_alert(con, w, now)
+    update_mchs_alert(con, now)
     con.close()
 
     print(

@@ -214,6 +214,10 @@ def weather_alerts():
         weather = settings.get("weather", {})
         region = weather.get("region_name", "Иваново")
 
+        # Свежесть: тянем только предупреждения, обновлённые за последние 24 ч
+        # (писатель — weather-update.py; битый источник не должен вечно висеть).
+        cutoff = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M")
+
         con = sqlite3.connect(DB, timeout=5)
 
         rows = con.execute("""
@@ -224,9 +228,10 @@ def weather_alerts():
                 source_window
             FROM weather_alerts
             WHERE region LIKE ? AND alert IS NOT NULL AND alert != ''
+              AND substr(fetched_at, 1, 16) >= ?
             ORDER BY fetched_at DESC
             LIMIT 10
-        """, (f"%{region}%",)).fetchall()
+        """, (f"%{region}%", cutoff)).fetchall()
 
         con.close()
 
@@ -298,6 +303,19 @@ def mchs_alerts():
 
                 if datetime.now() >= expires_at:
                     continue
+            else:
+                # Нет разбираемой даты окончания — прячем старые статьи
+                # (иначе предупреждение висит вечно).
+                try:
+                    p = (row[1] or "").replace("T", " ")[:19]
+                    if len(p) <= 16:
+                        pub_dt = datetime.strptime(p, "%Y-%m-%d %H:%M")
+                    else:
+                        pub_dt = datetime.strptime(p, "%Y-%m-%d %H:%M:%S")
+                    if (datetime.now() - pub_dt).days >= 3:
+                        continue
+                except Exception:
+                    pass
 
             active_rows.append(row)
 
@@ -309,6 +327,10 @@ def mchs_alerts():
 def weather_forecast():
     try:
         con = sqlite3.connect(DB, timeout=5)
+
+        # Только сегодня и дальше: просроченные хвосты в БД не должны
+        # вытеснять свежие дни из LIMIT 7.
+        today = datetime.now().strftime("%Y-%m-%d")
 
         rows = con.execute("""
             SELECT
@@ -324,9 +346,10 @@ def weather_forecast():
                 sunset,
                 fetched_at
             FROM weather_forecast
+            WHERE forecast_date >= ?
             ORDER BY forecast_date
             LIMIT 7
-        """).fetchall()
+        """, (today,)).fetchall()
 
         con.close()
 

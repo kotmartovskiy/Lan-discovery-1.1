@@ -149,6 +149,13 @@ def _reset_rate_limit(ip):
 def register_routes(app):
     from flask import request, redirect, url_for, render_template, session, jsonify
 
+    def _panel_name():
+        try:
+            from app import panel_name
+            return panel_name()
+        except Exception:
+            return ""
+
     @app.route("/login", methods=["GET", "POST"])
     def login_page():
         error = None
@@ -156,7 +163,8 @@ def register_routes(app):
             ip = request.remote_addr
             if not _check_rate_limit(ip):
                 error = "Слишком много попыток. Подождите 5 минут."
-                return render_template("login.html", error=error)
+                return render_template("login.html", error=error,
+                                       panel_name=_panel_name())
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
             users = load_users()
@@ -174,7 +182,8 @@ def register_routes(app):
                     save_users(users)
                 return redirect(url_for("index"))
             error = "Неверное имя пользователя или пароль"
-        return render_template("login.html", error=error)
+        return render_template("login.html", error=error,
+                               panel_name=_panel_name())
 
     @app.route("/logout")
     def logout():
