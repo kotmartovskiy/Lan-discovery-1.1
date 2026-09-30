@@ -104,7 +104,7 @@ security pentest, восстановление из backup на чистую с�
 | B1 | Веб-терминал без авторизации, root-PTY, CORS `*` | `core_routes.py:906-956`, `app.py:336` | RCE от root для любого, кто достучится до :8080 |
 | B2 | Filemanager: корень `/`, guest может удалять/перемещать файлы | `core_routes.py:655-761` | потеря данных от root |
 | B3 | `POST /api/network/check_host` без авторизации (host → внешняя команда) | `network_routes.py:82-93` | неаутентифицированный SSRF/DoS-прокси |
-| B4 | Сейф паролей: base64, HMAC игнорируется, guest читает | `core_routes.py:793-816` | пароли открыты |
+| B4 | ~~Сейф паролей: base64, HMAC игнорируется, guest читает~~ **РЕШЁН (30.09.2026, P0-4)** — Fernet + `@can_edit` | `core_routes.py` secrets-helpers | пароли открыты — закрыто |
 | B5 | Отключённый пользователь не выкидывается из сессии; SHA-256-фолбэк пароля | `auth.py:35-42,85-93` | обход блокировки учётки |
 | B6 | ~~CSRF-meta отсутствует в `base_app.html` **в репозитории**~~ **РЕШЁН (30.09.2026, P0-6)** — правки X96 забраны в репо | `templates/base_app.html` | регресс CSRF при следующем деплое — закрыт |
 
@@ -145,8 +145,10 @@ security pentest, восстановление из backup на чистую с�
    (`@login_required`); валидация `host` (`_valid_host`: имя/IPv4/IPv6, без пробелов,
    `/`, ведущего `-`) во всех nettools; валидация MAC (`_valid_mac`) в bluetooth —
    см. журнал §9.
-4. **[P0] Сейф:** честное шифрование (Fernet на отдельном ключе) + миграция существующих
-   записей + доступ не ниже `can_edit`.
+4. **[P0][DONE — 30.09.2026]** Сейф: Fernet (authenticated encryption) на
+   отдельном ключе `/etc/lan-discovery/secret.key` (chmod 600), миграция legacy
+   base64+HMAC-записей (HMAC теперь реально проверяется), битые записи не
+   двойношифруются, все 4 API → `@can_edit` — см. журнал §9.
 5. **[P0] Auth:** проверка `enabled` в `login_required`/`get_current_user`, отказ от
    SHA-256-фолбэка (массовый re-hash при первом входе), min. длина пароля, TTL сессии.
 6. **[P0][DONE — 30.09.2026]** Синхронизация: X96-правки (CSRF base_app,
@@ -326,3 +328,47 @@ EOL-only=0, content_diff=0, только на сервере=0 — **repo == X96
 **Остаточные риски:** OP (Orange Pi) остался на старой версии (нет `modules/`) —
 отдельная задача (дублирование сканов, остановка сервиса на OP); junk-файлы
 лежат в `/tmp` (перезагрузка сотрёт — ок); `modules/*_b64.txt` в git — чистка P4.
+
+### 30.09.2026 — P0-4: сейф — Fernet + миграция + can_edit — **DONE**
+
+**Проблема (B4):** «шифрование» сейфа = `b64(HMAC[:16] || plaintext)` — пароли
+лежали открытым текстом (base64), HMAC при расшифровке **игнорировался**
+(`if h == raw: return text; return text`), все 4 API — только `@login_required`
+(guest читал все пароли), неудачная расшифровка приводила к двойному шифрованию
+при следующем сохранении.
+
+**Изменения:**
+- `modules/core_routes.py`:
+  - `_secrets_fernet()` — ключ из отдельного файла `secret.key` (32 байта;
+    64-байтовый hex → fromhex; иначе sha256-дедукция; chmod 600 при создании);
+  - `_secrets_encrypt/decrypt` — Fernet (AES-128-CBC + HMAC-SHA256);
+    fallback на legacy base64+HMAC с **реальной** проверкой HMAC;
+  - `_load_secrets` — legacy-записи мигрируют в Fernet при первом чтении
+    (с бэкапом `secrets.json.backup-<ts>`); нечитаемые → id в `_enc_ids`,
+    пишутся обратно без изменений (без двойного шифрования);
+  - `_save_secrets` — не мутирует вход, атомарная запись (tmp+`os.replace`),
+    chmod 600;
+  - 4 роута `/api/secrets*` → `@login_required` + `@can_edit` (guest → 403);
+    create/update сбрасывают флаг `_enc_ids` (новый пароль шифруется);
+- `templates/apps/passwords.html` — UI-гейт `isRoot` admin → `!= 'guest'`
+  (соответствует can_edit), текст заглушки;
+- `requirements.txt` — `cryptography>=42,<47` (venv на X96: pip install OK).
+
+**Файлы:** `modules/core_routes.py`, `templates/apps/passwords.html`,
+`requirements.txt` (repo == X96). Бэкапы `*.backup-20260930-034959`.
+
+**Тесты (X96):**
+- миграция `/tmp/test_p04_migration.py` **18/18**: legacy→Fernet (бэкап 1 раз,
+  без повторной миграции), mode 600, битая legacy-запись сохраняется как есть
+  (без double-encrypt), roundtrip, мутации не утекают в вызывающий код;
+- HTTP `/tmp/test_p04_secrets.py` **29/29**: аноним 302/400, guest все методы→403,
+  user GET/POST/DELETE→200 (can_edit), admin CRUD, на диске — Fernet-токен
+  `gAAAA…` вместо plaintext, mode 600, обновлённый пароль тоже шифруется;
+  регресс страницы/health. users.json (пароли user/guest) — бэкап→тест→восстановлен.
+- финальное состояние: `secrets.json` = `[]`, mode 600; лог без ошибок.
+
+**Остаточные риски:** пароль пользователя при смене передаётся в открытом виде
+по HTTP (панель без TLS — вне scope P0, см. hardening); `_fernet_cache` кэширует
+ключ в памяти процесса (ok); конкурентная запись `secrets.json` двумя
+запросами theoretically possible (single-process, низкий риск) — при необходимости
+file-lock в P1.

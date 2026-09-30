@@ -604,16 +604,19 @@ def register_routes(app):
 
     @app.route("/api/secrets", methods=["GET"])
     @login_required
+    @can_edit
     def api_secrets_list():
         secrets = _load_secrets()
         return {"ok": True, "secrets": secrets}
 
     @app.route("/api/secrets", methods=["POST"])
     @login_required
+    @can_edit
     def api_secrets_create():
         data = request.json
         secrets = _load_secrets()
         secret_id = max([s["id"] for s in secrets], default=0) + 1
+        _enc_ids.discard(secret_id)
         secret = {
             "id": secret_id,
             "name": data.get("name", ""),
@@ -628,6 +631,7 @@ def register_routes(app):
 
     @app.route("/api/secrets/<int:secret_id>", methods=["PUT"])
     @login_required
+    @can_edit
     def api_secrets_update(secret_id):
         data = request.json
         secrets = _load_secrets()
@@ -635,7 +639,9 @@ def register_routes(app):
             if s["id"] == secret_id:
                 s["name"] = data.get("name", s["name"])
                 s["login"] = data.get("login", s["login"])
-                s["password"] = data.get("password", s["password"])
+                if "password" in data:
+                    s["password"] = data["password"]
+                    _enc_ids.discard(secret_id)
                 s["url"] = data.get("url", s["url"])
                 s["notes"] = data.get("notes", s["notes"])
                 _save_secrets(secrets)
@@ -644,6 +650,7 @@ def register_routes(app):
 
     @app.route("/api/secrets/<int:secret_id>", methods=["DELETE"])
     @login_required
+    @can_edit
     def api_secrets_delete(secret_id):
         secrets = _load_secrets()
         secrets = [s for s in secrets if s["id"] != secret_id]
@@ -809,38 +816,83 @@ def _notes_save_index(idx):
 
 
 # ==================== Secrets helpers ====================
+# Сейф: Fernet (AES-128-CBC + HMAC-SHA256, authenticated encryption).
+# Ключ — отдельный файл SECRETS_KEY_PATH (chmod 600), не в коде/БД.
+# Старый формат base64(HMAC[:16] || plaintext): HMAC реально проверяется,
+# запись мигрирует в Fernet при первом сохранении. Битые/нечитаемые записи
+# (id в _enc_ids) пишутся обратно без изменений — без двойного шифрования.
+
+_enc_ids = set()
+_fernet_cache = {}
+
 
 def _get_secrets_key():
     if os.path.exists(SECRETS_KEY_PATH):
         with open(SECRETS_KEY_PATH, "rb") as f:
-            return f.read()
+            key = f.read()
+        if len(key) >= 32:
+            return key
     key = os.urandom(32)
     os.makedirs(os.path.dirname(SECRETS_KEY_PATH), exist_ok=True)
     with open(SECRETS_KEY_PATH, "wb") as f:
         f.write(key)
+    try:
+        os.chmod(SECRETS_KEY_PATH, 0o600)
+    except OSError:
+        pass
     return key
 
 
+def _secrets_fernet():
+    from cryptography.fernet import Fernet
+    raw = _get_secrets_key()
+    hit = _fernet_cache.get(raw)
+    if hit is not None:
+        return hit
+    import base64
+    import hashlib
+    if len(raw) == 32:
+        key32 = raw
+    else:
+        key32 = None
+        stripped = raw.strip()
+        if len(stripped) == 64:
+            try:
+                key32 = bytes.fromhex(stripped.decode("ascii"))
+            except Exception:
+                key32 = None
+        if key32 is None:
+            key32 = hashlib.sha256(raw).digest()
+    f = Fernet(base64.urlsafe_b64encode(key32))
+    _fernet_cache[raw] = f
+    return f
+
+
 def _secrets_encrypt(text):
-    from hashlib import sha256
-    key = _get_secrets_key()
-    from base64 import b64encode
-    from hmac import HMAC
-    h = HMAC(key, text.encode(), sha256).digest()
-    return b64encode(h[:16] + text.encode()).decode()
+    return _secrets_fernet().encrypt(text.encode("utf-8")).decode("ascii")
 
 
 def _secrets_decrypt(data):
-    from hashlib import sha256
+    try:
+        return _secrets_fernet().decrypt(data.encode("ascii")).decode("utf-8")
+    except Exception:
+        pass
     from base64 import b64decode
+    from hashlib import sha256
     from hmac import HMAC
-    key = _get_secrets_key()
-    raw = b64decode(data)
-    text = raw[16:].decode()
-    h = HMAC(key, text.encode(), sha256).digest()
-    if h[:16] == raw[:16]:
-        return text
-    return text
+    try:
+        raw = b64decode(data, validate=True)
+    except Exception:
+        raise ValueError("secrets: corrupt entry")
+    if len(raw) < 16:
+        raise ValueError("secrets: corrupt entry")
+    body = raw[16:]
+    if HMAC(_get_secrets_key(), body, sha256).digest()[:16] != raw[:16]:
+        raise ValueError("secrets: hmac mismatch")
+    try:
+        return body.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ValueError("secrets: corrupt entry")
 
 
 def _secrets_file():
@@ -848,27 +900,53 @@ def _secrets_file():
 
 
 def _load_secrets():
+    global _enc_ids
+    _enc_ids = set()
     path = _secrets_file()
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            data = json.load(f)
-        for s in data:
-            if "password" in s and s["password"]:
-                try:
-                    s["password"] = _secrets_decrypt(s["password"])
-                except Exception:
-                    pass
-        return data
-    return []
+    if not os.path.exists(path):
+        return []
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    need_migration = False
+    for s in data:
+        pw = s.get("password")
+        if not pw:
+            continue
+        try:
+            s["password"] = _secrets_decrypt(pw)
+            if not pw.startswith("gAAAA"):
+                need_migration = True
+        except Exception:
+            _enc_ids.add(s.get("id"))
+    if need_migration:
+        backup = path + ".backup-" + time.strftime("%Y%m%d-%H%M%S")
+        try:
+            shutil.copy2(path, backup)
+        except OSError:
+            pass
+        _save_secrets(data)
+    return data
 
 
 def _save_secrets(secrets):
     path = _secrets_file()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    out = []
     for s in secrets:
-        if "password" in s and s["password"]:
-            s["password"] = _secrets_encrypt(s["password"])
-    with open(path, "w") as f:
-        json.dump(secrets, f, ensure_ascii=False, indent=2)
+        s2 = dict(s)
+        if s2.get("password") and s2.get("id") not in _enc_ids:
+            s2["password"] = _secrets_encrypt(s2["password"])
+        out.append(s2)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
 
 
 # ==================== Alarm helpers ====================
