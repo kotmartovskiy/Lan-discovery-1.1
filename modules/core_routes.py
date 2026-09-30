@@ -900,16 +900,44 @@ def _alarm_scheduler():
 _terminal_sessions = {}
 
 
+def _socket_is_admin():
+    """Текущий socketio-сеанс — включённый администратор (см. modules/auth)."""
+    try:
+        from modules.auth import get_current_user
+        u = get_current_user()
+        return bool(u and u.role == "admin" and getattr(u, "enabled", False))
+    except Exception:
+        return False
+
+
+def _terminal_drop(sid):
+    """Закрыть терминальную сессию (kill процесса + fd), если она есть."""
+    sess = _terminal_sessions.pop(sid, None)
+    if not sess:
+        return
+    try:
+        os.kill(sess["pid"], 9)
+    except Exception:
+        pass
+    try:
+        os.close(sess["fd"])
+    except Exception:
+        pass
+
+
 def register_socketio_handlers(socketio):
     from flask import request
 
     @socketio.on("connect")
     def terminal_connect():
-        pass
+        return _socket_is_admin()
 
     @socketio.on("terminal_input")
     def terminal_input(data):
         sid = request.sid
+        if not _socket_is_admin():
+            _terminal_drop(sid)
+            return
         if sid not in _terminal_sessions:
             return
         fd = _terminal_sessions[sid]["fd"]
@@ -921,6 +949,9 @@ def register_socketio_handlers(socketio):
     @socketio.on("terminal_resize")
     def terminal_resize(data):
         sid = request.sid
+        if not _socket_is_admin():
+            _terminal_drop(sid)
+            return
         if sid not in _terminal_sessions:
             return
         fd = _terminal_sessions[sid]["fd"]
@@ -935,6 +966,9 @@ def register_socketio_handlers(socketio):
     def terminal_start(data=None):
         import pty, fcntl, termios
         sid = request.sid
+
+        if not _socket_is_admin():
+            return
 
         if sid in _terminal_sessions:
             return
@@ -977,31 +1011,11 @@ def register_socketio_handlers(socketio):
 
     @socketio.on("terminal_stop")
     def terminal_stop():
-        sid = request.sid
-        if sid in _terminal_sessions:
-            sess = _terminal_sessions.pop(sid)
-            try:
-                os.kill(sess["pid"], 9)
-            except Exception:
-                pass
-            try:
-                os.close(sess["fd"])
-            except Exception:
-                pass
+        _terminal_drop(request.sid)
 
     @socketio.on("disconnect")
     def terminal_disconnect():
-        sid = request.sid
-        if sid in _terminal_sessions:
-            sess = _terminal_sessions.pop(sid)
-            try:
-                os.kill(sess["pid"], 9)
-            except Exception:
-                pass
-            try:
-                os.close(sess["fd"])
-            except Exception:
-                pass
+        _terminal_drop(request.sid)
 
 
 # ==================== Background tasks ====================

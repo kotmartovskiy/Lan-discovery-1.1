@@ -333,7 +333,7 @@ def _schedule_currencies():
 
 from flask_socketio import SocketIO, emit
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+socketio = SocketIO(app, async_mode="threading")
 
 from modules.core_routes import register_socketio_handlers
 register_socketio_handlers(socketio)
