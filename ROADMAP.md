@@ -68,7 +68,7 @@ security pentest, восстановление из backup на чистую с�
 | **Discovery engine** | ~~скан плотно связан с UI-роутами, сеть захардкожена, нет ручного выбора, MAC-смена не пишется в events~~ **закрыта (P6, 30.09)**: движок вынесен в `core/discovery.py` (scanner `run_scan` → normalizer `parse_scan` → `reconcile` → events), интерфейсы/подсеть из `network.scan_ifaces`/`subnet`, ручной `POST /api/scan` + кнопка в UI, событие `MAC_CHANGED` | scanner → normalizer → DB → events → API, manual/scheduled scan по выбору | ручной скан и scheduled есть; выбор интерфейса — через `scan_ifaces` (не через UI-форму) | **P6** (закрыта) |
 | **Event system** | ~~только 3 типа, нет severity/source/metadata~~ **закрыта (P7, 30.09)**: events v2 — `severity`/`source`/`metadata` (JSON), фабрика `core/events.py` (`add_event`), `GET /api/events` с фильтрами, бейджи в `/history`; типы событий: NEW/ONLINE/OFFLINE/MAC_CHANGED | формализованные события (device_missing, ip_changed, disk_warning…) | severity/источник/фильтры есть; новые типы (disk_warning, ip_changed) подключаются через `add_event` одной строкой | **P7** (закрыта) |
 | **Observability** | `/api/health` есть (unauth, `system_routes.py:1636`), `/api/status`, `/api/system/health` — но **нет version/uptime/last-discovery в одном месте** | `/api/health` + `/api/version` + `/api/discovery/status` | состояние видно только через UI | **P1** |
-| **Installer** | нет: установка вручную по `docs/Установка.md` (venv + systemd вручную) | `install.sh`: dep-check → config → systemd → db init → health | воспроизводимость установки на новое устройство | **P3** |
+| **Installer** | ~~нет: установка вручную~~ **закрыта (P9, 30.09)**: `install.sh` в корне репо — preflight → code → apt-зависимости → venv → базовый settings (авто-subnet) → db init → systemd-юнит (`deploy/lan-discovery.service`, ExecStart под prefix) → health-retry; флаги `--prefix/--unit-dir/--skip-apt/--no-enable/--dry-run`, идемпотентен (проверено двойным прогоном на X96 в tmp-префиксе, состояние БД/config/юнита не изменилось); `docs/Установка.md` дополнен | `install.sh`: dep-check → config → systemd → db init → health | нестандартный `--prefix`: пути БД/settings захардкожены в коде; полный e2e «чистой машины» без Docker не воспроизведён (проверка — tmp-префикс + dry-run) | **P9** (закрыта) |
 | **Update/rollback** | деплой вручную (`deploy.py`: бэкап → SFTP → py_compile → restart); бэкап БД автоматический + integrity_check + restore из UI — **это уже работает** | версия → backup → update → health → rollback | нет версий/отката кода (только бэкап файлов) | **P3** |
 | **Backup/recovery** | БД: Online Backup API + integrity_check + ротация 14 дней + restore через UI (`system_routes.py:1936`); на OP эММС-бэкапы; **restore на чистую систему не проверен** | документированная и проверенная процедура restore | «production ready только после проверенного restore» | **P2** |
 | **Testing** | ~~pytest/CI нет; 3 ad-hoc скрипта требуют живой панели~~ **закрыта (P13, 30.09)**: `tests/` в репо — 42 unit (discovery/events/hardware/migrations/config, без сети) + 5 live (маркер `live`, скип при недоступности панели), `pytest.ini`+`requirements-dev.txt`, CI на каждый push/PR (ubuntu/py3.11: pytest unit + py_compile); ad-hoc `/tmp/test_p*`-скрипты остались как deploy-проверки фаз | unit + интеграционные в одном прогоне | живые ad-hoc-скрипты фаз не в git (deploy-only) | **P13** (закрыта) |
@@ -284,6 +284,25 @@ security pentest, восстановление из backup на чистую с�
      push/PR в main: ubuntu + Python 3.11 + `pip install -r
      requirements.txt -r requirements-dev.txt` → `pytest tests/unit -v` +
      py_compile core/app/modules; timeout 15 мин, cache pip — см. §9.
+32. **[P9][DONE — 30.09.2026]** `install.sh` (корень репо) + шаблон
+     `deploy/lan-discovery.service`: preflight (root/python3/код) →
+     apt-зависимости (nmap/traceroute/dnsutils/iw/bluez/smartmontools/
+     ffmpeg/mpv/python3-venv, `--skip-apt` для тестов) → venv + pip →
+     базовый `settings.json` (авто-subnet/self_ips из интерфейсов, если
+     файла нет) → db init → установка юнита (ExecStart под `--prefix`,
+     enable --now при доступном systemd) → health-check с retry.
+     Флаги: `--prefix`, `--unit-dir`, `--skip-apt`, `--dry-run`,
+     `--no-enable`; каждый шаг идемпотентен — см. §9.
+33. **[P9][DONE — 30.09.2026]** Проверка на «чистом» окружении: прогон
+     install.sh на X96 в tmp-префиксе (`--prefix /tmp/... --unit-dir
+     --skip-apt`): первый запуск создаёт venv/config/БД/юнит и проходит
+     health; второй запуск идемпотентен (данные не тронуты, md5
+     settings.json/devices.db совпадают, повторные шаги — no-op);
+     `--dry-run` печатает план без изменений — см. §9.
+34. **[P9][DONE — 30.09.2026]** `docs/Установка.md`: чистая установка на
+     Debian/Armbian (3 способа получить код), описание каждого шага
+     install.sh и флагов, первый вход (admin/1234 → смена пароля),
+     проверка (systemctl/curl health), удаление — см. §9.
 
 ---
 
@@ -300,7 +319,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 6 Discovery engine | **DONE** | задачи 17–20: `core/discovery.py` (scanner/normalizer/reconcile), `POST /api/scan` + кнопка, событие MAC_CHANGED |
 | PHASE 7 Event engine | **DONE** | задачи 21–24: events v2 (severity/source/metadata, SCHEMA_VERSION=2), `core/events.py`, `GET /api/events`, бейджи в /history |
 | PHASE 8 Security hardening | **IN PROGRESS** | задачи 1–6 (P0) + 10 (P1-10); root-PTY/dev-Werkzeug дефернуты |
-| PHASE 9 Installer | **PENDING** | |
+| PHASE 9 Installer | **DONE** | задачи 32–34: install.sh (8 шагов, идемпотент, dry-run), deploy/lan-discovery.service, docs/Установка.md; проверка на X96 в tmp-префиксе + повторный прогон без изменений данных |
 | PHASE 10 Update/rollback | **PENDING** | |
 | PHASE 11 Backup/Recovery | **PARTIAL** | бэкап БД готов; restore на чистую систему не проверен → не DONE |
 | PHASE 12 Observability | **DONE** | P1-9: `/api/health` + version/uptime/last-discovery/db-status |
@@ -1061,3 +1080,53 @@ reconcile обновляется как есть (регистр ≠ смена)
 **Остаточные риски:** live-тесты гоняются только при достижимой панели
 (по умолчанию выключены); ад-hoc deploy-скрипты фаз (`/tmp/test_p*`) не в
 git; негативные проверки (403/валидация форм) покрыты частично.
+
+### 30.09.2026 — P9: Installer — install.sh (PHASE 9) — **DONE**
+
+**Задачи 32–34 (PHASE 9).** Развёртывание на чистой машине перестало
+быть ручной процедурой:
+
+- **`install.sh`** (корень репо, идемпотентен): preflight (python3 ≥ 3.9,
+  наличие кода, root при необходимости) → code (копирует код в `--prefix`,
+  если запуск из другого каталога; существующий `app.py` не перезаписывает
+  — обновление отдано PHASE 10) → deps (недостающие пакеты через
+  `dpkg -s`: nmap traceroute dnsutils iw bluez smartmontools ffmpeg mpv
+  python3-venv; `--skip-apt`) → venv + pip -r requirements → config
+  (базовый `settings.json` с авто-`subnet`/`self_ips` из `ip -4 addr`,
+  только если файла ещё нет) → db (`init_db_schema()`: миграции/ensure/
+  retention, из префикса) → unit (шаблон `deploy/lan-discovery.service` →
+  `sed {PREFIX}` → `daemon-reload` + `enable --now`, только для /etc-юнита
+  и при наличии systemd) → health (curl `/api/health` retry 30×2с, иначе
+  die с подсказкой journalctl) → отчёт (admin/1234 — сменить пароль).
+  Флаги: `--prefix`, `--unit-dir`, `--skip-apt`, `--no-enable`,
+  `--dry-run` (печатает план любых изменений), `--help`.
+- **`deploy/lan-discovery.service`** — шаблон действующего юнита (ExecStart
+  с `{PREFIX}`), теперь юнит живёт и в репо (раньше только на сервере).
+- **`docs/Установка.md`** — новая секция «Быстрая установка на чистую
+  машину» (таблица шагов, флаги, первый вход, ограничение `--prefix`),
+  обновлена «Проверка после установки» (`systemctl` + `/api/health`
+  `db.status=ok, user_version=2`), требования разделены на
+  «чистая установка» (Debian 11+/Armbian, python 3.9+) и боевую (X96).
+
+**Проверки на X96:** `bash -n` (синтаксис), `--help`, `--dry-run` в
+tmp-префиксе (печатает план, ничего не меняя), затем `/tmp/p9_run.sh`:
+прогон 1 в чистый `/tmp/laninst-test` (код скопирован из /opt, venv
+создан, pip, config — «уже есть» (боевой файл не тронут), db-init no-op,
+юнит записан в tmp-unit с ExecStart=tmp, systemd-шаг пропущен, health
+OK) → RUN1_RC=0, ARTIFACTS OK, UNIT PREFIX OK; прогон 2 («уже есть» на
+code/venv/config, повторные шаги no-op) → RUN2_RC=0; состояние
+(settings.json md5, юнит md5, user_version, count devices)
+**не изменилось после обоих прогонов**. Найденные и исправленные по ходу
+баги: `summary` возвращал 1 под `set -e` из-за `[[ ]] &&` (в dry-run
+последней командой был false-тел), счётчик событий в сравнении
+состояния — рост от живого скан-потока, а не от установщика (исключён из
+cmp).
+
+**Остаточные риски:** полный e2e «чистой машины» не воспроизведён — нет
+Docker/WSL ни на боксе, ни локально (проверка = tmp-префикс + dry-run +
+идемпотентность); пути `devices.db`/`settings.json` захардкожены в 9+
+модулях — нестандартный `--prefix` работает только для кода/venv/юнита
+(env-переопределение — отдельная задача, не в PHASE 9); apt-ветка
+(`step_deps`) прогнана только в режиме «все пакеты есть»/`--skip-apt`;
+ветка создания `settings.json` (чистая машина) — только dry-run
+(на X96 файл существует → «уже есть»).

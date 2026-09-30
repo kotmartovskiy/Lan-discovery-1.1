@@ -1,0 +1,15 @@
+[Unit]
+Description=LAN Discovery Web Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart={PREFIX}/venv/bin/python {PREFIX}/app.py
+Restart=always
+RestartSec=5
+User=root
+WorkingDirectory={PREFIX}
+
+[Install]
+WantedBy=multi-user.target
