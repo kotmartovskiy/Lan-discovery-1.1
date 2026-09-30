@@ -13,6 +13,28 @@ NETWORK_CONFIG = "/etc/lan-discovery/network.json"
 
 _network_config_cache = {"data": None, "ts": 0}
 
+_HOST_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,252}$")
+_MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+
+
+def _valid_host(host):
+    """Хост для сетевых инструментов: имя/IPv4/IPv6.
+
+    Запрещает пробелы, '/', null-байты и ведущий '-' (argument injection
+    в ping/host/nslookup/tracepath/traceroute через argv).
+    """
+    if not isinstance(host, str):
+        return False
+    host = host.strip()
+    if not host or len(host) > 253 or "/" in host or host.startswith("-"):
+        return False
+    return bool(_HOST_RE.match(host))
+
+
+def _valid_mac(mac):
+    """MAC-адрес для bluetoothctl (строка уходит в stdin команды)."""
+    return isinstance(mac, str) and bool(_MAC_RE.match(mac.strip()))
+
 def load_network_config():
     now = time.time()
     if _network_config_cache["data"] is not None and now - _network_config_cache["ts"] < 60:
@@ -71,6 +93,7 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
         return jsonify({"ok": True})
 
     @app.route("/api/network/check")
+    @login_required
     def api_network_check():
         """Check network connectivity"""
         try:
@@ -80,14 +103,17 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
             return jsonify({"internet": False, "ru_zone": False, "error": str(e)})
 
     @app.route("/api/network/check_host", methods=["POST"])
+    @login_required
     def api_network_check_host():
         """Check custom host connectivity"""
         data = request.get_json() or {}
         host = data.get("host", "")
         if not host:
             return jsonify({"error": "no host"}), 400
+        if not _valid_host(host):
+            return jsonify({"error": "invalid host"}), 400
         try:
-            out = _cmd(["python3", NETWORK_CHECK_SCRIPT, "provider", host], timeout=15)
+            out = _cmd(["python3", NETWORK_CHECK_SCRIPT, "provider", host.strip()], timeout=15)
             return jsonify(json.loads(out))
         except Exception as e:
             return jsonify({"host": host, "online": False, "error": str(e)})
@@ -98,6 +124,8 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
         host = request.json.get("host", "").strip()
         if not host:
             return {"ok": False, "error": "Введите хост"}
+        if not _valid_host(host):
+            return {"ok": False, "error": "Недопустимый хост"}, 400
         try:
             r = subprocess.run(
                 ["ping", "-c", "4", "-W", "3", host],
@@ -113,6 +141,8 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
         host = request.json.get("host", "").strip()
         if not host:
             return {"ok": False, "error": "Введите хост"}
+        if not _valid_host(host):
+            return {"ok": False, "error": "Недопустимый хост"}, 400
         try:
             r = subprocess.run(
                 ["host", host],
@@ -135,6 +165,8 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
         ports_str = data.get("ports", "22,80,443,8080")
         if not host:
             return {"ok": False, "error": "Введите хост"}
+        if not _valid_host(host):
+            return {"ok": False, "error": "Недопустимый хост"}, 400
         try:
             ports = [int(p.strip()) for p in ports_str.split(",") if p.strip()]
         except ValueError:
@@ -170,6 +202,8 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
         host = request.json.get("host", "").strip()
         if not host:
             return {"ok": False, "error": "Введите хост"}
+        if not _valid_host(host):
+            return {"ok": False, "error": "Недопустимый хост"}, 400
         try:
             r = subprocess.run(
                 ["tracepath", host],
@@ -346,8 +380,10 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
     @login_required
     def api_bluetooth_connect():
         mac = request.json.get("mac", "")
+        if not _valid_mac(mac):
+            return {"ok": False, "error": "Неверный MAC"}, 400
         try:
-            out = _bt_cmd("connect %s" % mac, timeout=15)
+            out = _bt_cmd("connect %s" % mac.strip(), timeout=15)
             ok = "successful" in out.lower() or "connection successful" in out.lower()
             return {"ok": ok, "output": out}
         except Exception as e:
@@ -357,8 +393,10 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
     @login_required
     def api_bluetooth_disconnect():
         mac = request.json.get("mac", "")
+        if not _valid_mac(mac):
+            return {"ok": False, "error": "Неверный MAC"}, 400
         try:
-            out = _bt_cmd("disconnect %s" % mac)
+            out = _bt_cmd("disconnect %s" % mac.strip())
             return {"ok": True, "output": out}
         except Exception as e:
             return {"ok": False, "error": str(e)}
@@ -367,8 +405,10 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
     @login_required
     def api_bluetooth_pair():
         mac = request.json.get("mac", "")
+        if not _valid_mac(mac):
+            return {"ok": False, "error": "Неверный MAC"}, 400
         try:
-            out = _bt_cmd("pair %s" % mac, timeout=30)
+            out = _bt_cmd("pair %s" % mac.strip(), timeout=30)
             ok = "successful" in out.lower()
             return {"ok": ok, "output": out}
         except Exception as e:
@@ -378,8 +418,10 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
     @login_required
     def api_bluetooth_remove():
         mac = request.json.get("mac", "")
+        if not _valid_mac(mac):
+            return {"ok": False, "error": "Неверный MAC"}, 400
         try:
-            out = _bt_cmd("remove %s" % mac)
+            out = _bt_cmd("remove %s" % mac.strip())
             return {"ok": True, "output": out}
         except Exception as e:
             return {"ok": False, "error": str(e)}

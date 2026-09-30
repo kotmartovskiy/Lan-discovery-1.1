@@ -141,8 +141,10 @@ security pentest, восстановление из backup на чистую с�
    `move /`, заглушка «только для admin» в шаблоне — см. журнал §9.
    Решение: корень `/` для admin оставлен (эквивалентен уже имеющемуся у admin
    root-терминалу; ограничение корня сломало бы назначение инструмента).
-3. **[P0] Закрыть неавторизованные роуты** `/api/network/check*`; валидация `host`
-   (IP/hostname, без `-`-префикса) во всех nettools.
+3. **[P0][DONE — 30.09.2026]** Закрыты `/api/network/check`, `/api/network/check_host`
+   (`@login_required`); валидация `host` (`_valid_host`: имя/IPv4/IPv6, без пробелов,
+   `/`, ведущего `-`) во всех nettools; валидация MAC (`_valid_mac`) в bluetooth —
+   см. журнал §9.
 4. **[P0] Сейф:** честное шифрование (Fernet на отдельном ключе) + миграция существующих
    записей + доступ не ниже `can_edit`.
 5. **[P0] Auth:** проверка `enabled` в `login_required`/`get_current_user`, отказ от
@@ -256,6 +258,36 @@ admin: list→200, страница с UI; не-admin (`user`): list/read→403,
 Временный пароль `user` тест-account: users.json → бэкап → тест → **восстановлен**.
 
 **Остаточные риски:** guest/editor больше не имеют доступа к filemanager
-(изменение поведения — задокументировать); непроверенные аналогичные проблемы в
-`/api/player/*` (browse/playlist без нормализации) — кандидат в P0-3/отдельно;
+(изменение поведения — задокументировать); `/api/player/*` (browse/playlist без
+нормализации путей) — отдельная задача hardening (см. P1-10);
 CSRF-заголовков в `base_app.html` в репозитории ещё нет (B6, задача 6).
+
+### 30.09.2026 — P0-3: авторизация network-роутов + валидация host/MAC — **DONE**
+
+**Проблема (B3):** `/api/network/check` и `/api/network/check_host` (POST, host из
+JSON → внешняя команда) были без авторизации; nettools передавали `host` в argv
+без проверки (argument injection через ведущий `-`); bluetooth MAC уходил в stdin
+`bluetoothctl` без проверки (инъекция команд).
+
+**Изменения (только `modules/network_routes.py`):**
+- оба `/api/network/check*` → `@login_required`;
+- `_valid_host()`: `[A-Za-z0-9][A-Za-z0-9._:-]{0,252}`, без `/`, без ведущего `-`,
+  без пробелов → иначе 400; применён к `check_host`, `ping`, `dns`, `ports`, `trace`;
+- `_valid_mac()`: строгий формат `XX:XX:XX:XX:XX:XX` → иначе 400; применён к
+  `connect`, `disconnect`, `pair`, `remove`.
+
+**Файл:** `modules/network_routes.py` (repo == X96 после деплоя).
+Бэкап `network_routes.py.backup-20260930-033214`.
+
+**Тесты (X96, `/tmp/test_p03_network.py`, 29/29 PASS):**
+аноним: GET check→302, POST no-csrf→400, POST с CSRF→302;
+admin: check→200, check_host(127.0.0.1)→200 online=true;
+инъекции: `-c`, `--help`, `a b`, `path`, tab, пустые → 400 (все 4 nettools тоже);
+валидные host → работают (ping реальный вывод); bt-инъекция
+`AA:BB\npower off` → 400; регресс: config/health/nettools/bluetooth/index.
+
+**Остаточные риски:** `/api/monitoring/<ip>` (SSRF на `:19999`) и
+`/api/nettools/ports` (произвольный target) — features, но нужна валидация/белый
+список при hardening (P1-10); hosts из `/api/network/config` (user-editable)
+проходят ту же валидацию при проверке — несовместимые старые значения дадут 400
+(поведение видимое, не тихое).
