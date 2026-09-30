@@ -20,6 +20,8 @@ import time
 import logging
 from datetime import datetime
 
+from core.events import add_event
+
 log = logging.getLogger("lan-discovery")
 
 _DEFAULT_IFACES = ["end0", "eth0", "wlan1", "wlan0"]
@@ -244,23 +246,12 @@ def reconcile(con, current_devices, now=None):
             )
 
             if mac_changed:
-                con.execute(
-                    """
-                    INSERT INTO events (timestamp, ip, hostname, mac, event)
-                    VALUES (?, ?, ?, ?, 'MAC_CHANGED')
-                    """,
-                    (now, ip, hostname, mac),
-                )
+                add_event(con, ip, hostname, mac, "MAC_CHANGED",
+                          timestamp=now)
                 stats["mac_changed"] += 1
 
             if not was_online:
-                con.execute(
-                    """
-                    INSERT INTO events (timestamp, ip, hostname, mac, event)
-                    VALUES (?, ?, ?, ?, 'ONLINE')
-                    """,
-                    (now, ip, hostname, mac),
-                )
+                add_event(con, ip, hostname, mac, "ONLINE", timestamp=now)
                 stats["online"] += 1
         else:
             con.execute(
@@ -272,13 +263,7 @@ def reconcile(con, current_devices, now=None):
                 """,
                 (ip, hostname, mac, vendor, now, now),
             )
-            con.execute(
-                """
-                INSERT INTO events (timestamp, ip, hostname, mac, event)
-                VALUES (?, ?, ?, ?, 'NEW')
-                """,
-                (now, ip, hostname, mac),
-            )
+            add_event(con, ip, hostname, mac, "NEW", timestamp=now)
             stats["new"] += 1
 
     # НЕ ОБНАРУЖЕННЫЕ УСТРОЙСТВА
@@ -298,13 +283,8 @@ def reconcile(con, current_devices, now=None):
             row = con.execute(
                 "SELECT hostname, mac FROM devices WHERE ip=?", (ip,)
             ).fetchone()
-            con.execute(
-                """
-                INSERT INTO events (timestamp, ip, hostname, mac, event)
-                VALUES (?, ?, ?, ?, 'OFFLINE')
-                """,
-                (now, ip, row[0] if row else None, row[1] if row else None),
-            )
+            add_event(con, ip, row[0] if row else None,
+                      row[1] if row else None, "OFFLINE", timestamp=now)
             stats["offline"] += 1
         else:
             con.execute(

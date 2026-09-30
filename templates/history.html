@@ -13,6 +13,7 @@
 <th>Hostname</th>
 <th>MAC</th>
 <th>Событие</th>
+<th>Уровень</th>
 </tr>
 
 {% for e in events %}
@@ -40,6 +41,16 @@
 
 {% endif %}
 
+</td>
+
+<td>
+{% if e[5] == 'critical' %}
+<span style="color:#ef5350;">critical</span>
+{% elif e[5] == 'warning' %}
+<span style="color:#f59e0b;">warning</span>
+{% else %}
+<span style="color:#9aa0a6;">{{ e[5] or 'info' }}</span>
+{% endif %}
 </td>
 
 </tr>

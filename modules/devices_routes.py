@@ -20,7 +20,7 @@ from core.discovery import (  # noqa: F401
     start_scan_thread,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _init_lock = threading.Lock()
 _init_done = False
 
@@ -63,7 +63,10 @@ def init_db_schema(force=False):
                     ip TEXT,
                     hostname TEXT,
                     mac TEXT,
-                    event TEXT
+                    event TEXT,
+                    severity TEXT,
+                    source TEXT,
+                    metadata TEXT
                 )
             """)
 
@@ -86,9 +89,45 @@ def init_db_schema(force=False):
                 if col not in columns:
                     con.execute(stmt)
 
+            # events v2 (P7-1): severity/source/metadata
+            event_columns = {
+                row[1]
+                for row in con.execute(
+                    "PRAGMA table_info(events)"
+                ).fetchall()
+            }
+            event_migrations = (
+                ("severity", "ALTER TABLE events ADD COLUMN severity TEXT"),
+                ("source", "ALTER TABLE events ADD COLUMN source TEXT"),
+                ("metadata", "ALTER TABLE events ADD COLUMN metadata TEXT"),
+            )
+            for col, stmt in event_migrations:
+                if col not in event_columns:
+                    con.execute(stmt)
+
+            # backfill старых строк (идемпотентно, только NULL)
+            con.execute(
+                "UPDATE events SET severity='info' WHERE severity IS NULL "
+                "AND event IN ('NEW', 'ONLINE')"
+            )
+            con.execute(
+                "UPDATE events SET severity='warning' WHERE severity IS NULL "
+                "AND event IN ('OFFLINE', 'MAC_CHANGED')"
+            )
+            con.execute(
+                "UPDATE events SET severity='info' WHERE severity IS NULL"
+            )
+            con.execute(
+                "UPDATE events SET source='discovery' WHERE source IS NULL"
+            )
+
             con.execute(
                 "CREATE INDEX IF NOT EXISTS idx_events_ip_id "
                 "ON events(ip, id)"
+            )
+            con.execute(
+                "CREATE INDEX IF NOT EXISTS idx_events_event "
+                "ON events(event, id)"
             )
 
             version = con.execute("PRAGMA user_version").fetchone()[0]
@@ -203,7 +242,8 @@ def register_routes(app):
                     ip,
                     hostname,
                     mac,
-                    event
+                    event,
+                    severity
 
                 FROM events
 
@@ -334,6 +374,33 @@ def register_routes(app):
         finally:
             con.close()
         return jsonify({"ok": True})
+
+    @app.route("/api/events")
+    @login_required
+    def api_events():
+        """Фильтрованная лента событий (P7-3): ?limit=&event=&severity=&ip=."""
+        from core.events import list_events, event_to_dict
+
+        try:
+            limit = max(1, min(2000, int(request.args.get("limit", 500))))
+        except (TypeError, ValueError):
+            limit = 500
+
+        con = get_db()
+        try:
+            rows = list_events(
+                con,
+                limit=limit,
+                event=request.args.get("event") or None,
+                severity=request.args.get("severity") or None,
+                ip=request.args.get("ip") or None,
+                source=request.args.get("source") or None,
+            )
+        finally:
+            con.close()
+
+        return jsonify({"ok": True, "events": [event_to_dict(r)
+                                               for r in rows]})
 
     @app.route("/api/scan", methods=["POST"])
     @admin_required

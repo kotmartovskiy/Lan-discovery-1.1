@@ -66,7 +66,7 @@ security pentest, восстановление из backup на чистую с�
 | **Переносимость (X96)** | новый код **уже работает** на aarch64/Debian 12; старый — на armv7l/Debian 13 | один код на обеих | две версии в проде (§9) | **P2** |
 | **Database** | WAL + busy_timeout есть в ключевых точках; **нет** версионирования схемы (`user_version=0`), **нет** индекса `events(ip)`, **нет** retention (events = 36 327 строк), идентичность = **IP** (не MAC); 8 таблиц weather не имеют CREATE в репо (схема живёт только на серверах) | `user_version` + миграции, индексы, retention, идентичность MAC+IP+hostname | рост БД бесконечен; восстановление на чистой машине может создать неполную схему | **P1** |
 | **Discovery engine** | ~~скан плотно связан с UI-роутами, сеть захардкожена, нет ручного выбора, MAC-смена не пишется в events~~ **закрыта (P6, 30.09)**: движок вынесен в `core/discovery.py` (scanner `run_scan` → normalizer `parse_scan` → `reconcile` → events), интерфейсы/подсеть из `network.scan_ifaces`/`subnet`, ручной `POST /api/scan` + кнопка в UI, событие `MAC_CHANGED` | scanner → normalizer → DB → events → API, manual/scheduled scan по выбору | ручной скан и scheduled есть; выбор интерфейса — через `scan_ifaces` (не через UI-форму) | **P6** (закрыта) |
-| **Event system** | только 3 типа (`NEW/ONLINE/OFFLINE`) в таблице `events`; нет severity/source/metadata | формализованные события (device_missing, ip_changed, disk_warning…) | нет фундамента для уведомлений | **P3** |
+| **Event system** | ~~только 3 типа, нет severity/source/metadata~~ **закрыта (P7, 30.09)**: events v2 — `severity`/`source`/`metadata` (JSON), фабрика `core/events.py` (`add_event`), `GET /api/events` с фильтрами, бейджи в `/history`; типы событий: NEW/ONLINE/OFFLINE/MAC_CHANGED | формализованные события (device_missing, ip_changed, disk_warning…) | severity/источник/фильтры есть; новые типы (disk_warning, ip_changed) подключаются через `add_event` одной строкой | **P7** (закрыта) |
 | **Observability** | `/api/health` есть (unauth, `system_routes.py:1636`), `/api/status`, `/api/system/health` — но **нет version/uptime/last-discovery в одном месте** | `/api/health` + `/api/version` + `/api/discovery/status` | состояние видно только через UI | **P1** |
 | **Installer** | нет: установка вручную по `docs/Установка.md` (venv + systemd вручную) | `install.sh`: dep-check → config → systemd → db init → health | воспроизводимость установки на новое устройство | **P3** |
 | **Update/rollback** | деплой вручную (`deploy.py`: бэкап → SFTP → py_compile → restart); бэкап БД автоматический + integrity_check + restore из UI — **это уже работает** | версия → backup → update → health → rollback | нет версий/отката кода (только бэкап файлов) | **P3** |
@@ -226,6 +226,23 @@ security pentest, восстановление из backup на чистую с�
      живой run_scan 22 хоста, POST /api/scan 403/400/ok, кнопка в devices,
      регрессии health/platform), см. журнал §9.
 
+**PHASE 7 — Event engine (задачи P7):**
+
+21. **[P7][DONE — 30.09.2026]** Схема events v2: `SCHEMA_VERSION = 2` —
+     колонки `severity`/`source`/`metadata` (JSON), backfill старых строк по
+     типу события, индекс `idx_events_event(event)`; боевые 37 119 событий
+     сохранены, `integrity_check` ok — см. журнал §9.
+22. **[P7][DONE — 30.09.2026]** Фабрика `core/events.py`: `EVENT_SEVERITY`,
+     `add_event` (единая точка INSERT, metadata → JSON), `list_events`,
+     `event_to_dict`; `core/discovery.py` пишет NEW/ONLINE/OFFLINE/
+     MAC_CHANGED через фабрику (severity: info/warning, source: discovery).
+23. **[P7][DONE — 30.09.2026]** `GET /api/events` (login; `limit`/`event`/
+     `severity`/`ip`/`source`, JSON с парсингом metadata) + колонка «Уровень»
+     (цветовой бейдж) в `/history`.
+24. **[P7][DONE — 30.09.2026]** Тест PHASE 7 — 30/30 PASS (unit фабрики и
+     reconcile, миграция v2 на боевой БД, API-фильтры, UI, регрессии P6/P3,
+     live health `user_version=2`), см. журнал §9.
+
 ---
 
 ## 7. Статусы фаз roadmap
@@ -239,7 +256,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
 | PHASE 5 Database | **PARTIAL** | задача 7 (init/user_version/индекс) done; миграционная система — нет |
 | PHASE 6 Discovery engine | **DONE** | задачи 17–20: `core/discovery.py` (scanner/normalizer/reconcile), `POST /api/scan` + кнопка, событие MAC_CHANGED |
-| PHASE 7 Event engine | **PENDING** | |
+| PHASE 7 Event engine | **DONE** | задачи 21–24: events v2 (severity/source/metadata, SCHEMA_VERSION=2), `core/events.py`, `GET /api/events`, бейджи в /history |
 | PHASE 8 Security hardening | **IN PROGRESS** | задачи 1–6 (P0) + 10 (P1-10); root-PTY/dev-Werkzeug дефернуты |
 | PHASE 9 Installer | **PENDING** | |
 | PHASE 10 Update/rollback | **PENDING** | |
@@ -850,3 +867,46 @@ manual scan 22 devices + stats, кнопка в `/`, `/history`, health
 nmap возможен — терпимо, busy_timeout защищает БД); выбор интерфейса/подсети
 через API и settings, а не через UI-форму; хардкод интерфейсов `end0→eth0`
 перебором закрыт (оставался после P3) — теперь единый `scan_ifaces`.
+
+### 30.09.2026 — P7: Event engine — события v2, фабрика, API (PHASE 7) — **DONE**
+
+**Задачи 21–24 (PHASE 7).** Система событий получила формализованный вид:
+
+- **Схема events v2** (`modules/devices_routes.py`, `SCHEMA_VERSION = 2`):
+  новые колонки `severity` (info/warning/critical), `source`
+  (discovery/system/monitoring/user), `metadata` (JSON-текст); миграция —
+  тем же паттерном PRAGMA table_info + ALTER, что и у `devices`;
+  backfill старых строк по типу события (NEW/ONLINE → info, OFFLINE/
+  MAC_CHANGED → warning, всё NULL → info/discovery); индекс
+  `idx_events_event(event, id)`. Бэкап БД **до** миграции
+  (`devices.db.backup-pre-p7-*`, integrity ok) — боевые 37 119 событий
+  сохранены, `user_version=2`.
+- **`core/events.py` (новый):** `EVENT_SEVERITY` (карта тип→severity),
+  `add_event(con, ip, hostname, mac, event, source, metadata, severity)` —
+  единственная точка INSERT (неизвестный тип → info, metadata → JSON),
+  `list_events` (фильтры event/severity/ip/source, новые первыми),
+  `event_to_dict` (metadata парсится обратно в dict).
+- **`core/discovery.py`:** все 4 INSERT-а (NEW/ONLINE/OFFLINE/MAC_CHANGED)
+  заменены на `add_event(..., timestamp=now)` — события автоматически
+  получают severity и source=discovery.
+- **`GET /api/events`** (login, в `devices_routes`): `?limit=&event=`
+  `&severity=&ip=&source=`, JSON-лента с распарсенным metadata; аноним → 302.
+- **UI:** колонка «Уровень» с цветовым бейджем (critical — красный,
+  warning — оранжевый, info — серый) в `/history`.
+
+**Деплой:** бэкапы файлов `*.backup-pre-p7-*` + бэкап БД до миграции
+(в `p7_run.sh`: sqlite3 `.backup` через python, integrity ok), py_compile
+OK, restart → active; тест `/tmp/test_p71_events.py` — **30/30 PASS**:
+unit (карта severity, add_event override/metadata JSON, list_events-фильтры,
+reconcile NEW → info/discovery и MAC_CHANGED → warning), миграция боевой БД
+(колонки, backfill без NULL, 37 119 событий, оба индекса), API (аноним 302,
+limit/fallback, фильтры severity=warning и event=NEW, `/history` с «Уровень»,
+страница устройства), регрессии P6 (кнопка скана) и P3 (platform), live
+health `user_version=2` (первый прогон упал на Part D — сервис биндил порт
+на 4-й секунде после рестарта; в чек добавлен retry — прошёл).
+
+**Остаточные риски:** события пишет только discovery (system/monitoring
+пока молчат — подключаются одной строкой `add_event`); `metadata` не
+индексируется (поиск по нему — полный проход); IP_CHANGED/disk_warning не
+реализованы (отложены до нужды — карта и фабрика к ним готовы); уведомления
+(notify) — отдельная фаза.
