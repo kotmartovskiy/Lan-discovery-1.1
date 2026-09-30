@@ -62,7 +62,7 @@ security pentest, восстановление из backup на чистую с�
 | **Stability: фоновые задачи** | `start_scan_thread()` без guard от повторного запуска (`devices_routes.py:756`); `/inventory/scan` и bluetooth-scan без lock → параллельные прогоны по повторному POST; дубли функций (`app.py` ↔ `core_routes.py`), **мёртвый код** `init_background_tasks` (`core_routes.py:1009`) | lock/flag на каждую задачу, один источник истины | race: параллельные nmap/сканы, лишняя нагрузка | **P1** |
 | **Stability: systemd** | `Restart=always`, `RestartSec=5`, `After=network-online` — корректно; **но** сервис работает **от root** и dev-сервер Werkzeug | non-root пользователь + (wsgi) либо задокументированное «root by design» | root-веб-сервер | **P1** |
 | **Configuration** | сеть/скан/интерфейсы/порт подключены к `/etc/lan-discovery/settings.json` через `_cfg` (P2: `subnet`, `scan_interval`/`max_misses`, `wifi_ifaces`, `traffic_ifaces`, `self_ips`, `web.flask_host`/`flask_port`; удалён мёртвый `app.NETWORK`); пути `/opt|/etc|/srv` остаются в коде (задокументированы в `docs/Конфигурация.md`) | единый конфиг: defaults + settings.json overrides | частично: пути захардкожены осознанно | **P2** (закрыта) |
-| **Hardware abstraction** | platform-specific жёстко вшит: `end0` vs `eth0` перебором (`system_routes.py:1436`), thermal `thermal_zone0`, `/dev/mmcblk2`, `dd if=/dev/mmcblk…` | `detect_platform()` + capabilities + адаптеры | новый SoC/дистрибутив = правки в многих файлах | **P2** |
+| **Hardware abstraction** | `core/hardware.py`: `detect_platform()`/`thermal_temp()`/`hdd_device()`/`emmc_device()`/`sd_device()` — thermal-перебор зон и динамический детект дисков вместо хардкодов (`thermal_zone0`, `mmcblk2`, `/dev/sda`); `platform`-блок в `/api/health`; остаток: пути `/opt|/etc|/srv` (конфиг, PHASE 2) | `detect_platform()` + capabilities + адаптеры | закрыта (пути — в PHASE 2) | **P2** (закрыта) |
 | **Переносимость (X96)** | новый код **уже работает** на aarch64/Debian 12; старый — на armv7l/Debian 13 | один код на обеих | две версии в проде (§9) | **P2** |
 | **Database** | WAL + busy_timeout есть в ключевых точках; **нет** версионирования схемы (`user_version=0`), **нет** индекса `events(ip)`, **нет** retention (events = 36 327 строк), идентичность = **IP** (не MAC); 8 таблиц weather не имеют CREATE в репо (схема живёт только на серверах) | `user_version` + миграции, индексы, retention, идентичность MAC+IP+hostname | рост БД бесконечен; восстановление на чистой машине может создать неполную схему | **P1** |
 | **Discovery engine** | скан плотно связан с UI-роутами (`devices_routes.py`), сеть захардкожена, ручного выбора подсети/интерфейса нет, MAC-смена **не пишется в events** (`devices_routes.py:354-386`) | scanner → normalizer → DB → events → API, manual/scheduled scan по выбору | нет гибкости сканирования, слабая трассируемость изменений | **P2** |
@@ -191,6 +191,19 @@ security pentest, восстановление из backup на чистую с�
      `settings.json`, отдельный `network.json`, how-to «новая сеть/платформа»),
      прогон `sanitize_docs` (leaks 0), журнал §9 — см. журнал §9.
 
+**PHASE 3 — Hardware abstraction (задачи P3):**
+
+15. **[P3][DONE — 30.09.2026]** `core/hardware.py`: `thermal_zone_path()`
+     (перебор зон, не только `zone0`), `thermal_temp()`, `hdd_device()`,
+     `emmc_device()`, `sd_device()`, `board_model()`, `detect_platform()`;
+     убраны хардкоды `thermal_zone0`/`mmcblk2`/`/dev/sda` в `system_routes`
+     (status/health/disks/smart/io-ticks) и `monitor`; clone-watcher берёт
+     устройство цели из cmdline `dd of=`; `platform`-блок в `/api/health` —
+     см. журнал §9.
+16. **[P3][DONE — 30.09.2026]** Тест PHASE 3 — 22/22 PASS (unit + API + live;
+     на X96: eMMC=`mmcblk2`, SD=`mmcblk1`, hdd=None, thermal 48°C,
+     smart → «диск не обнаружен»), см. журнал §9.
+
 ---
 
 ## 7. Статусы фаз roadmap
@@ -200,7 +213,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 0 Audit | **DONE** | этот документ; код не менялся |
 | PHASE 1 Stabilization | **DONE** | задачи 7–11 done |
 | PHASE 2 Configuration | **DONE** | задачи 12–14: хардкоды → `_cfg`, тест override, docs/Конфигурация.md |
-| PHASE 3 Hardware abstraction | **PENDING** | platform detection/ capabilities |
+| PHASE 3 Hardware abstraction | **DONE** | задачи 15–16: `core/hardware.py` (detect_platform/thermal/storage), убраны хардкоды thermal_zone0/mmcblk2/sda, platform в health |
 | PHASE 4 X96 Max port | **IN PROGRESS (частично)** | новый код уже работает на aarch64; расхождение repo↔X96 устранено (§5); остаётся OP (старая версия) |
 | PHASE 5 Database | **PARTIAL** | задача 7 (init/user_version/индекс) done; миграционная система — нет |
 | PHASE 6 Discovery engine | **PENDING** | |
@@ -739,3 +752,40 @@ settings.json (кто читает, дефолт, когда применяет�
 `server_ips` в settings не читается кодом (задел); дубли `load_settings`
 (app/core/system/weather) читают один файл, но имеют раздельные кэши (10 с);
 смена `flask_port` требует рестарта сервиса и правки systemd-юнита/фаервола.
+
+### 30.09.2026 — P3: Hardware abstraction — `core/hardware.py` (PHASE 3) — **DONE**
+
+**Задачи 15–16 (PHASE 3).** Создан `core/hardware.py` — единая точка
+hardware-абстракции (без зависимостей от app, module-level импорт безопасен):
+- `thermal_zone_path()` — перебор `thermal_zone*/temp` с кэшем 60 с (не только
+  `zone0`), `thermal_temp()` — °C или None;
+- `hdd_device()` (первый `sd*` в `/sys/block`), `emmc_device()`/`sd_device()`
+  (первая `mmcblk*` с `device/type` == MMC/SD, без boot-партиций);
+- `board_model()` (device-tree → hostname), `detect_platform()` — кэшированный
+  dict `{board, arch, system, emmc, sd, hdd, thermal_zone}`.
+
+**Убранные хардкоды:**
+- `modules/system_routes.py`: thermal в `/api/status`, `/api/system/health`,
+  `/api/health` (checks.cpu_temp) → `thermal_temp()` (None → «unavailable»);
+  io-ticks `(mmcblk2, sda)` → `(emmc_dev, hdd_device())` c guard пропуска;
+  clone-watcher `_dd_progress_watcher` — устройство цели из cmdline `dd of=`
+  (regex `of=/dev/(mmcblk\d+|sd[a-z])`) с fallback на `emmc_device()`;
+  `lsblk SIZE /dev/sda` и `smartctl -a /dev/sda` → `hdd_device()` (нет диска →
+  «диск не обнаружен», кэш size ставит «?» вместо вечного None); `api_health`
+  += блок `platform`.
+- `modules/monitor.py`: temp в `get_system_overview` → `thermal_temp() or 0`.
+
+**Деплой:** бэкапы `*.backup-pre-p3-20260930-*` (system_routes, monitor;
+app.py не менялся), py_compile 4 файлов OK, restart → active; тест
+`/tmp/test_p31_platform.py` — **22/22 PASS**: unit (zone0/48.3°C, eMMC
+`mmcblk2`, SD `mmcblk1`, hdd None, board «X96 Max», arch aarch64, кэш
+detect), API (health.platform + регрессии P1-9/P1-11, status temperature,
+system/health warnings, /api/disks smart → «диск не обнаружен», monitor
+overview), live-сервис; журнал без Traceback, `SCAN OK: 6–8 devices`,
+`MISSING DEPS: tracepath, host`.
+
+**Остаточные риски:** thermal — только первая доступная зона (без агрегации
+нескольких); clone-watcher при отсутствии `of=` в cmdline и без emmc молча
+прекращается (прогресс недоступен, сама клонировка не затронута); платформенные
+интерфейсы (`end0→eth0`, `wlan1→wlan0`) по-прежнему перебором в
+`devices_routes.run_scan` (капабилити-уровень, не board-абстракция).

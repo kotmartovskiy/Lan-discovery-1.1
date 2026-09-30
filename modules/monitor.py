@@ -5,6 +5,7 @@ import re
 import time
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from core.hardware import thermal_temp
 
 
 NETDATA_URL = "http://127.0.0.1:19999"
@@ -373,12 +374,7 @@ def get_system_overview():
     except Exception:
         pass
 
-    temp = 0
-    try:
-        with open("/sys/class/thermal/thermal_zone0/temp") as f:
-            temp = round(int(f.read().strip()) / 1000, 1)
-    except Exception:
-        pass
+    temp = thermal_temp() or 0
 
     return {
         "cpu": {"busy_percent": cpu_percent, "labels": [], "values": []},

@@ -3,6 +3,9 @@ from datetime import datetime
 from pathlib import Path
 from flask import render_template, jsonify, request, redirect, url_for, current_app
 from concurrent.futures import ThreadPoolExecutor
+from core.hardware import (
+    detect_platform, emmc_device, hdd_device, thermal_temp,
+)
 
 DB = "/opt/lan-discovery/devices.db"
 SETTINGS_PATH = "/etc/lan-discovery/settings.json"
@@ -1088,8 +1091,21 @@ def _clone_dd_alive():
 
 
 def _dd_progress_watcher(proc):
+    dev = None
     try:
-        with open("/sys/block/mmcblk2/size", "r", encoding="utf-8") as f:
+        with open("/proc/%d/cmdline" % proc.pid, "rb") as f:
+            cmd = f.read().replace(b"\0", b" ").decode("utf-8", "replace")
+        m = re.search(r"of=/dev/(mmcblk\d+|sd[a-z])", cmd)
+        if m:
+            dev = m.group(1)
+    except Exception:
+        dev = None
+    if not dev:
+        dev = emmc_device()
+    if not dev:
+        return
+    try:
+        with open(f"/sys/block/{dev}/size", "r", encoding="utf-8") as f:
             total = int(f.read().strip()) * 512
     except Exception:
         return
@@ -1276,18 +1292,9 @@ def register_routes(app):
             "services": {}
         }
 
-        try:
-            with open(
-                "/sys/class/thermal/thermal_zone0/temp",
-                "r",
-                encoding="utf-8"
-            ) as f:
-                result["temperature"] = round(
-                    int(f.read().strip()) / 1000,
-                    1
-                )
-        except Exception:
-            pass
+        _t = thermal_temp()
+        if _t is not None:
+            result["temperature"] = _t
 
         try:
             with open("/proc/stat", "r", encoding="utf-8") as f:
@@ -1415,9 +1422,11 @@ def register_routes(app):
             pass
 
         for device, result_key in (
-            ("mmcblk2", "emmc_io_ticks"),
-            ("sda", "hdd_io_ticks")
+            (emmc_dev, "emmc_io_ticks"),
+            (hdd_device(), "hdd_io_ticks")
         ):
+            if not device:
+                continue
             try:
                 with open(
                     f"/sys/block/{device}/stat",
@@ -1528,15 +1537,12 @@ def register_routes(app):
 
         warnings = []
 
-        try:
-            with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
-                cpu_temp = round(int(f.read().strip()) / 1000, 1)
+        cpu_temp = thermal_temp()
+        if cpu_temp is not None:
             if cpu_temp >= 80:
                 warnings.append({"level": "critical", "text": "CPU перегрев: %.1f°C" % cpu_temp, "icon": "🔥"})
             elif cpu_temp >= 70:
                 warnings.append({"level": "warning", "text": "CPU нагрев: %.1f°C" % cpu_temp, "icon": "⚠️"})
-        except Exception:
-            pass
 
         try:
             st = os.statvfs("/")
@@ -1699,18 +1705,16 @@ def register_routes(app):
         except Exception as e:
             checks["ram"] = str(e)
 
-        try:
-            with open("/sys/class/thermal/thermal_zone0/temp") as f:
-                temp = round(int(f.read().strip()) / 1000, 1)
-            if temp >= 80:
-                checks["cpu_temp"] = "critical (%.1f°C)" % temp
-                ok = False
-            elif temp >= 70:
-                checks["cpu_temp"] = "warning (%.1f°C)" % temp
-            else:
-                checks["cpu_temp"] = "ok (%.1f°C)" % temp
-        except Exception:
+        temp = thermal_temp()
+        if temp is None:
             checks["cpu_temp"] = "unavailable"
+        elif temp >= 80:
+            checks["cpu_temp"] = "critical (%.1f°C)" % temp
+            ok = False
+        elif temp >= 70:
+            checks["cpu_temp"] = "warning (%.1f°C)" % temp
+        else:
+            checks["cpu_temp"] = "ok (%.1f°C)" % temp
 
         status_code = 200 if ok else 503
 
@@ -1746,6 +1750,7 @@ def register_routes(app):
             "db": db_status,
             "capabilities": caps,
             "missing_deps": [n for n, ok_flag in caps.items() if not ok_flag],
+            "platform": detect_platform(),
         }), status_code
 
     @app.route("/system")
@@ -1861,9 +1866,13 @@ def register_routes(app):
             })
 
         if _disk_sizes["hdd"] is None:
-            hdd_size_out = _cmd(["lsblk", "-dpo", "SIZE", "/dev/sda"], timeout=5)
-            hdd_size_lines = hdd_size_out.strip().splitlines()
-            _disk_sizes["hdd"] = hdd_size_lines[-1].strip() if hdd_size_lines else None
+            _hdd_dev = hdd_device()
+            if _hdd_dev:
+                hdd_size_out = _cmd(["lsblk", "-dpo", "SIZE", "/dev/" + _hdd_dev], timeout=5)
+                hdd_size_lines = hdd_size_out.strip().splitlines()
+                _disk_sizes["hdd"] = hdd_size_lines[-1].strip() if hdd_size_lines else "?"
+            else:
+                _disk_sizes["hdd"] = "?"
         hdd_size = _disk_sizes["hdd"]
 
         sd_dev = None
@@ -2264,14 +2273,18 @@ def register_routes(app):
                 capture_output=True, text=True, timeout=10
             ).stdout
             smart = ""
-            try:
-                r = subprocess.run(
-                    ["smartctl", "-a", "/dev/sda"],
-                    capture_output=True, text=True, timeout=10
-                )
-                smart = r.stdout or r.stderr
-            except Exception:
-                smart = "smartctl не установлен"
+            _smart_dev = hdd_device()
+            if not _smart_dev:
+                smart = "диск не обнаружен"
+            else:
+                try:
+                    r = subprocess.run(
+                        ["smartctl", "-a", "/dev/" + _smart_dev],
+                        capture_output=True, text=True, timeout=10
+                    )
+                    smart = r.stdout or r.stderr
+                except Exception:
+                    smart = "smartctl не установлен"
             return {"ok": True, "lsblk": lsblk, "df": df, "smart": smart}
         except Exception as e:
             return {"ok": False, "error": str(e)}
