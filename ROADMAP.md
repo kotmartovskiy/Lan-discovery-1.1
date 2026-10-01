@@ -2159,3 +2159,45 @@ exact=145, content_diff=0, only_remote=0.
   Бэкапы `*-backup-s8-20261001-143600`.
 - Следующий шаг: STEP 9 — roles-слой (конфиг-профили поверх modules,
   `GET/POST /api/roles*`, проверка hardware-требований).
+
+### 01.10.2026 — core: STEP 9 roles layer (профили модулей) — **DONE**
+
+- **`core/roles.py`** — конфиг-слой поверх modules (module_loader не менялся):
+  `PROFILES` (default «Полный» = все модули, media «Медиацентр»,
+  network «Сеть и наблюдение»), `ALWAYS_ON` (sys-board/network/power/
+  settings/users/db — база панели, роль их не выключает, в UI ★),
+  состояние активной роли — `/etc/lan-discovery/roles.json` (создаётся
+  при первом apply, дефолт default).
+- **`apply_role(rid)`**: compat-check через `compute_status` из STEP 8 —
+  incompatible/requires-hardware → **skipped** (не включаются), не
+  установленные не трогаются; модули роли → enabled, остальные →
+  disabled (кроме ALWAYS_ON); активная роль сохраняется. Возвращает
+  `{ok, active, enabled, disabled, skipped}`.
+- **`roles_overview()`**: все профили с модулями роли + ALWAYS_ON
+  (флаг `always_on`), статусы из словаря STEP 8 и текущий enabled —
+  ровно то, что применит apply.
+- **Роуты** (`modules/module_manager.py`): `GET /roles` (admin,
+  страница с карточками профилей/бейджами/кнопками), `POST
+  /roles/<rid>/apply` (admin, redirect ?ok/?err), `GET /api/roles`
+  (login, JSON), `POST /api/roles/<rid>/apply` (admin, JSON).
+- **Навигация**: CORE_NAV += «Роли» `/roles` order 84 группа Система
+  (admin: true) — между Возможности(82) и Модули(85).
+- **UI `templates/roles.html`**: карточки профилей (активная —
+  зелёная рамка + ● активна), модули — semantic-бейджи по статусу
+  (active/disabled/ошибки/требования/available), ★ у всегда-включённых,
+  «Применить/Переприменить» с confirm (переприменить = восстановление
+  после ручных правок на /modules).
+- **`tests/unit/test_roles.py`** (+12): профили ссылаются на реальные
+  id, ALWAYS_ON защищён во всех профилях, fallback активной роли,
+  apply (вкл/выкл/skip неустановленных) и skip требуемого железа,
+  overview-shape (статусы ⊂ MODULE_STATUSES, ALWAYS_ON в каждом
+  профиле), API/page, admin-only навигация. POST-тесты — с
+  отключённым CSRF по паттерну test_security.
+- Проверки на X96: `check_step9.py` — **20/20 PASS** (страница,
+  API-shape, всегда-включённые, err-редирект, nav, регресс STEP 4/7/8),
+  pytest **109 passed** (97+12), sync **exact=167 / content_diff=0**
+  (3 новых файла → в git). Бэкапы `*-backup-s9-20261001-144910`
+  (roles.py/roles.html — новые, без бэкапа). Состояние X96: активная
+  роль default, modules.json не менялся.
+- Следующий шаг: STEP 10 — UX-ядро (ТО, что показывать по роли:
+  блоки вкладок/приложений, пустые состояния, роли влияют на UX).

@@ -6,6 +6,8 @@
   - GET  /modules                 — список модулей (только admin)
   - POST /modules/<mid>/install   — установка deps (apt/pip/services/dirs)
   - POST /modules/<mid>/toggle    — включение/выключение модуля
+  - GET  /roles + POST /roles/<rid>/apply   — профили модулей (STEP 9)
+  - GET  /api/roles + POST /api/roles/<rid>/apply — JSON-вариант (STEP 9)
 """
 import os
 import subprocess
@@ -13,7 +15,7 @@ import sys
 import time
 import urllib.parse
 
-from flask import redirect, render_template, request
+from flask import jsonify, redirect, render_template, request
 
 from core.module_catalog import (
     CatalogError,
@@ -37,6 +39,7 @@ from core.module_loader import (
     record_install_result,
     set_module_status,
 )
+from core.roles import apply_role, roles_overview
 
 
 def _run(cmd, timeout=600):
@@ -200,3 +203,38 @@ def register_routes(app, login_required, admin_required, page_data):
         if not installed_before:
             set_module_status(mid, installed=True, enabled=True)
         return redirect("/modules")
+
+    # --- Roles layer (STEP 9): конфиг-профили модулей + compat-check ---
+
+    @app.route("/roles")
+    @admin_required
+    def roles_page():
+        return render_template(
+            "roles.html",
+            ov=roles_overview(),
+            ok_msg=request.args.get("ok") or "",
+            err_msg=request.args.get("err") or "",
+            **page_data(),
+        )
+
+    @app.route("/roles/<rid>/apply", methods=["POST"])
+    @admin_required
+    def roles_apply(rid):
+        res = apply_role(rid)
+        if res.get("ok"):
+            msg = ("Роль «%s» применена: включено %d, выключено %d, "
+                   "пропущено %d" % (rid, len(res["enabled"]),
+                                     len(res["disabled"]), len(res["skipped"])))
+            return redirect("/roles?ok=" + urllib.parse.quote(msg))
+        return redirect("/roles?err=" + urllib.parse.quote(
+            res.get("error") or "Не удалось применить роль"))
+
+    @app.route("/api/roles")
+    @login_required
+    def api_roles():
+        return jsonify(roles_overview())
+
+    @app.route("/api/roles/<rid>/apply", methods=["POST"])
+    @admin_required
+    def api_roles_apply(rid):
+        return jsonify(apply_role(rid))

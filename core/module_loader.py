@@ -38,6 +38,7 @@ CORE_NAV = [
     {"page": "apps", "title": "Приложения", "url": "/apps", "order": 70, "group": "Приложения"},
     {"page": "system", "title": "Система", "url": "/system", "order": 80, "group": "Система"},
     {"page": "capabilities", "title": "Возможности", "url": "/capabilities", "order": 82, "group": "Система"},
+    {"page": "roles", "title": "Роли", "url": "/roles", "order": 84, "group": "Система", "admin": True},
     {"page": "modules", "title": "Модули", "url": "/modules", "order": 85, "group": "Система", "admin": True},
     {"page": "about", "title": "О системе", "url": "/about", "order": 90, "group": "Система"},
     {"page": "help", "title": "Справка", "url": "/help", "order": 100, "group": "Помощь"},
