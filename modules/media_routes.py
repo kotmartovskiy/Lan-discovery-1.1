@@ -658,6 +658,14 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, service
         if not name or not url:
             return redirect(url_for("system"))
 
+        # §8.8 (01.10.2026): плейлист скачивается сервером
+        # (update-iptv.sh/curl) — принимаем только http/https;
+        # file://, gopher:// и прочие схемы отсекаем. Внутренние
+        # адреса допустимы (LAN-модель, §8.8 принята).
+        _parsed = urllib.parse.urlparse(url)
+        if _parsed.scheme not in ("http", "https") or not _parsed.netloc:
+            return redirect(url_for("system"))
+
         import re as _re
         file = _re.sub(r'[^a-zA-Z0-9_-]', '_', name).strip('_').lower() or "playlist"
 

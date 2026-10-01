@@ -71,6 +71,17 @@ def test_csp_header_present(client):
     assert "'unsafe-inline'" in script_src
 
 
+def test_server_header_hides_versions():
+    """§8.3 residual (находка №62): Server dev-сервера = «lan-discovery».
+
+    Werkzeug шлёт Server в send_response (после заголовков приложения),
+    поэтому version_string подменён в app.py — test client этого не видит,
+    живая проверка curl есть в чек-листе пентеста.
+    """
+    from werkzeug.serving import WSGIRequestHandler
+    assert WSGIRequestHandler.version_string(None) == "lan-discovery"
+
+
 def test_terminal_vendor_local_only():
     """№60: терминал грузит vendor-копии локально (без CDN)."""
     root = Path(__file__).resolve().parents[2]

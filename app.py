@@ -288,6 +288,16 @@ def _security_headers(resp):
     return resp
 
 
+# §8.3 residual (находка №62, 01.10.2026): dev-сервер Werkzeug шлёт
+# «Werkzeug/x.y Python/a.b» в заголовке Server (send_response →
+# version_string) — подменяем на «lan-discovery», версии не раскрываем.
+try:
+    from werkzeug.serving import WSGIRequestHandler as _WZHandler
+    _WZHandler.version_string = lambda self: "lan-discovery"
+except Exception:  # pragma: no cover
+    pass
+
+
 # ==================== P1-11: барьер отсутствующих подсистем ====================
 
 # Единый источник пробов — core/capabilities.py (STEP 7).
