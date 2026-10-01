@@ -123,9 +123,9 @@ placeholder="Название устройства"
 <div class="table-wrap">
 <table>
 <tr>
-<th>Порт</th>
-<th>Протокол</th>
-<th>Сервис</th>
+<th scope="col">Порт</th>
+<th scope="col">Протокол</th>
+<th scope="col">Сервис</th>
 </tr>
 {% for p in open %}
 <tr>
@@ -162,8 +162,8 @@ placeholder="Название устройства"
 <table>
 
 <tr>
-<th>Время</th>
-<th>Событие</th>
+<th scope="col">Время</th>
+<th scope="col">Событие</th>
 </tr>
 
 {% for e in events %}

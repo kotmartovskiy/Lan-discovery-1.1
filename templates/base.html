@@ -32,16 +32,18 @@
 <title>LAN Discovery{% if panel_name %} ({{ panel_name }}){% endif %}</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 5 C55 5, 60 8, 62 12 L58 18 C56 14, 53 12, 50 12 C47 12, 44 14, 42 18 L38 12 C40 8, 45 5, 50 5Z' fill='%237cb342'/%3E%3Cpath d='M58 8 C62 5, 68 4, 72 6 L66 14 C63 12, 60 11, 58 12Z' fill='%239ccc65'/%3E%3Cpath d='M50 15 C68 15, 85 32, 85 50 C85 68, 68 85, 50 85 C32 85, 15 68, 15 50 C15 32, 32 15, 50 15Z' fill='%23ffa726'/%3E%3Cpath d='M50 15 C68 15, 85 32, 85 50 C85 68, 68 85, 50 85 C32 85, 15 68, 15 50 C15 32, 32 15, 50 15Z' fill='none' stroke='%23f57c00' stroke-width='2'/%3E%3Cpath d='M50 22 C64 22, 78 36, 78 50 C78 64, 64 78, 50 78 C36 78, 22 64, 22 50 C22 36, 36 22, 50 22Z' fill='%23fff9c4'/%3E%3Cpath d='M50 30 L50 70' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L30 55' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L70 55' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L35 42' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L65 42' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L40 65' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L60 65' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='30' r='3' fill='%23ffcc02'/%3E%3C/svg%3E">
 
-<link rel="stylesheet" href="/static/style.css?v=20261001c">
+<link rel="stylesheet" href="/static/style.css?v=20261001d">
 
 </head>
 
 <body>
 
-<div class="header">
+<a class="skip-link" href="#main">Перейти к содержимому</a>
+
+<header class="header">
 
 <div>
-<h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="35" height="35" style="vertical-align:middle; margin-right:6px;">
+<h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="35" height="35" style="vertical-align:middle; margin-right:6px;" aria-hidden="true">
 <path d="M50 5 C55 5, 60 8, 62 12 L58 18 C56 14, 53 12, 50 12 C47 12, 44 14, 42 18 L38 12 C40 8, 45 5, 50 5Z" fill="#7cb342"/>
 <path d="M58 8 C62 5, 68 4, 72 6 L66 14 C63 12, 60 11, 58 12Z" fill="#9ccc65"/>
 <path d="M50 15 C68 15, 85 32, 85 50 C85 68, 68 85, 50 85 C32 85, 15 68, 15 50 C15 32, 32 15, 50 15Z" fill="#ffa726"/>
@@ -57,7 +59,7 @@
 <circle cx="50" cy="30" r="3" fill="#ffcc02"/>
 </svg>LAN Discovery{% if panel_name %} <span style="font-size:0.5em;font-weight:normal;opacity:0.7;">({{ panel_name }})</span>{% endif %}</h1>
 
-<div class="tabs">
+<nav class="tabs" aria-label="Разделы панели">
 {% for g in nav_groups %}
 <span class="nav-group">
 <span class="nav-group-label">{{ g.name }}</span>
@@ -70,7 +72,7 @@
 </span>
 </span>
 {% endfor %}
-</div>
+</nav>
 </div>
 
 <div class="clock">
@@ -88,9 +90,11 @@
 
 </div>
 
-</div>
+</header>
 
+<main id="main" tabindex="-1">
 {% block content %}{% endblock %}
+</main>
 
 <script>
 var USER_ROLE = "{{ current_user.role }}";

@@ -2232,3 +2232,33 @@ exact=145, content_diff=0, only_remote=0.
   файл → в git). Бэкапы `*-backup-s10-*` (6 файлов).
 - Следующий шаг: STEP 11 — a11y (доступность: focus/aria/контраст
   по семантике, SKIP-link, лейблы форм).
+
+### 01.10.2026 — ui: STEP 11 a11y (базовая доступность) — **DONE**
+
+- **Семантика P-7** (было: main/header = 0, aria = 0, label for 2/48,
+  focus-visible 0, outline:none ×8): `base.html` — `<header class="header">`
+  и `<nav class="tabs" aria-label="Разделы панели">` вместо div,
+  `<main id="main" tabindex="-1">` вокруг block content (до этого контент
+  лежал голым в body), **skip-link** «Перейти к содержимому» первым в
+  body (`#main`, скрыт до фокуса), декоративный SVG-логотип в h1 —
+  `aria-hidden="true"`.
+- **Клавиатура**: глобальный `:focus-visible` (outline 2px, offset 2px,
+  цвет `var(--link)`) для a/button/input/select/textarea/[tabindex] —
+  единый видимый фокус поверх legacy `outline:none`.
+- **`login.html`**: `<label for>` для username/password (id login-*),
+  error-блок — `role="alert"` (скринридер сообщает ошибку входа),
+  убран `outline:none` с полей (фокус = border-color, теперь оба сигнала).
+- **Таблицы приоритетных страниц** — `scope="col"` у всех `<th>`:
+  devices (6), history (6), device (5), inventory (4).
+- **`tests/unit/test_a11y.py`** (+4): семантика `/` (skip/main/nav/header
+  + порядок skip-first), scope-колонки `/` и `/history` без голых `<th>`,
+  правила style.css, разметка login (label for/alert/без outline:none).
+- Проверки на X96: `check_step11.py` — **25/25 PASS** (метки/login-alert
+  по POST с неверным паролем, семантика, scope, focus-правила, регресс
+  STEP 4/7/8/9/10), pytest **119 passed** (115+4), sync **exact=171 /
+  content_diff=0**. Бэкапы `*-backup-s11-*` (7 файлов). Cache-buster
+  → `?v=20261001d`.
+- Не в скоупе (1.2): aria-live для поллеров (шум каждые 3 с — осознанно
+  не делаем), полный lighthouse-аудит app-страниц/iframe.
+- Следующий шаг: STEP 12 — cleanup (удалить system_full.html, подключить
+  style.css вместо локальных дублей, мёртвый JS), финал 1.1.

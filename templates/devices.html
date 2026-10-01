@@ -15,14 +15,14 @@ OFFLINE после {{ max_misses }} пропусков
 <table>
 
 <tr>
-<th>Статус</th>
-<th>Тип</th>
-<th>Устройство</th>
+<th scope="col">Статус</th>
+<th scope="col">Тип</th>
+<th scope="col">Устройство</th>
 {% if current_user.role != 'guest' %}
-<th>IP / Hostname</th>
+<th scope="col">IP / Hostname</th>
 {% endif %}
-<th>Сеть</th>
-<th>Активность</th>
+<th scope="col">Сеть</th>
+<th scope="col">Активность</th>
 </tr>
 
 {% for d in devices %}

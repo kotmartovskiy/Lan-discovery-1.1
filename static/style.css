@@ -672,3 +672,33 @@ input[type="text"] {
         width: auto;
     }
 }
+
+/* ---------- 6. A11y (STEP 11 — клавиатура/скринридеры) ---------- */
+/* Ссылка «Перейти к содержимому»: скрыта, пока не получит фокус. */
+.skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 3000;
+}
+
+.skip-link:focus {
+    left: 10px;
+    top: 10px;
+    background: #111;
+    color: #8ab4f8;
+    padding: 8px 14px;
+    border: 1px solid #8ab4f8;
+    border-radius: 6px;
+}
+
+/* Единый видимый фокус для клавиатуры (перебивает legacy outline:none). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--link, #8ab4f8);
+    outline-offset: 2px;
+}
