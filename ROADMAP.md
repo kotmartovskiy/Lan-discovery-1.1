@@ -470,7 +470,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 15 Production 1.0 | **DONE** | задачи 55–58: reboot-тест X96 PASS (автостарт/данные), disaster-recovery дрил на чистый префикс PASS (==бэкапу), нагрузочный smoke PASS (0×5xx), git tag `v1.0.0` |
 | PHASE 16 After 1.0 | **DEFERRED** | состав определён 01.10.2026 — задачи 59–65, см. ниже; репо-hygiene и чистка §2 выполнены вне фазы 01.10 |
 
-### Состав PHASE 16 (задачи 59–65, определён 01.10.2026)
+### Состав PHASE 16 (задачи 59–68, определён/расширен 01.10.2026)
 
 | # | Задача | Статус |
 |---|---|---|
@@ -481,6 +481,9 @@ security pentest, восстановление из backup на чистую с�
 | 63 | **Gap'ы §2:** выбор интерфейсов скана через UI (P6), identity устройств MAC+IP (P5), семантические версии/чейнджлог поверх git-rev (P10) | **DONE (01.10.2026)** |
 | 64 | **Харддинг-резидуалы:** решение по reverse-proxy/TLS либо подтверждение «root by design» на очередной квартал; обсуждение non-root | **DONE (01.10.2026)** |
 | 65 | **§8 residual'ы:** проверить, что UI-блоки eMMC/clone/hdd корректно прячутся на X96 (boot с SD, без HDD) по всей панели, не только модулями | **DONE (01.10.2026)** |
+| 66 | **Residual-фиксы по находкам №62/§8:** SSRF-валидация URL IPTV (только http/https) + маскировка `Server`-заголовка (без версий Werkzeug/Python) | **DONE (01.10.2026)** |
+| 67 | **Автозапуск дрейф-контроля (§8.2):** ежедневная Windows-задача `LanDiscovery-SyncCheck` (`tools/setup_sync_task.ps1` + `tools/sync_check_daily.cmd`, лог в `%LOCALAPPDATA%\lan-discovery\`), пароль только локально вне репо | **DONE (01.10.2026)** |
+| 68 | **Демо-слепок:** `make_demo.py` → `demo_lint.py` → push `Lan-discovery-demo` под актуальный UI (STEP 12, №59–67) | pending |
 
 ---
 
@@ -489,13 +492,18 @@ security pentest, восстановление из backup на чистую с�
 1. ~~**Двойное сканирование**~~ — **закрыто (№59, 01.10)**: лидер X96,
    на OP `network.scan_enabled: false`, фоновый опрос только одной
    копией (проверено live: X96 `scan` растёт, OP `null`).
-2. **Дрейф кода:** правки на серверах без коммита (и наоборот) уже случились (§5);
-   текущий регламент (ручной) не гарантирует синхронизацию.
-   *Частично закрыто (№61): `tools/sync_check.py` — сверка repo ↔ X96
-   по требованию; дрейф по документации ловится, запуск пока ручной.*
+2. ~~**Дрейф кода:** правки на серверах без коммита (и наоборот) уже случались (§5);
+   текущий регламент (ручной) не гарантирует синхронизацию.~~
+   **Закрыто (№61 + №67, 01.10): `tools/sync_check.py` — сверка
+   repo ↔ X96; ежедневная Windows-задача `LanDiscovery-SyncCheck`
+   (09:30, `tools/setup_sync_task.ps1`, лог
+   `%LOCALAPPDATA%\lan-discovery\sync_check.log`) + по требованию;
+   дрейф документации ловится отдельно (`sanitize_docs`/push).**
 3. **Werkzeug dev-сервер под root на 0.0.0.0** — терпимо только в закрытой LAN до P1;
    связанные находки №62: заголовок `Server: Werkzeug/3.x Python/3.x`
-   отдаёт точные версии ПО. **Подтверждено «root by design» на
+   отдаёт точные версии ПО — **закрыто (№66, 01.10): `Server:
+   lan-discovery` (единственный, без версий; проверено live на X96)**.
+   **Подтверждено «root by design» на
    квартал до 01.01.2027 (№64, 01.10)**; TLS/reverse-proxy и non-root
    отложены окончательно — триггеры пересмотра (удалённый доступ,
    WAN-проброс, второй не-админ) зафиксированы в
@@ -516,9 +524,13 @@ security pentest, восстановление из backup на чистую с�
    (`NO_UFW`), панели слушают `0.0.0.0:8080`; отсутствие проброса
    8080/8081/9091 в WAN зависит от роутера и не подтверждалось извне
    (нет WAN-доступа); OP — ufw default deny incoming.
-8. **SSRF в IPTV** (находка №62): `POST /system/iptv/add` принимает URL
+8. ~~**SSRF в IPTV** (находка №62): `POST /system/iptv/add` принимает URL
    без валидации схемы (`file://`, localhost, внутренние адреса —
-   принимаются, плейлист скачивается сервером) — принято по LAN-модели.
+   принимаются, плейлист скачивается сервером) — принято по LAN-модели.~~
+   **Закрыто (№66, 01.10): принимаются только `http`/`https` с netloc
+   (file://, gopher://, ftp://, javascript: — редирект без сохранения,
+   юнит + живой прогон); localhost/внутренние адреса по http
+   допустимы — LAN-модель.**
 
 ---
 
@@ -2542,3 +2554,42 @@ exact=145, content_diff=0, only_remote=0.
   `startBackup()" disabled`=1, `id="pi-hdd"`=0, backup-test=409.
 - Бэкапы: `*-backup-s65-*` (system_routes.py, sys-board/sys-emmc
   block.html, base.html).
+
+### 01.10.2026 — PHASE 16 №66: residual-фиксы (SSRF IPTV + Server) — **DONE**
+
+- **SSRF IPTV (§8.8, находка №62):** `POST /system/iptv/add` теперь
+  принимает только `http`/`https` с непустым netloc (`urlparse`);
+  `file://`, `gopher://`, `ftp://`, `javascript:`, `//host`,
+  `http без netloc` → тихий редирект **без сохранения**. Внутренние
+  адреса и localhost по http допустимы — LAN-модель (зафиксировано
+  в §8.8 и чек-листе). `modules/media_routes.py`.
+- **Server-заголовок (§8.3, находка №62):** Werkzeug шлёт свой
+  `Server` в `send_response()` — **после** заголовков приложения,
+  поэтому правка в `after_request` давала два заголовка. Фикс:
+  подмена `WSGIRequestHandler.version_string` → `"lan-discovery"`
+  в `app.py`; наружу уходит ровно один заголовок без версий
+  Werkzeug/Python. На OP (версия 1.0) остаётся до апдейта.
+- Тесты: `tests/unit/test_iptv_ssrf.py` (+11: 7 отказов/4 приёма,
+  параметризованные), `test_security.py` (+1 `version_string`) →
+  на X96 unit **166 passed**, live **15 passed**.
+- Live на X96: `curl -sI` → 1× `Server: lan-discovery`; IPTV-греп
+  с CSRF: file:// и gopher:// → 302, плейлисты 14→14 (не сохранены),
+  http → 302, 14→15 (сохранён), удаление тест-плейлиста → 14.
+- Чек-лист `docs/Пентест.md`: пункты SSRF и Server-версии → `[x]`
+  с описанием фикса. Бэкапы X96: `*-backup-s66-*` (app.py,
+  media_routes.py).
+
+### 01.10.2026 — PHASE 16 №67: автозапуск дрейф-контроля — **DONE**
+
+- **§8.2 закрыт полностью:** `tools/sync_check_daily.cmd` (обёртка:
+  cwd=репо, `chcp 65001`, пароль из локального файла, лог с
+  таймстампом и exit-кодом) + `tools/setup_sync_task.ps1`
+  (регистрация Windows-задачи `LanDiscovery-SyncCheck`: ежедневно
+  09:30, `StartWhenAvailable`, лимит 5 мин, `-SshPass` сохраняет
+  пароль в `%LOCALAPPDATA%\lan-discovery\ssh_pass.txt` — **вне
+  репозитория**). Файлы `.ps1` — UTF-8 **с BOM** (PS 5.1 без BOM
+  читает кириллицу как ANSI и падает парсером).
+- Задача зарегистрирована и проверена запуском вручную:
+  `LastTaskResult=0`, в логе `exact=179` (exit=1 из-за ещё
+  незакоммиченного `test_iptv_ssrf.py` — после коммита станет 0).
+- `AGENTS.md` §7 дополнен: автозапуск, путь лога, где хранится пароль.
