@@ -266,6 +266,25 @@ def _security_headers(resp):
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     resp.headers.setdefault("Referrer-Policy", "same-origin")
+    # PHASE 16 №60: vendor xterm/socket.io локально → внешние CDN в
+    # script-src не нужны; inline покрывает шаблоны, ws:/cdn.jsdelivr.net
+    # — socket.io-апгрейд и runtime-курсы валют, http(s) — iframe
+    # Transmission на другом порту.
+    resp.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "font-src 'self' data:; "
+        "connect-src 'self' ws: wss: https://cdn.jsdelivr.net; "
+        "media-src 'self'; "
+        "frame-src 'self' http: https:; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'self'",
+    )
     return resp
 
 

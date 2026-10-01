@@ -475,7 +475,7 @@ security pentest, восстановление из backup на чистую с�
 | # | Задача | Статус |
 |---|---|---|
 | 59 | **Двойное сканирование (§8.1):** одна ведущая копия — флаг `network.scan_enabled`/leader в settings либо стоп `lan-discovery`-скана на OP; без двойной нагрузки на сеть | **DONE (01.10.2026)** |
-| 60 | **Локализация CDN (§8.5):** vendor-копии xterm.js/socket.io в `static/vendor/` + CSP; терминал работает без интернета | pending |
+| 60 | **Локализация CDN (§8.5):** vendor-копии xterm.js/socket.io в `static/vendor/` + CSP; терминал работает без интернета | **DONE (01.10.2026)** |
 | 61 | **Дрейф-контроль (§8.2):** `tools/sync_check.py` в репо (filelist+md5-сверка repo↔сервер), запуск по требованию/cron, отчёт о расхождениях | **DONE (01.10.2026)** |
 | 62 | **Регресс-пентест по чек-листу** `docs/Пентест.md` на обоих узлах (чек-лист создан 01.10 отдельно от фазы) | pending |
 | 63 | **Gap'ы §2:** выбор интерфейсов скана через UI (P6), identity устройств MAC+IP (P5), семантические версии/чейнджлог поверх git-rev (P10) | pending |
@@ -2379,3 +2379,31 @@ exact=145, content_diff=0, only_remote=0.
 - Тесты (+2): `test_scan_enabled_flag` (bool/строки/default), обновлён
   `test_get_scan_status_shape`. Документация: `docs/Конфигурация.md` —
   ключ `network.scan_enabled` (строка таблицы network).
+
+### 01.10.2026 — core: PHASE 16 №60 локализация CDN + CSP — **DONE**
+
+- **Vendor** в `static/vendor/`: xterm.js 5.5.0 (`xterm.min.css`,
+  `xterm.min.js`), addon-fit 0.10.0, socket.io-client 4.7.5
+  (`socket.io.min.js`, jsdelivr — cdn.socket.io не отдавал файл целиком);
+  `templates/apps/terminal.html` переведён на локальные пути
+  (`?v=20261001d`), внешних CDN в шаблоне не осталось — терминал и
+  панель работают без интернета.
+- **CSP** в `_security_headers` (`app.py`, все ответы): `default-src
+  'self'`, `script-src 'self' 'unsafe-inline'` (без внешних скриптов),
+  `style-src` inline, `connect-src 'self' ws: wss:
+  https://cdn.jsdelivr.net` (socket.io + runtime-курсы валют из
+  `currencies.py`), `frame-src 'self' http: https:` (iframe
+  Transmission на другом порту = другая origin), `object-src 'none'`,
+  `base-uri`/`form-action`/`frame-ancestors 'self'`. Внешние `<a href>`
+  (github/netdata/restore) CSP не блокируются.
+- Аудит перед CSP: в templates нет WebSocket/fetch наружу, нет
+  audio/video/blob, внешних `url()` в css нет; `make_demo.py` режет
+  внешние script/link — после локализации этих тегов не остаётся.
+- Тесты (+2 unit, live обновлён): `test_csp_header_present`,
+  `test_terminal_vendor_local_only` (vendor существует >1KB, CDN нет);
+  на X96: unit **138 passed**, live **15 passed** (CSP-заголовок
+  подтверждён против живой панели), vendor отдаётся 200.
+- Документация: `docs/Безопасность.md` — пункт CSP+vendor в «Что уже
+  сделано (hardening)».
+- Деплой X96 (бэкапы `app.py`, `terminal.html` `*-backup-s60-*`,
+  8 файлов, py_compile, restart).

@@ -4,7 +4,11 @@
 Фиксирует hardening P1-10/P0: nosniff/XFO/Referrer-Policy на всех
 ответах, HttpOnly+SameSite=Lax у session-cookie, аноним → 302 на
 /login, mutating-POST без CSRF → 400. Ловится в CI (без живой панели).
+PHASE 16 №60: CSP (без внешних CDN в script-src) и локальный vendor
+xterm/socket.io для терминала.
 """
+from pathlib import Path
+
 import pytest
 
 import app
@@ -48,6 +52,39 @@ def test_security_headers_on_static(client):
     r = client.get("/static/style.css")
     assert r.status_code == 200
     assert r.headers.get("X-Content-Type-Options") == "nosniff"
+
+
+def test_csp_header_present(client):
+    """PHASE 16 №60: CSP есть, script-src без внешних CDN."""
+    r = client.get("/login")
+    csp = r.headers.get("Content-Security-Policy", "")
+    assert csp
+    for directive in ("default-src 'self'", "script-src 'self'",
+                      "style-src 'self'", "object-src 'none'",
+                      "base-uri 'self'", "form-action 'self'",
+                      "frame-ancestors 'self'"):
+        assert directive in csp, directive
+    script_src = next(part.strip() for part in csp.split(";")
+                      if part.strip().startswith("script-src"))
+    # в script-src только свои файлы и inline — внешних CDN нет
+    assert "http" not in script_src
+    assert "'unsafe-inline'" in script_src
+
+
+def test_terminal_vendor_local_only():
+    """№60: терминал грузит vendor-копии локально (без CDN)."""
+    root = Path(__file__).resolve().parents[2]
+    text = (root / "templates" / "apps" / "terminal.html").read_text(
+        encoding="utf-8")
+    assert "https://cdn" not in text
+    assert "cdn.socket.io" not in text
+    for vend in ("/static/vendor/xterm/xterm.min.css",
+                 "/static/vendor/xterm/xterm.min.js",
+                 "/static/vendor/xterm/addon-fit.min.js",
+                 "/static/vendor/socket.io.min.js"):
+        assert vend in text, vend
+        f = root / vend.lstrip("/")
+        assert f.is_file() and f.stat().st_size > 1000, vend
 
 
 def test_session_cookie_flags(client):

@@ -26,6 +26,12 @@ def test_headers_on_login_anonymous(panel_url):
     assert r.headers.get("X-Content-Type-Options") == "nosniff"
     assert r.headers.get("X-Frame-Options") == "SAMEORIGIN"
     assert r.headers.get("Referrer-Policy") == "same-origin"
+    # PHASE 16 №60: CSP без внешних CDN в script-src
+    csp = r.headers.get("Content-Security-Policy", "")
+    assert csp, "CSP missing"
+    script_src = next(p.strip() for p in csp.split(";")
+                      if p.strip().startswith("script-src"))
+    assert "http" not in script_src
 
 
 def test_login_sets_safe_session_cookie(panel_url):
