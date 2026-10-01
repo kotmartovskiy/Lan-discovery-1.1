@@ -1912,3 +1912,29 @@ exact=145, content_diff=0, only_remote=0.
   AGENTS.md обновлён (репозитории + рабочее окружение).
 - Следующий шаг: STEP 1 — аудит `UI_UX_AUDIT.md` (страницы/навигация/
   API каждой страницы/проблемы/таблица Keep|Redesign|Backend change).
+
+### 01.10.2026 — docs: STEP 1 аудит UI/UX — **DONE**
+
+- Создан **`UI_UX_AUDIT.md`** (корень репо) по промпту п.3: только реальный
+  код (28 шаблонов / 10 383 стр., 165 роутов, 33 модуля), read-only
+  разведка + 3 отчёта.
+- Ключевые находки: 4 параллельных дизайн-системы, `static/style.css`
+  (442 стр.) **не подключён** (копия инлайнена в `base.html`, монолит
+  2 124 стр.); 0 токенов, 60 инлайн-hex-фонов; двойной poll `/api/status`
+  3 с (второй на 13/14 страниц впустую); `/apps` — 11 iframe статически +
+  ~60–70 запросов/мин; нет `<meta viewport>` в base.html (mobile сломан);
+  доступность ~0 (aria/role/tabindex/alt = 0); 27 нативных alert/confirm;
+  33 `"--"` без состояний; сироты: `/history` без ссылок,
+  `inventory_device.html` — мёртвая заглушка; **утеряны кнопки** backup/
+  backup-test/emmc-restore (JS есть, кнопок нет); 14 API недостижимы из UI.
+- Таблица Keep|Redesign|Backend change (24 строки): backend пригоден, нужны
+  только аддитивные `GET /api/dashboard`, `GET /api/capabilities`, слой
+  roles, расширение схемы module.json (version/source/ports/permissions/
+  hardware) для статусов Available/Requires hardware/Incompatible.
+- Распределение: в 1.1 — STEP 1-12 (фундамент: design system, IA,
+  dashboard, capabilities v1, modules v1, roles-архитектура, responsive,
+  a11y, cleanup); в 1.2 — topology/interfaces/services + сетевые роли;
+  в 1.3 — транзакционный netconf + recovery.
+- Следующий шаг: STEP 2 — design system (`static/style.css` как источник
+  истины: токены, примитивы, semantic states, demo/unavailable) + уборка
+  инлайн-CSS в `base.html`; деплой только на X96.
