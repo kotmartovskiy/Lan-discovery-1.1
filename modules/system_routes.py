@@ -2001,6 +2001,7 @@ def register_routes(app):
 
             boot_device=boot_device,
             hdd_size=hdd_size,
+            hdd_present=hdd_device() is not None,
             sd_size=sd_size,
             network_hosts=network_hosts,
             emmc_backup_allowed=emmc_backup_allowed,
@@ -2061,6 +2062,9 @@ def register_routes(app):
     @admin_required
     @login_required
     def system_backup_test():
+        allowed, reason = emmc_backup_guard()
+        if not allowed:
+            return jsonify({"ok": False, "reason": reason}), 409
 
         if service_state("backup-emmc-test.service") == "active":
             return redirect(url_for("system"))

@@ -62,9 +62,9 @@
 
 {% if current_user.role == 'admin' %}
 <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-<button id="btn-backup-create" type="button" onclick="startBackup()">Создать backup сейчас</button>
-<button id="btn-backup-test" type="button" onclick="testBackup()">Проверить backup</button>
-<button id="btn-emmc-restore" type="button" onclick="startEmmcRestore()">Восстановить из backup</button>
+<button id="btn-backup-create" type="button" onclick="startBackup()"{% if not emmc_backup_allowed %} disabled title="{{ emmc_backup_reason }}"{% endif %}>Создать backup сейчас</button>
+<button id="btn-backup-test" type="button" onclick="testBackup()"{% if not emmc_backup_allowed %} disabled title="{{ emmc_backup_reason }}"{% endif %}>Проверить backup</button>
+<button id="btn-emmc-restore" type="button" onclick="startEmmcRestore()"{% if not emmc_backup_allowed %} disabled title="{{ emmc_backup_reason }}"{% endif %}>Восстановить из backup</button>
 </div>
 {% endif %}
 

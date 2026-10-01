@@ -480,7 +480,7 @@ security pentest, восстановление из backup на чистую с�
 | 62 | **Регресс-пентест по чек-листу** `docs/Пентест.md` на обоих узлах (чек-лист создан 01.10 отдельно от фазы) | **DONE (01.10.2026)** |
 | 63 | **Gap'ы §2:** выбор интерфейсов скана через UI (P6), identity устройств MAC+IP (P5), семантические версии/чейнджлог поверх git-rev (P10) | **DONE (01.10.2026)** |
 | 64 | **Харддинг-резидуалы:** решение по reverse-proxy/TLS либо подтверждение «root by design» на очередной квартал; обсуждение non-root | **DONE (01.10.2026)** |
-| 65 | **§8 residual'ы:** проверить, что UI-блоки eMMC/clone/hdd корректно прячутся на X96 (boot с SD, без HDD) по всей панели, не только модулями | pending |
+| 65 | **§8 residual'ы:** проверить, что UI-блоки eMMC/clone/hdd корректно прячутся на X96 (boot с SD, без HDD) по всей панели, не только модулями | **DONE (01.10.2026)** |
 
 ---
 
@@ -501,7 +501,11 @@ security pentest, восстановление из backup на чистую с�
    WAN-проброс, второй не-админ) зафиксированы в
    `docs/Безопасность.md` → «Модель угроз».
 4. **X96 без HDD, boot с SD** — тестовый режим: эММС/диск-функции (clone/backup-emmc)
-   на нём неприменимы, UI-блоки должны корректно прятаться (частично решено модулями).
+   на нём неприменимы; **проверено по всей панели (№65, 01.10)**:
+   кнопки eMMC-бэкапа disabled с причиной (+guard и на
+   `backup-test`), строка HDD в блоке «Плата» и элементы HDD в
+   status-bar шапки не рендерятся без данных, clone-btn disabled,
+   capabilities отдаёт «— не обнаружено», справка — по факту хоста.
 5. ~~**Внешние CDN** (xterm.js, socket.io)~~ — **закрыто (№60, 01.10)**:
    vendor-копии в `static/vendor/`, CSP без внешних CDN, терминал
    работает без интернета.
@@ -2509,3 +2513,32 @@ exact=145, content_diff=0, only_remote=0.
   подтверждался пентестом, restore-server выключен №62); в
   «Известных ограничениях» убран устаревший «нет rate-limit»
   (есть с P0-5).
+
+### 01.10.2026 — PHASE 16 №65: residual UI (eMMC/clone/HDD на X96) — **DONE**
+
+- **Обход по панели X96 (boot с SD `/dev/mmcblk1p2`, без HDD):**
+  `/system`, status-bar шапки, `/capabilities`, `/about`, `/help`,
+  monitoring — найдены и исправлены три места, где мёртвые блоки
+  были видимы/активны:
+  1. **кнопки eMMC-бэкапа** (`sys-emmc/block.html`) были активны
+     при статусе «НЕДОСТУПЕН» — теперь `disabled` + `title=reason`
+     (как у clone); серверный `POST /system/backup` уже отдавал 409;
+  2. **`POST /system/backup-test` был без guard'а** — добавлен
+     `emmc_backup_guard` → 409 с причиной (не запускает zstd);
+  3. **строка HDD в блоке «Плата»** рендерилась всегда («HDD: --») —
+     добавлен `hdd_present` в рендер `/system`, строка показывается
+     только при `hdd_device()`; в **status-bar шапки** eMMC/HDD/SD
+     элементы теперь собираются в массив условно: HDD-объём и
+     HDD-load не выводятся при `srv_*/hdd_io_ticks == null`
+     (раньше показывался мусор «0.0/0.0 ГБ»), eMMC-load — при
+     отсутствии `emmc_io_ticks`.
+- **Проверено «ок»:** `sys-clone` (clone-btn disabled + title),
+  `/capabilities` (absent → «— не обнаружено»), `/about` (типы из
+  lsblk), `/help` (динамические `hf.*`-условия), monitoring (нет
+  hdd/eMMC строк), `POST /api/clone/start` → error на сервере.
+- Тесты: `tests/unit/test_ui_residual.py` (+5: disabled-кнопки при
+  guard False/True, скрытие/показ строки HDD, guard backup-test);
+  на X96: unit **154 passed**, live **15 passed**; live-грепы:
+  `startBackup()" disabled`=1, `id="pi-hdd"`=0, backup-test=409.
+- Бэкапы: `*-backup-s65-*` (system_routes.py, sys-board/sys-emmc
+  block.html, base.html).

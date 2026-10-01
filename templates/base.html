@@ -1201,16 +1201,14 @@ function renderSystemStatus(data) {
         }
 
         const emmc =
-            formatStorage(
-                data.root_free,
-                data.root_total
-            );
+            data.root_free != null && data.root_total != null
+                ? formatStorage(data.root_free, data.root_total)
+                : null;
 
         const hdd =
-            formatStorage(
-                data.srv_free,
-                data.srv_total
-            );
+            data.srv_free != null && data.srv_total != null
+                ? formatStorage(data.srv_free, data.srv_total)
+                : null;
 
         const sd = (function () {
             if (data.sd_free != null && data.sd_total != null) {
@@ -1226,14 +1224,18 @@ function renderSystemStatus(data) {
         })();
 
         const emmcLoad =
-            emmcActive !== null
-                ? Math.round(emmcActive) + "%"
-                : "--";
+            data.emmc_io_ticks == null
+                ? null
+                : emmcActive !== null
+                  ? Math.round(emmcActive) + "%"
+                  : "--";
 
         const hddLoad =
-            hddActive !== null
-                ? Math.round(hddActive) + "%"
-                : "--";
+            hdd === null || data.hdd_io_ticks == null
+                ? null
+                : hddActive !== null
+                  ? Math.round(hddActive) + "%"
+                  : "--";
 
         const rx =
             rxSpeed !== null
@@ -1263,21 +1265,34 @@ function renderSystemStatus(data) {
                 '<span class="' + vcls + '">' + val + '</span></span>';
         }
 
-        element.innerHTML =
-            si('CPU', temperature, false, 'sl-temp') + ' · ' +
-            si('CPU', cpu, false, 'sl-cpu') + ' · ' +
-            si('RAM', ram, false, 'sl-ram') + ' · ' +
-            si('eMMC', emmc, true, 'sl-emmc') + ' · ' +
-            si('eMMC', emmcLoad, false, 'sl-emmc') + ' · ' +
-            si('HDD', hdd, true, 'sl-hdd') + ' · ' +
-            si('HDD', hddLoad, false, 'sl-hdd') + ' · ' +
-            si('SD', sd, true, 'sl-sd') + ' · ' +
-            '<span class="status-item"><span class="status-label sl-lan">LAN</span> ↓ ' +
+        var parts = [
+            si('CPU', temperature, false, 'sl-temp'),
+            si('CPU', cpu, false, 'sl-cpu'),
+            si('RAM', ram, false, 'sl-ram')
+        ];
+        if (emmc !== null) {
+            parts.push(si('eMMC', emmc, true, 'sl-emmc'));
+        }
+        if (emmcLoad !== null) {
+            parts.push(si('eMMC', emmcLoad, false, 'sl-emmc'));
+        }
+        if (hdd !== null) {
+            parts.push(si('HDD', hdd, true, 'sl-hdd'));
+        }
+        if (hddLoad !== null) {
+            parts.push(si('HDD', hddLoad, false, 'sl-hdd'));
+        }
+        if (sd !== null) {
+            parts.push(si('SD', sd, true, 'sl-sd'));
+        }
+        parts.push('<span class="status-item"><span class="status-label sl-lan">LAN</span> ↓ ' +
             '<span class="status-value">' + rx + '</span>' +
-            ' ↑ <span class="status-value">' + tx + '</span></span> · ' +
-            '<span class="status-item"><span class="status-label sl-wifi">Wi-Fi</span> ↓ ' +
+            ' ↑ <span class="status-value">' + tx + '</span></span>');
+        parts.push('<span class="status-item"><span class="status-label sl-wifi">Wi-Fi</span> ↓ ' +
             '<span class="status-value">' + wifiRx + '</span>' +
-            ' ↑ <span class="status-value">' + wifiTx + '</span></span>';
+            ' ↑ <span class="status-value">' + wifiTx + '</span></span>');
+
+        element.innerHTML = parts.join(' · ');
 
         element.classList.remove(
             "status-warn",
