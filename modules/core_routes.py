@@ -348,6 +348,13 @@ def _help_facts():
     sd_dev = find_typed_block("SD")
     emmc_dev = find_typed_block("MMC")
 
+    from core.module_loader import discover_modules, module_status
+    enabled_ids = set()
+    for m in discover_modules():
+        installed, on = module_status(m["id"])
+        if installed and on:
+            enabled_ids.add(m["id"])
+
     return {
         "hf": {
             "board": board_title(),
@@ -370,6 +377,7 @@ def _help_facts():
             "root_kind_label": root_kind_label,
             "sd_dev": sd_dev or "",
             "emmc_dev": emmc_dev or "",
+            "enabled": enabled_ids,
         }
     }
 

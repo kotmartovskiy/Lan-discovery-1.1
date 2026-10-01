@@ -1766,3 +1766,33 @@ exit 0** (16 файлов в публичную копию).
 
 **Сверка:** CI success (`ace2dda`, `d4535c5`); синхронизация X96 —
 exact=145, content_diff=0, only_remote=0.
+
+### 01.10.2026 — ui: этап 1 модульной справки — секции /help следят за тумблерами — **DONE**
+
+**Суть:** справка `/help` теперь показывает только те разделы, чьи
+модули включены (модульная механика `help_sections()` + `help.md`
+уже работала; доделаны статические секции 3–10 и сайдбар).
+
+- `modules/core_routes.py`: `_help_facts()` собирает
+  `hf.enabled` — множество `installed and enabled` id из
+  `core.module_loader.discover_modules()/module_status()`.
+- `templates/help.html`: сайдбар (якоря 4/6/7/10) и секции привязаны
+  к модулям: §3 Мониторинг/Валюты/Погода, div `#weather`, §5 диски/
+  Wi-Fi, div `#economics` + переработка, div `#multimedia` (IPTV/
+  камеры/плеер/radio/радиация), §8 утилиты (nettools…upnp), §10
+  sys-users/sys-settings/sys-db (+eMMC при `sys-emmc`); ядро
+  (устройства/система/приложения-базовые/игры/API/admin) — без
+  условий. Нумерация секций статична (возможны пропуски при
+  выключении) — сквозная динамика отдана в этап 2 (перенос текста в
+  `help.md` + дописать 14 недостающих help.md у sys-*/curr-*) —
+  выполняется только по явному подтверждению.
+- `tests/unit/test_help.py` +2: наличие секции/якоря по умолчанию;
+  мок `core.module_loader.module_status` (weather → выкл) → в /help
+  нет `id="weather"`, `href="#weather"`, «Радиационный мониторинг»,
+  ядро не задето. Итого **67/67** на X96 и OP.
+- Live-верификация на X96: `wifianalyzer` off → секции «Сканер Wi-Fi
+  сетей»/«📶 Wi-Fi» исчезли, ядро осталось; on → вернулись;
+  `modules.json` восстановлен (`enabled: true`).
+- Деплой: бэкапы `*.backup-modhelp-*`, sha1 трёх файлов
+  локаль==X96==OP, probe `/help` 200 на обоих узлах (факты X96 —
+  X96 Max/.243/SD-система; OP — Orange Pi/.235/eMMC-система).

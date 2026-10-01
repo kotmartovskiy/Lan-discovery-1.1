@@ -62,3 +62,38 @@ def test_help_facts_structure():
     assert all(d["kind"] and d["role"] for d in hf["disks"])
     # маркер «эта панель» — не больше одной строки
     assert sum(1 for n in hf["lan"] if n["here"]) <= 1
+    # включённые модули: builtin default True/True
+    assert isinstance(hf["enabled"], set) and hf["enabled"]
+    assert "weather" in hf["enabled"]
+
+
+def test_help_module_sections_present_by_default(client):
+    """Секции включённого модуля есть и в тексте, и в сайдбаре."""
+    r = client.get("/help")
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert 'id="weather"' in body
+    assert 'href="#weather"' in body
+
+
+def test_help_module_toggle_hides_section(client, monkeypatch):
+    """Выключенный модуль исчезает из справки (секция, сайдбар, подсекции)."""
+    import core.module_loader as ml
+
+    orig = ml.module_status
+
+    def fake(mid):
+        if mid == "weather":
+            return True, False
+        return orig(mid)
+
+    monkeypatch.setattr(ml, "module_status", fake)
+
+    r = client.get("/help")
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert 'id="weather"' not in body
+    assert 'href="#weather"' not in body
+    assert "Радиационный мониторинг" not in body
+    # ядро справки не задето
+    assert 'id="hardware"' in body

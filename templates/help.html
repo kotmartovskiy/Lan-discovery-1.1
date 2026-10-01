@@ -42,13 +42,13 @@
     <a href="#hardware">2. Оборудование</a>
     <a href="#pages">3. Страницы панели</a>
     <div class="toc-group">Функции</div>
-    <a href="#weather">4. Погода и мониторинг</a>
+    {% if 'weather' in hf.enabled %}<a href="#weather">4. Погода и мониторинг</a>{% endif %}
     <a href="#network">5. Сетевые функции</a>
-    <a href="#economics">6. Экономика</a>
-    <a href="#multimedia">7. Мультимедиа</a>
+    {% if 'currencies' in hf.enabled %}<a href="#economics">6. Экономика</a>{% endif %}
+    {% if 'sys-iptv' in hf.enabled or 'camera' in hf.enabled or 'player' in hf.enabled or 'radio' in hf.enabled %}<a href="#multimedia">7. Мультимедиа</a>{% endif %}
     <a href="#apps">8. Приложения и утилиты</a>
     <a href="#games">9. Игры</a>
-    <a href="#system-features">10. Системные функции</a>
+    {% if 'sys-users' in hf.enabled or 'sys-settings' in hf.enabled or 'sys-db' in hf.enabled %}<a href="#system-features">10. Системные функции</a>{% endif %}
     <div class="toc-group">Справочник</div>
     <a href="#api">11. API (JSON)</a>
     <a href="#admin">12. Администрирование</a>
@@ -130,6 +130,7 @@
 <li>Возможность задать имя устройству</li>
 </ul>
 
+{% if 'monitoring' in hf.enabled %}
 <h4>📊 Мониторинг (<code>/monitoring</code>)</h4>
 <p>Агрегация данных по хостам в реальном времени.</p>
 <ul>
@@ -137,7 +138,9 @@
 <li>Аккордеон по хостам с детальными метриками</li>
 <li>Прогресс-бары с цветовой индикацией (норма/предупреждение/критично)</li>
 </ul>
+{% endif %}
 
+{% if 'currencies' in hf.enabled %}
 <h4>💱 Валюты (<code>/currencies</code>)</h4>
 <p>Курсы валют и драгоценных металлов.</p>
 <ul>
@@ -147,7 +150,9 @@
 <li>Динамика цен (24h%, неделя, месяц)</li>
 <li>Графики истории курсов</li>
 </ul>
+{% endif %}
 
+{% if 'weather' in hf.enabled %}
 <h4>🌤 Погода (<code>/weather</code>)</h4>
 <p>Погода для {{ hf.region }} ({{ hf.coords }}).</p>
 <ul>
@@ -158,6 +163,7 @@
 <li>Радиационный фон (мкЗв/ч)</li>
 <li>Качество воздуха AQI (PM2.5, PM10, CO, NO₂)</li>
 </ul>
+{% endif %}
 
 <h4>🖥 Система (<code>/system</code>)</h4>
 <p>Управление сервером {{ hf.board }}.</p>
@@ -181,6 +187,7 @@
 <p>Эта страница.</p>
 </div>
 
+{% if 'weather' in hf.enabled %}
 <!-- 4. Погода и мониторинг окружающей среды -->
 <div class="help-section" id="weather">
 <h3>4. Погода и мониторинг <span class="help-badge green">Стандарт</span></h3>
@@ -232,6 +239,7 @@
 <li>Дата/время с часовым поясом Europe/Moscow</li>
 </ul>
 </div>
+{% endif %}
 
 <!-- 5. Сетевые функции -->
 <div class="help-section" id="network">
@@ -251,21 +259,26 @@
 <li>Цветовая индикация статусов</li>
 </ul>
 
+{% if 'disks' in hf.enabled %}
 <h4>Информация о дисках</h4>
 <ul>
 <li><code>lsblk</code> — список блочных устройств</li>
 <li><code>df</code> — использование дискового пространства</li>
 <li>S.M.A.R.T. — состояние здоровья накопителей</li>
 </ul>
+{% endif %}
 
+{% if 'wifianalyzer' in hf.enabled %}
 <h4>Мониторинг Wi-Fi сетей</h4>
 <ul>
 <li>Сканер Wi-Fi сетей (<code>iw</code>)</li>
 <li>Каналы, RSSI (уровень сигнала), шум</li>
 <li>Список доступных сетей с параметрами</li>
 </ul>
+{% endif %}
 </div>
 
+{% if 'currencies' in hf.enabled %}
 <!-- 6. Экономика -->
 <div class="help-section" id="economics">
 <h3>6. Экономика <span class="help-badge orange">Валюты</span></h3>
@@ -290,52 +303,67 @@
 <li>Экспорт данных в JSON/CSV</li>
 </ul>
 
+{% if 'curr-recycling' in hf.enabled %}
 <h4>Цены на переработку</h4>
 <ul>
 <li>Пластик, стекло, бумага, металл</li>
 <li>Актуальные цены приёмных пунктов</li>
 </ul>
+{% endif %}
 </div>
+{% endif %}
 
+{% if 'sys-iptv' in hf.enabled or 'camera' in hf.enabled or 'player' in hf.enabled or 'radio' in hf.enabled or 'weather' in hf.enabled %}
 <!-- 7. Мультимедиа -->
 <div class="help-section" id="multimedia">
 <h3>7. Мультимедиа <span class="help-badge purple">Медиа</span></h3>
 
+{% if 'sys-iptv' in hf.enabled %}
 <h4>IPTV</h4>
 <ul>
 <li>Загрузка m3u-плейлистов по URL</li>
 <li>Добавление, удаление, редактирование плейлистов</li>
 <li>Автоматическое обновление по расписанию</li>
 </ul>
+{% endif %}
 
+{% if 'camera' in hf.enabled %}
 <h4>Веб-камеры</h4>
 <ul>
 <li>Поддержка RTSP и HTTP потоков</li>
 <li>Добавление и удаление камер</li>
 <li>Просмотр в реальном времени</li>
 </ul>
+{% endif %}
 
+{% if 'player' in hf.enabled %}
 <h4>Плеер видео/аудио</h4>
 <ul>
 <li>Встроенный HTML5-плеер</li>
 <li>Полноэкранный режим</li>
 <li>Поддержка видео и аудио форматов</li>
 </ul>
+{% endif %}
 
+{% if 'radio' in hf.enabled %}
 <h4>Radio</h4>
 <ul>
 <li>Онлайн-радио станции</li>
 <li>Добавление своих станций</li>
 <li>Прослушивание прямо из браузера</li>
 </ul>
+{% endif %}
 
+{% if 'weather' in hf.enabled %}
 <h4>Радиационный мониторинг</h4>
 <ul>
 <li>Данные МЧС России</li>
 <li>API radiationweather.com</li>
 <li>Карта уровня радиации</li>
 </ul>
+{% endif %}
 </div>
+{% endif %}
 
 <!-- 8. Приложения и утилиты -->
 <div class="help-section" id="apps">
@@ -356,6 +384,7 @@
 <h4>⏰ Будильник</h4>
 <p>Выбор времени, настройка повторения (одноразовый / ежедневный / по дням недели), мелодия.</p>
 
+{% if 'nettools' in hf.enabled %}
 <h4>🔗 Сетевые инструменты</h4>
 <ul>
 <li><strong>Ping</strong> — проверка доступности хоста</li>
@@ -363,46 +392,66 @@
 <li><strong>Порты</strong> — сканирование открытых TCP-портов</li>
 <li><strong>Traceroute</strong> — маршрут до хоста</li>
 </ul>
+{% endif %}
 
+{% if 'disks' in hf.enabled %}
 <h4>💾 Диски</h4>
 <ul>
 <li><code>lsblk</code> — список блочных устройств</li>
 <li><code>df</code> — использование дисков</li>
 <li>S.M.A.R.T. — диагностика состояния дисков</li>
 </ul>
+{% endif %}
 
+{% if 'notes' in hf.enabled %}
 <h4>📝 Заметки</h4>
 <p>Двухпанельный Markdown-редактор. Предпросмотр результата в реальном времени.</p>
+{% endif %}
 
+{% if 'passwords' in hf.enabled %}
 <h4>🔐 Пароли</h4>
 <ul>
 <li>Генератор безопасных паролей (настройка длины, символов)</li>
 <li>Зашифрованное хранилище паролей</li>
 <li>Копирование в буфер обмена</li>
 </ul>
+{% endif %}
 
+{% if 'filemanager' in hf.enabled %}
 <h4>📁 Файловый менеджер</h4>
 <p>Двухпанельный файловый менеджер. Загрузка файлов на сервер, просмотр содержимого.</p>
+{% endif %}
 
+{% if 'wifianalyzer' in hf.enabled %}
 <h4>📶 Wi-Fi</h4>
 <ul>
 <li>Сканер доступных Wi-Fi сетей</li>
 <li>Информация о каналах, RSSI, уровне шума</li>
 <li>Подробные характеристики сети</li>
 </ul>
+{% endif %}
 
+{% if 'downloads' in hf.enabled %}
 <h4>📦 Загрузки</h4>
 <p>Менеджер загрузок на базе Transmission RPC. Добавление торрентов, управление загрузками.</p>
+{% endif %}
 
+{% if 'terminal' in hf.enabled %}
 <h4>💻 Терминал</h4>
 <p>Веб-терминал с доступом к командной строке сервера (только admin).</p>
+{% endif %}
 
+{% if 'dlna' in hf.enabled %}
 <h4>📺 DLNA</h4>
 <p>Обнаружение UPnP/DLNA-устройств в сети. Просмотр доступных медиа-серверов.</p>
+{% endif %}
 
+{% if 'bluetooth' in hf.enabled %}
 <h4>📶 Bluetooth</h4>
 <p>Менеджер Bluetooth: поиск устройств, подключение, управление сопряжением.</p>
+{% endif %}
 
+{% if 'upnp' in hf.enabled %}
 <h4>📺 UPnP Control Point</h4>
 <ul>
 <li>Обнаружение UPnP-рендереров и медиа-серверов в сети (SSDP)</li>
@@ -411,6 +460,7 @@
 <li>Просмотр контента медиа-серверов (MiniDLNA и др.)</li>
 <li>Воспроизведение файлов с сервера на найденный рендерер</li>
 </ul>
+{% endif %}
 </div>
 
 <!-- 9. Игры -->
@@ -434,13 +484,16 @@
 <div class="help-section" id="system-features">
 <h3>10. Системные функции <span class="help-badge orange">Система</span></h3>
 
+{% if 'sys-users' in hf.enabled %}
 <h4>Аутентификация и авторизация</h4>
 <ul>
 <li>Три роли: admin, user, guest</li>
 <li>Role-based access control (управление доступом по ролям)</li>
 <li>Система пользователей: добавление, удаление, изменение роли и пароля</li>
 </ul>
+{% endif %}
 
+{% if 'sys-settings' in hf.enabled %}
 <h4>Настройки</h4>
 <ul>
 <li>IP сервера, сетевые интерфейсы, порт</li>
@@ -448,12 +501,16 @@
 <li>Настройки погоды (координаты, интервал обновления)</li>
 <li>API-ключи</li>
 </ul>
+{% endif %}
 
+{% if 'sys-db' in hf.enabled %}
 <h4>Резервное копирование и восстановление</h4>
 <ul>
 <li>Файловые бэкапы — рядом с исходными файлами (<code>app.py.backup-*</code>, <code>devices.db.backup-*</code>)</li>
 <li>Бэкап/восстановление БД — страница «Система» (каталог <code>/srv/backup-db</code>)</li>
+{% if 'sys-emmc' in hf.enabled %}
 <li>Бэкап eMMC выполняется только при загрузке системы с eMMC <b>и</b> подключённом HDD: при загрузке с SD-карты (проблемы с eMMC / тестовый запуск) или без HDD копия eMMC не создаётся — панель показывает причину отказа</li>
+{% endif %}
 <li>Аварийный доступ — <code>restore-server.service</code> (порт 8081)</li>
 <li>Импорт настроек (JSON)</li>
 </ul>
@@ -463,6 +520,7 @@
 <li>Экспорт в JSON и CSV</li>
 <li>Экспорт истории курсов, событий, настроек</li>
 </ul>
+{% endif %}
 
 <h4>Rate Limiting</h4>
 <p>Ограничение количества запросов для защиты от злоупотреблений API.</p>
