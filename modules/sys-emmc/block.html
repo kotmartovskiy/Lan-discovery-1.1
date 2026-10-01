@@ -60,6 +60,14 @@
 <code>/srv/backup-system/emmc.img.zst</code>
 </div>
 
+{% if current_user.role == 'admin' %}
+<div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+<button id="btn-backup-create" type="button" onclick="startBackup()">Создать backup сейчас</button>
+<button id="btn-backup-test" type="button" onclick="testBackup()">Проверить backup</button>
+<button id="btn-emmc-restore" type="button" onclick="startEmmcRestore()">Восстановить из backup</button>
+</div>
+{% endif %}
+
 <div id="emmc-backup-progress" style="display:none; margin-top:12px;">
 <div style="font-size:13px; color:#8ab4f8; margin-bottom:4px;" id="emmc-backup-progress-text">Создание backup...</div>
 <div style="background:#1a1a2e; border-radius:6px; overflow:hidden; height:20px;">

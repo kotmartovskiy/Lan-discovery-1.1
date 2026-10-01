@@ -154,8 +154,8 @@ def register_routes(app):
     @app.route("/inventory/device/<ip>")
     @login_required
     def inventory_device(ip):
-        inv = get_inventory(ip)
-        return render_template("inventory_device.html", ip=ip, inventory=inv, **page_data())
+        # STEP 12: мёртвая заглушка (5 строк, без JS/ссылок) → device-detail.
+        return redirect("/device/" + ip)
 
     @app.route("/api/inventory/<ip>")
     @login_required

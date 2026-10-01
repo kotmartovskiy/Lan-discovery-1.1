@@ -217,29 +217,15 @@
 <!-- 8. API -->
 <div class="help-section" id="api">
 <h3>8. API (JSON)</h3>
-<table class="help-table">
-<tr><th>Эндпоинт</th><th>Метод</th><th>Описание</th></tr>
-<tr><td><code>/api/status</code></td><td>GET</td><td>Общий статус системы</td></tr>
-<tr><td><code>/api/weather-status</code></td><td>GET</td><td>Статус обновления погоды</td></tr>
-<tr><td><code>/api/currencies</code></td><td>GET</td><td>Курсы валют</td></tr>
-<tr><td><code>/api/monitoring/&lt;ip&gt;</code></td><td>GET</td><td>Метрики хоста</td></tr>
-<tr><td><code>/api/inventory/&lt;ip&gt;</code></td><td>GET</td><td>Данные инвентаризации</td></tr>
-<tr><td><code>/api/disk/check</code></td><td>GET</td><td>Проверка нового диска</td></tr>
-<tr><td><code>/api/disk/info</code></td><td>GET</td><td>Информация о диске</td></tr>
-<tr><td><code>/api/disk/prepare</code></td><td>POST</td><td>Подготовка диска</td></tr>
-<tr><td><code>/api/disk/transfer</code></td><td>POST</td><td>Копирование данных</td></tr>
-<tr><td><code>/api/disk/verify</code></td><td>POST</td><td>Проверка целостности</td></tr>
-<tr><td><code>/api/disk/poweroff</code></td><td>POST</td><td>Выключение питания</td></tr>
-<tr><td><code>/api/reboot</code></td><td>POST</td><td>Перезагрузка</td></tr>
-<tr><td><code>/api/sd-info</code></td><td>GET</td><td>Информация о SD-карте</td></tr>
-<tr><td><code>/api/clone/start</code></td><td>POST</td><td>Запуск клонирования eMMC→SD</td></tr>
-<tr><td><code>/api/clone/status</code></td><td>GET</td><td>Статус клонирования</td></tr>
-<tr><td><code>/api/service/&lt;name&gt;/&lt;action&gt;</code></td><td>POST</td><td>Управление сервисом (start/stop/restart)</td></tr>
-<tr><td><code>/api/network/check</code></td><td>GET</td><td>Проверка сети</td></tr>
-<tr><td><code>/api/network/check_host</code></td><td>POST</td><td>Проверка конкретного хоста</td></tr>
-<tr><td><code>/api/network/config</code></td><td>GET/POST</td><td>Конфигурация тестовых хостов</td></tr>
-<tr><td><code>/api/backup-status</code></td><td>GET</td><td>Статус резервного копирования</td></tr>
-</table>
+<p>Полный и поддерживаемый каталог эндпоинтов — документация
+<a href="https://github.com/kotmartovskiy/Lan-discovery-1.1/blob/main/docs/API.md">docs/API.md</a>
+в репозитории проекта (та же копия — в публичном
+<a href="https://github.com/kotmartovskiy/Lan-discovery-docs">Lan-discovery-docs</a>).
+Ручная копия каталога в справке больше не ведётся: она расходилась с кодом.</p>
+<p class="small">Опорные эндпоинты: <code>GET /api/status</code> — общий статус;
+<code>GET /api/dashboard</code> — агрегат для шапки (система/здоровье/устройства/события);
+<code>GET /api/health</code> — версия/аптайм/бэкапы. Авторизация — сессионная cookie,
+mutation-запросы требуют CSRF-токен (заголовок <code>X-CSRFToken</code>).</p>
 </div>
 
 <!-- 9. Администрирование -->

@@ -2262,3 +2262,42 @@ exact=145, content_diff=0, only_remote=0.
   не делаем), полный lighthouse-аудит app-страниц/iframe.
 - Следующий шаг: STEP 12 — cleanup (удалить system_full.html, подключить
   style.css вместо локальных дублей, мёртвый JS), финал 1.1.
+
+### 01.10.2026 — ui: STEP 12 cleanup (финал 1.1) — **DONE**
+
+- **Удалён мусор**: `system_full.html` (тень app-страницы, в .gitignore
+  ещё до 1.1, на X96 отсутствовал — убран из локального дерева);
+  мёртвый CSS `.app-btn` (17 строк, ни одного использования) из
+  `base_app.html`; `templates/inventory_device.html` (5-строчная заглушка
+  без JS/ссылок) — `git rm`.
+- **P-12 — возвращены утерянные кнопки бэкапов** в `modules/sys-emmc/
+  block.html` (JS-обработчики жили в base.html, кнопок в шаблоне не было):
+  «Создать backup сейчас» (`btn-backup-create` → POST /system/backup),
+  «Проверить backup» (`btn-backup-test` → POST /system/backup-test),
+  «Восстановить из backup» (`btn-emmc-restore` → POST /system/emmc-restore)
+  — блок под `current_user.role == 'admin'`; все три роута `admin_required`
+  + CSRF покрыт fetch-patch. Кнопки БД-бэкапов `sys-db` не тронуты (на месте).
+- **Заглушка inventory → redirect**: `GET /inventory/device/<ip>` рендерил
+  `inventory_device.html` → теперь `redirect("/device/" + ip)` (эндпоинт
+  сохранён для внешних ссылок). `redirect` уже был импортирован.
+- **Help/API → docs**: ручной каталог из 21 строки в справке (секция 8,
+  id="api" и TOC сохранены) заменён ссылкой на `docs/API.md` (репозиторий
+  + публичный Lan-discovery-docs) + опорные эндпоинты и CSRF-заметка;
+  каталог вручную расходился с кодом — источник истины один.
+- **`tests/unit/test_cleanup.py`** (+6): файлы мусора удалены, `.app-btn`
+  нет, кнопки/JS/guard в sys-emmc-блоке, 302-redirect inventory_device,
+  сегмент секции help (без help-table, с docs/API.md), регресс /inventory.
+- Проверки на X96: `check_step12.py` — **17/17 PASS** (кнопки в /system
+  с admin-сессией, 302 /inventory/device → /device/<ip>, help-сегмент,
+  регресс STEP 4/5/7/8/9/10), pytest **125 passed** (119+6), sync
+  **exact=171 / content_diff=0**. Бэкапы `*-backup-s12-*` (5 файлов,
+  включая копию удаляемого inventory_device.html).
+- Ловушки чека: строка `/api/clone/start` живёт в JS `base.html:777`
+  (наследуется всеми страницами) — проверять нужно **сегмент секции**
+  help, а не весь HTML; `/inventory/device` тестить нужно opener-ом
+  **с cookies** (иначе аноним → 302 /login вместо 302 /device).
+- Не в скоупе 1.1 (→1.2): поэтапная замена ~2193 строк инлайн-CSS
+  на style.css (STEP 2 подключил слой, legacy подчищается точечно).
+- **Версия 1.1 (STEP 1–12) завершена**: audit → design → IA → dashboard →
+  devices → monitoring → capabilities → modules → roles → responsive →
+  a11y → cleanup. Дальше — деплой 1.2 по ROADMAP §2.
