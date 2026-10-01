@@ -25,7 +25,7 @@
 2. [Обновление](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Обновление) — `update.sh`: бэкап → применение → авто-откат.
 3. [Восстановление](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Восстановление) — `recovery.sh`: restore кода/конфига/БД из бэкапов.
 4. [Архитектура](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Архитектура) — как устроен код.
-5. [Модули и роуты](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Модули) · [API](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/API) — ответственность модулей и полный каталог endpoint'ов (163).
+5. [Модули и роуты](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Модули) · [API](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/API) — ответственность модулей и полный каталог endpoint'ов (165).
 6. [Конфигурация](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Конфигурация) · [Безопасность](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Безопасность) · [Пентест](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Пентест) — настройки, модель доступа и чек-лист проверки.
 7. [IPTV](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/IPTV) · [SD-клонирование](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/SD-клонирование) · [Погода](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Погода) — отдельные подсистемы.
 8. [Полезные команды](https://github.com/kotmartovskiy/Lan-discovery-ARM/wiki/Полезные-команды) — SSH, логи, бэкапы, отладка.

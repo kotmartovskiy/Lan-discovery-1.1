@@ -1364,6 +1364,119 @@ async function controlService(service, action) {
     }
 }
 
+var sambaGuestEnabled = false;
+
+function renderSambaGuest(enabled) {
+
+    sambaGuestEnabled = !!enabled;
+
+    var stateElement =
+        document.getElementById("samba-guest-state");
+
+    if (!stateElement) {
+        return;
+    }
+
+    stateElement.textContent =
+        enabled ? "● включён" : "● выключен";
+
+    stateElement.classList.remove(
+        "status-ok",
+        "status-error"
+    );
+
+    if (enabled) {
+        stateElement.classList.add("status-ok");
+    }
+
+    var button =
+        document.getElementById("samba-guest-toggle");
+
+    if (button) {
+        button.style.display = "";
+        button.textContent =
+            enabled ? "Выключить" : "Включить";
+    }
+}
+
+async function loadSambaGuestState() {
+
+    if (!document.getElementById("samba-guest-state")) {
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            "/api/samba/guest",
+            { cache: "no-store" }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(
+                data.error || "HTTP " + response.status
+            );
+        }
+
+        renderSambaGuest(data.enabled);
+
+    } catch (error) {
+
+        console.error(
+            "samba guest state:",
+            error
+        );
+    }
+}
+
+async function toggleSambaGuest() {
+
+    const next = !sambaGuestEnabled;
+
+    const message = next
+        ? "Включить гостевой доступ Samba? " +
+          "Шары будут доступны без пароля в этой LAN."
+        : "Выключить гостевой доступ Samba?";
+
+    if (!confirm(message)) {
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            "/api/samba/guest",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ enabled: next }),
+                cache: "no-store"
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(
+                data.error || "Ошибка операции"
+            );
+        }
+
+        renderSambaGuest(data.enabled);
+
+    } catch (error) {
+
+        alert(
+            "Не удалось изменить гостевой доступ: " +
+            error.message
+        );
+    }
+}
+
 async function updateSystemStatus() {
 
     try {
@@ -1991,6 +2104,8 @@ setInterval(
     updateOrangePiStatus,
     3000
 );
+
+loadSambaGuestState();
 
 </script>
 

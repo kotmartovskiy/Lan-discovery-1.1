@@ -1849,3 +1849,44 @@ exact=145, content_diff=0, only_remote=0.
   на `downloads` работает. `/srv/share` существует (ложный след —
   `head` обрезал вывод `ls`). Включение гостевого доступа
   (`guest ok = yes`) — решение администратора, не применялось.
+
+### 01.10.2026 — core: гостевой доступ Samba + тумблер в панели — **DONE**
+
+- По решению администратора: в LAN можно заходить гостем, с
+  возможностью отключения из веб-панели. Реализовано `core/
+  samba_guest.py` (9 unit-тестов): `transform()` — чистая идемпотентная
+  правка smb.conf: в файловых шарах (секции с `path`, кроме
+  `printers`/`print$`/`homes`/`global`) `guest ok = yes` + `valid
+  users` временно комментируется префиксом `# lan-discovery guest: `
+  (восстанавливается при выключении, отступ сохраняется), в `[global]`
+  при отсутствии прописывается `map to guest = bad user`. `apply()`:
+  бэкап `smb.conf.backup-<дата>` → `testparm -s` на tmp-файле →
+  атомарная подмена → `smbcontrol all reload-config` (сессии не
+  обрываются; fallback `systemctl reload smbd`). Состояние читается
+  из самого smb.conf (отдельный флаг не хранится).
+- API: `GET /api/samba/guest` (login) и `POST /api/samba/guest`
+  `{"enabled": bool}` (admin, CSRF) в `modules/system_routes.py`;
+  каталог роутов обновлён (163 → **165**, system-секция 24 → 26,
+  admin-роуты 40 → 41; счётчики в README/API/Home/Архитектура/
+  Безопасность).
+- UI: строка «Гостевой доступ Samba» в блоке платы на /system
+  (`modules/sys-board/block.html`; кнопка только для `admin`),
+  JS `renderSambaGuest`/`loadSambaGuestState`/`toggleSambaGuest` в
+  `base.html` (подтверждение confirm, JSON+CSRF).
+- Документация: `docs/Конфигурация.md` — раздел «Samba: шары и
+  гостевой доступ» (что делает включение, бэкап/testparm, ограничения,
+  порт 445: ufw на OP, нет firewall на X96); `docs/Безопасность.md` —
+  пункт в «Известных ограничениях» (гость = запись/чтение шар без
+  пароля от владельца через `force user`); `docs/API.md` — 2 строки;
+  `sys-board/help.md` и `templates/help.html` — упоминание
+  переключателя.
+- Тесты: **76/76** на X96 и OP (67 + 9). Live-verify на обоих
+  (`/tmp/verify_smb.py`): аноним GET → 302, аноним POST без CSRF →
+  400, baseline OFF (3 шары restricted), невалидные тела → 400,
+  цикл ON → все `guest ok`/`restricted=false` → OFF → `valid users`
+  восстановлены → ON (финал **включён**) + идемпотентный повтор
+  (`changed=false`), строка и кнопка на /system. Гостевой доступ
+  проверен `smbclient -N`: OP → `//192.168.3.243/share` (X96) и
+  локально `//127.0.0.1/downloads` — файлы видны. sha1 трёх файлов
+  локаль==X96==OP; `/help` 200 на обоих; бэкапы
+  `*.backup-smb-*` + `smb.conf.backup-*` созданы.

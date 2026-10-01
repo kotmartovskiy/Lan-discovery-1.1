@@ -117,6 +117,23 @@
 {% endif %}
 </div>
 
+<div class="info-row service-row">
+<span>
+<span class="info-label">Гостевой доступ Samba:</span>
+<span id="samba-guest-state">--</span>
+</span>
+{% if current_user.role == 'admin' %}
+<span class="service-buttons">
+<button id="samba-guest-toggle"
+        type="button"
+        style="display:none"
+        onclick="toggleSambaGuest()">
+Выключить
+</button>
+</span>
+{% endif %}
+</div>
+
 <div class="info-row">
 <span class="info-label">LAN Discovery:</span>
 <span id="service-lan-discovery">--</span>

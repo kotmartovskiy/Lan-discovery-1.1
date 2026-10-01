@@ -1,6 +1,6 @@
 # API — каталог роутов
 
-Сгенерировано из кода 30.09.2026 (PHASE 14): **163 роута** —
+Сгенерировано из кода 30.09.2026 (PHASE 14), обновлено 01.10.2026: **165 роутов** —
 140 под `login_required`, 40 под `admin_required` (20 с них
 дублируют `login_required`), **3 открытых**: `GET/POST /login`,
 `GET /logout`, `GET /api/health`.
@@ -69,11 +69,13 @@
 | POST | `/api/filemanager/copy` | admin | Копировать |
 | POST | `/api/filemanager/move` | admin | Переместить |
 
-## Система, сервисы и бэкапы (`modules/system_routes.py`) — 24
+## Система, сервисы и бэкапы (`modules/system_routes.py`) — 26
 
 | Метод | Путь | Доступ | Описание |
 |---|---|---|---|
 | POST | `/api/service/<service>/<action>` | admin | Управление systemd-сервисом (start/stop/restart/enable/disable) |
+| GET | `/api/samba/guest` | login | Состояние гостевого доступа Samba (шары из smb.conf) |
+| POST | `/api/samba/guest` | admin | Включение/выключение гостевого доступа Samba (бэкап + testparm + reload) |
 | GET | `/api/status` | login | Статус системы (CPU/RAM/сеть, JSON) |
 | GET | `/api/system/health` | login | Health c деталями (platform/thermal/storage) |
 | GET | `/api/health` | открытый | Короткий health-check (открытый эндпоинт) |

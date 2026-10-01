@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from core.hardware import (
     detect_platform, emmc_device, hdd_device, thermal_temp,
 )
+from core import samba_guest
 
 DB = "/opt/lan-discovery/devices.db"
 SETTINGS_PATH = "/etc/lan-discovery/settings.json"
@@ -1254,6 +1255,46 @@ def register_routes(app):
                 "ok": False,
                 "error": str(e)
             }, 500
+
+    @app.route("/api/samba/guest", methods=["GET"])
+    @login_required
+    def api_samba_guest_state():
+        try:
+            state = samba_guest.guest_state()
+        except FileNotFoundError:
+            return jsonify({
+                "ok": False,
+                "enabled": False,
+                "shares": {},
+                "error": "%s не найден" % samba_guest.SMB_CONF
+            }), 404
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": True, **state})
+
+    @app.route("/api/samba/guest", methods=["POST"])
+    @admin_required
+    @login_required
+    def api_samba_guest_toggle():
+        data = request.get_json(silent=True) or {}
+        enabled = data.get("enabled")
+        if not isinstance(enabled, bool):
+            return jsonify({
+                "ok": False,
+                "error": 'Ожидается JSON {"enabled": true|false}'
+            }), 400
+        try:
+            result = samba_guest.apply_samba_guest(enabled)
+        except FileNotFoundError:
+            return jsonify({
+                "ok": False,
+                "error": "%s не найден" % samba_guest.SMB_CONF
+            }), 404
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+        if not result.get("ok"):
+            return jsonify(result), 500
+        return jsonify(result)
 
     @app.route("/api/status")
     @login_required
