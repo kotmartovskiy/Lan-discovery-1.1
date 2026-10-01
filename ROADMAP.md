@@ -468,7 +468,7 @@ security pentest, восстановление из backup на чистую с�
 | PHASE 13 Testing | **DONE** | задачи 29–31: pytest-структура (unit 42 / live 5, маркер `live`), CI GitHub Actions (ubuntu/py3.11: pytest unit + py_compile) на каждый push/PR |
 | PHASE 14 Documentation | **DONE** | задачи 42–46: docs/API.md (163 роута, колонка доступа), docs/Безопасность.md, docs/Архитектура.md освежён (14 таблиц, core/, lifecycle, CI), README/Home/_Sidebar со всеми страницами, линкер 74/0, sanitize leaks=0, публичный репо docs обновлён |
 | PHASE 15 Production 1.0 | **DONE** | задачи 55–58: reboot-тест X96 PASS (автостарт/данные), disaster-recovery дрил на чистый префикс PASS (==бэкапу), нагрузочный smoke PASS (0×5xx), git tag `v1.0.0` |
-| PHASE 16 After 1.0 | **DEFERRED** | состав определён 01.10.2026 — задачи 59–65, см. ниже; репо-hygiene и чистка §2 выполнены вне фазы 01.10 |
+| PHASE 16 After 1.0 | **DONE (01.10.2026)** | задачи 59–68 (состав расширен 01.10 — 66–68), см. ниже; репо-hygiene и чистка §2 выполнены вне фазы 01.10; релиз `v1.1.0` |
 
 ### Состав PHASE 16 (задачи 59–68, определён/расширен 01.10.2026)
 
@@ -483,7 +483,7 @@ security pentest, восстановление из backup на чистую с�
 | 65 | **§8 residual'ы:** проверить, что UI-блоки eMMC/clone/hdd корректно прячутся на X96 (boot с SD, без HDD) по всей панели, не только модулями | **DONE (01.10.2026)** |
 | 66 | **Residual-фиксы по находкам №62/§8:** SSRF-валидация URL IPTV (только http/https) + маскировка `Server`-заголовка (без версий Werkzeug/Python) | **DONE (01.10.2026)** |
 | 67 | **Автозапуск дрейф-контроля (§8.2):** ежедневная Windows-задача `LanDiscovery-SyncCheck` (`tools/setup_sync_task.ps1` + `tools/sync_check_daily.cmd`, лог в `%LOCALAPPDATA%\lan-discovery\`), пароль только локально вне репо | **DONE (01.10.2026)** |
-| 68 | **Демо-слепок:** `make_demo.py` → `demo_lint.py` → push `Lan-discovery-demo` под актуальный UI (STEP 12, №59–67) | pending |
+| 68 | **Демо-слепок:** `make_demo.py` → `demo_lint.py` → push `Lan-discovery-demo` под актуальный UI (STEP 12, №59–67) | **DONE (01.10.2026)** |
 
 ---
 
@@ -2593,3 +2593,20 @@ exact=145, content_diff=0, only_remote=0.
   `LastTaskResult=0`, в логе `exact=179` (exit=1 из-за ещё
   незакоммиченного `test_iptv_ssrf.py` — после коммита станет 0).
 - `AGENTS.md` §7 дополнен: автозапуск, путь лога, где хранится пароль.
+
+### 01.10.2026 — PHASE 16 №68: демо-слепок под STEP 12 + №59–67 — **DONE**
+
+- На X96: `LAN_PANEL_PASS=... tools/make_demo.py /tmp/demo` →
+  156 файлов (4.8M), склейка `01.10.2026 20:19`, name-fixes 4
+  (персональные имена → «Телефон 1-4»), `login: ok`, pages 63,
+  api snapshots 83, settings scrubbed, json sanitized 84.
+- Локально: `demo_lint.py` → **LINT OK: 156 files** (net/secret
+  leaks 0); пуш в `Lan-discovery-demo` (`dded0f1`), Pages build
+  **success**, https://kotmartovskiy.github.io/Lan-discovery-demo/
+  отдаёт слепок 01.10.2026 (HTTP 200, marker в index).
+- **Инцидент:** зеркальное копирование слепка в клон затёрло
+  не-слепочный `LICENSE` (в коммите `dded0f1`) — восстановлен
+  отдельным коммитом `e36c3a0` из `c619885`. Урок: при обновлении
+  демо-слона сохранять служебные файлы клона (LICENSE и др.).
+- **PHASE 16 закрыта полностью (59–68)**; релиз отмечен тегом
+  `v1.1.0` (запушен).
