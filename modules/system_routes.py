@@ -1680,6 +1680,58 @@ def register_routes(app):
         _health_cache["ts"] = time.time()
         return result
 
+    @app.route("/api/dashboard")
+    @login_required
+    def api_dashboard():
+        """Единый агрегат для поллера шапки (STEP 4): system + health +
+        devices + события + alerts + internet. Один запрос вместо
+        /api/status ×2 + /api/system/health. Кэши переиспользуются
+        (status 2с, health 30с)."""
+        status = api_status()
+        health = api_system_health()
+
+        total = online = 0
+        try:
+            con = sqlite3.connect(DB, timeout=5)
+            try:
+                row = con.execute(
+                    "SELECT count(*), COALESCE(sum(online), 0) FROM devices"
+                ).fetchone()
+                total, online = int(row[0] or 0), int(row[1] or 0)
+            finally:
+                con.close()
+        except Exception:
+            pass
+
+        events = []
+        try:
+            from core.events import list_events, event_to_dict
+            con = sqlite3.connect(DB, timeout=5)
+            try:
+                events = [event_to_dict(r)
+                          for r in list_events(con, limit=10)]
+            finally:
+                con.close()
+        except Exception:
+            pass
+
+        try:
+            from app import check_internet_cached
+            internet = bool(check_internet_cached())
+        except Exception:
+            internet = None
+
+        from core.dashboard import merge_alerts
+        return {
+            "system": status,
+            "health": health,
+            "devices": {"total": total, "online": online},
+            "events": events,
+            "alerts": merge_alerts(health.get("warnings") or [], events),
+            "internet": internet,
+            "checked_at": time.strftime("%H:%M:%S"),
+        }
+
     @app.route("/api/health")
     def api_health():
         checks = {}

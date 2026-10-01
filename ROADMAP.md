@@ -1993,3 +1993,32 @@ exact=145, content_diff=0, only_remote=0.
   pytest **76 passed**, sync **exact=161 / content_diff=0**. Бэкапы:
   9 файлов `*-s3-20261001-131451` + пере-upload `*-s3b-20261001-131830`.
 - Следующий шаг: STEP 4 — dashboard (единый поллер + `GET /api/dashboard`).
+
+### 01.10.2026 — core: STEP 4 dashboard-агрегат + единый поллер — **DONE**
+
+- **`GET /api/dashboard`** (`modules/system_routes.py`, рядом с api_status):
+  агрегат `system` (кэш /api/status 2с) + `health` (кэш30с) + `devices`
+  (count/online из devices.db) + `events` (последние10, `core/events`) +
+  `alerts` + `internet` (`check_internet_cached`) + `checked_at`. Один
+  запрос вместо `/api/status` ×2 + `/api/system/health`; **старые endpoints
+  не удалены** (регресс-тест).
+- **`core/dashboard.py`** — `merge_alerts()`: alerts = read-only вьюха
+  поверх health-warnings + событий severity warning/critical (без новой
+  таблицы БД, решение по промпту §6); unit-тесты на level/source/limit.
+- **base.html**: `updateSystemStatus` + `updateOrangePiStatus` +
+  `checkHealth` → три render-функции (`renderSystemStatus`/`renderBoardStatus`/
+  `renderHealth`) + один `updateDashboard()` (fetch `/api/dashboard` каждые
+  3с, плюс `renderInternet` — интернет-индикатор в шапке теперь live,
+  `id="internet-status"`); убраны2 интервала3с + health-интервал60с →
+  **−2/3 запросов статус-слоя** (polling-карта из аудита P-3 закрыта).
+  `await updateOrangePiStatus()` после service-действий → `updateDashboard()`.
+- Проверки на X96: `check_step4.py` — **29/29 PASS** (агрегат:8 ключей,
+  devices 40/24, events10, alerts6, internet=true; регресс /api/status и
+  /api/system/health; на / нет старых вызовов и '/api/status',
+  render-функции на месте; /system с pi-виджетами рендерится), pytest
+  **81 passed** (76+5), sync **exact=161 / content_diff=0** (2 новых файла
+  — в git после коммита). Бэкапы `*-s4-20261001-133303`.
+- Примечание: старт сервиса ~4с (скан+схема) — после рестарта ждать
+  привязки порта (для следующих проверок sleep ≥5с).
+- Следующий шаг: STEP 5 — devices list/detail (6 ключевых колонок,
+  semantic states, drawer устройства).

@@ -78,7 +78,7 @@
 
 <div id="weather-status" style="font-size:13px; color:#8ab4f8; margin:2px 0;"></div>
 
-<div class="internet {{ 'online' if internet else 'offline' }}">
+<div id="internet-status" class="internet {{ 'online' if internet else 'offline' }}">
 ● Интернет: {{ 'доступен' if internet else 'нет доступа' }}
 </div>
 
@@ -887,7 +887,7 @@ async function controlService(service, action) {
             );
         }
 
-        await updateOrangePiStatus();
+        await updateDashboard();
 
     } catch (error) {
 
@@ -1011,20 +1011,9 @@ async function toggleSambaGuest() {
     }
 }
 
-async function updateSystemStatus() {
+function renderSystemStatus(data) {
 
     try {
-
-        const response = await fetch(
-            "/api/status",
-            { cache: "no-store" }
-        );
-
-        if (!response.ok) {
-            throw new Error("HTTP " + response.status);
-        }
-
-        const data = await response.json();
 
         const now = Date.now();
 
@@ -1320,8 +1309,6 @@ async function updateSystemStatus() {
     }
 }
 
-updateSystemStatus();
-setInterval(updateSystemStatus, 3000);
 
 function initCloneStatus() {
     var prog = document.getElementById("clone-progress");
@@ -1455,23 +1442,9 @@ function setServiceStatus(id, state) {
     }
 }
 
-async function updateOrangePiStatus() {
+function renderBoardStatus(data) {
 
     try {
-
-        const response = await fetch(
-            "/api/status",
-            { cache: "no-store" }
-        );
-
-        if (!response.ok) {
-            throw new Error(
-                "HTTP " + response.status
-            );
-        }
-
-        const data =
-            await response.json();
 
         const uptime =
             document.getElementById(
@@ -1599,10 +1572,7 @@ function toggleHealthDetail() {
     healthOpen = !healthOpen;
     el.style.display = healthOpen ? 'block' : 'none';
 }
-function checkHealth() {
-    fetch('/api/system/health', {cache:'no-store'})
-    .then(function(r){return r.json()})
-    .then(function(d){
+function renderHealth(d) {
         var w = document.getElementById('health-widget');
         var det = document.getElementById('health-detail');
         if (d.ok) {
@@ -1619,8 +1589,6 @@ function checkHealth() {
             detHtml += '<div style="font-size:11px;color:#484f58;margin-top:6px;">Проверено: ' + d.checked_at + '</div>';
             det.innerHTML = detHtml;
         }
-    })
-    .catch(function(){});
 }
 document.addEventListener('click', function(e) {
     var w = document.getElementById('health-widget');
@@ -1630,14 +1598,35 @@ document.addEventListener('click', function(e) {
         healthOpen = false;
     }
 });
-checkHealth();
-setInterval(checkHealth, 60000);
+async function updateDashboard() {
+    try {
+        const response = await fetch(
+            "/api/dashboard",
+            { cache: "no-store" }
+        );
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+        const d = await response.json();
+        const sys = d.system || {};
+        renderSystemStatus(sys);
+        renderBoardStatus(sys);
+        renderHealth(d.health || { ok: true, warnings: [], checked_at: "" });
+        renderInternet(d.internet);
+    } catch (error) {
+        console.error("dashboard:", error);
+    }
+}
 
-updateOrangePiStatus();
-setInterval(
-    updateOrangePiStatus,
-    3000
-);
+function renderInternet(online) {
+    var el = document.getElementById("internet-status");
+    if (!el || online === null || online === undefined) return;
+    el.className = "internet " + (online ? "online" : "offline");
+    el.textContent = "● Интернет: " + (online ? "доступен" : "нет доступа");
+}
+
+updateDashboard();
+setInterval(updateDashboard, 3000);
 
 loadSambaGuestState();
 
