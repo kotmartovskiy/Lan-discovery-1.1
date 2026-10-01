@@ -9,6 +9,6 @@
     "order": 20,
     "title": "eMMC Backup"
   },
-  "help": false,
+  "help": true,
   "prefixes": []
 }

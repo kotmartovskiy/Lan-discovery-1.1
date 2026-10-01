@@ -9,6 +9,6 @@
     "order": 50,
     "title": "Замена HDD / Клонирование"
   },
-  "help": false,
+  "help": true,
   "prefixes": []
 }

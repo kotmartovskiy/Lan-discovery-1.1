@@ -9,6 +9,6 @@
     "order": 80,
     "title": "Настройки"
   },
-  "help": false,
+  "help": true,
   "prefixes": []
 }

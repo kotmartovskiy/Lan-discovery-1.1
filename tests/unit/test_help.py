@@ -68,12 +68,12 @@ def test_help_facts_structure():
 
 
 def test_help_module_sections_present_by_default(client):
-    """Секции включённого модуля есть и в тексте, и в сайдбаре."""
+    """Секция включённого модуля есть и в тексте, и в сайдбаре (help.md → mod-*)."""
     r = client.get("/help")
     assert r.status_code == 200
     body = r.get_data(as_text=True)
-    assert 'id="weather"' in body
-    assert 'href="#weather"' in body
+    assert 'id="mod-weather"' in body
+    assert 'href="#mod-weather"' in body
 
 
 def test_help_module_toggle_hides_section(client, monkeypatch):
@@ -92,8 +92,8 @@ def test_help_module_toggle_hides_section(client, monkeypatch):
     r = client.get("/help")
     assert r.status_code == 200
     body = r.get_data(as_text=True)
-    assert 'id="weather"' not in body
-    assert 'href="#weather"' not in body
-    assert "Радиационный мониторинг" not in body
+    assert 'id="mod-weather"' not in body
+    assert 'href="#mod-weather"' not in body
+    assert "Радиационный фон" not in body
     # ядро справки не задето
     assert 'id="hardware"' in body

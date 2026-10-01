@@ -8,3 +8,4 @@ beautifulsoup4>=4.12,<5.0
 schedule>=1.2,<2.0
 python-engineio>=4.8,<5.0
 python-socketio>=5.10,<6.0
+markdown>=3.5,<4.0

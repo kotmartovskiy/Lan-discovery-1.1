@@ -9,6 +9,6 @@
     "order": 70,
     "title": "Управление питанием"
   },
-  "help": false,
+  "help": true,
   "prefixes": []
 }

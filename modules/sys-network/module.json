@@ -9,6 +9,6 @@
     "order": 40,
     "title": "Сеть"
   },
-  "help": false,
+  "help": true,
   "prefixes": []
 }

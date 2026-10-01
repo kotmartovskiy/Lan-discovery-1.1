@@ -9,6 +9,6 @@
     "order": 60,
     "title": "IPTV"
   },
-  "help": false,
+  "help": true,
   "prefixes": []
 }

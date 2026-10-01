@@ -5,6 +5,6 @@
   "builtin": true,
   "type": "block",
   "block": {"slot": "currencies", "order": 30, "title": "Драгоценные металлы"},
-  "help": false,
+  "help": true,
   "prefixes": []
 }

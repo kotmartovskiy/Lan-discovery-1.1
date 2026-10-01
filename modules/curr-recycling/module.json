@@ -5,6 +5,6 @@
   "builtin": true,
   "type": "block",
   "block": {"slot": "currencies", "order": 50, "title": "Приемные пункты (ЦФО)"},
-  "help": false,
+  "help": true,
   "prefixes": []
 }

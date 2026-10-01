@@ -9,6 +9,6 @@
     "order": 90,
     "title": "Пользователи"
   },
-  "help": false,
+  "help": true,
   "prefixes": []
 }

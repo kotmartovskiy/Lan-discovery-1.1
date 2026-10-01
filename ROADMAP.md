@@ -1796,3 +1796,56 @@ exact=145, content_diff=0, only_remote=0.
 - Деплой: бэкапы `*.backup-modhelp-*`, sha1 трёх файлов
   локаль==X96==OP, probe `/help` 200 на обоих узлах (факты X96 —
   X96 Max/.243/SD-система; OP — Orange Pi/.235/eMMC-система).
+
+### 01.10.2026 — ui: этап 2 модульной справки — весь контент /help живёт в help.md — **DONE**
+
+- 14 недостающих `help.md` создано (`sys-users`, `sys-settings`, `sys-db`,
+  `sys-emmc`, `sys-iptv`, `sys-network`, `sys-power`, `sys-board`,
+  `sys-clone`, `curr-fiat/precious/industrial/crypto/recycling`) +
+  `"help": true` в 14 `module.json` — `help_sections()` требует и флаг,
+  и файл; в 5 существующих (`monitoring`, `weather`, `notes`, `passwords`,
+  `radio`) дописан переносимый текст из help.html (UV/радиация/AQI/пульс
+  сервера, Markdown-редактор, генератор паролей, ручное добавление
+  станций). Итого `help=true` + `help.md` у **всех 33 модулей**.
+  Утверждения старого help.html про «HTML5-плеер» и «загрузку файлов»
+  проверены по коду — не подтвердились (mpv-воспроизведение, upload
+  нет), в help.md не переносились.
+- `templates/help.html`: вырезаны секции 4/6/7 целиком и модульные
+  подсекции §3/5/8/10 — шаблон остался только с ядром; нумерация
+  1–11 (было 1–14), сайдбар и внутренние ссылки («разделах 8 и 9» →
+  «5 и 6», «раздел 12» → «9») перенумерованы; 713 → 400 строк;
+  модульные секции рендерятся `help_sections` как `mod-<id>`.
+- `requirements.txt`: + `markdown>=3.5,<4.0` — рендер help.md
+  (на OP отсутствовал в venv → секции падали в fallback `<pre>`;
+  установлен, `pip install -r requirements.txt` на обоих узлах).
+- Тесты обновлены под `mod-*`; **67/67** на X96 и OP. Live-verify:
+  33 секции = 33 якоря сайдбара, markdown-рендер (`<p>`/`<ul>`,
+  не `<pre>`), тумблеры: `curr-recycling` (X96) и `sys-board` (OP) —
+  off → секция и якорь исчезли, on → вернулись. sha1 четырёх файлов
+  локаль==X96==OP; `/help` 200 на обоих (факты свои).
+
+### 01.10.2026 — fix: OP — DLNA (SSDP через ufw) и Samba-диагностика — **DONE**
+
+- Симптом: панель OP не видит DLNA-сервер X96 (`X96 Max DLNA`), хотя
+  minidlna X96 жив (`:8200`, HTTP 200 с OP), а скан с X96 видит OP.
+- Диагностика по шагам: M-SEARCH от OP доходит до X96 (raw-снифф
+  `AF_INET`), minidlna X96 получает и отвечает (strace
+  `sendto = 351`), ответ приходит на интерфейс `wlan1` OP
+  (`AF_PACKET`-снифф) и **дропается ufw** (INPUT policy DROP): unicast-
+  ответ на multicast M-SEARCH не матчится conntrack'ом как
+  ESTABLISHED → NEW → DROP — UDP-правил в ufw не было (вся асимметрия:
+  OP→X96 работал, X96→OP — нет).
+- Фикс: два ufw-правила из LAN — `1900/udp ALLOW 192.168.3.0/24`
+  (входящий M-SEARCH) и `src 1900/udp ALLOW 192.168.3.0/24` (ответы
+  SSDP); бэкап правил — `/root/ufw-backup-20261001-103538.txt`. После:
+  probe получает `REPLY from 192.168.3.243`, скан панели OP находит
+  «X96 Max DLNA».
+- Samba («не видно файлов»): smbd/nmbd active, порты 445/139 слушают,
+  ufw 445/139 allow LAN; все шары (`downloads`, `media`, `share`) —
+  `valid users = kot`, гостевые подключения (в логах `user nobody`)
+  получают `NT_STATUS_ACCESS_DENIED` (проверено `smbclient -N -c ls`).
+  Файлы на диске есть, права kot-читаемы, smb-пользователь `kot` есть
+  (пароль задан 29.09), активная сессия ThinkPad `.236` как `kot`
+  на `downloads` работает. `/srv/share` существует (ложный след —
+  `head` обрезал вывод `ls`). Включение гостевого доступа
+  (`guest ok = yes`) — решение администратора, не применялось.

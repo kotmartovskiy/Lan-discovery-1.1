@@ -9,6 +9,6 @@
     "order": 30,
     "title": "Backup БД"
   },
-  "help": false,
+  "help": true,
   "prefixes": []
 }
