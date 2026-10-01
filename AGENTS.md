@@ -40,6 +40,13 @@
    python -X utf8 tools/demo_lint.py <папка-demo>    # exit 0 = чисто
    # скопировать в клон Lan-discovery-demo → add -A → commit → push (Pages пересобирается сам)
    ```
+7. Проверка дрейфа «репозиторий ↔ сервер» (после серии правок / по требованию):
+   ```
+   $env:LAN_SSH_PASS='<ssh-пароль>'; python -X utf8 tools/sync_check.py
+   # exit 0 = синхронно; 1 = content diff / не залито / лишнее на сервере; 2 = SSH-сбой
+   # без SSH: --filelist <файл> (генератор — /tmp/filelist_host.py на боксе)
+   # deploy-инвентарь и docs по умолчанию не сверяются (см. SKIP_LOCAL в скрипте)
+   ```
 
 ## Рабочее окружение
 - **ТЕСТОВАЯ СИСТЕМА версии 1.1 — X96 Max** (`192.168.3.243:8080`, hostname `armbian`):

@@ -476,7 +476,7 @@ security pentest, восстановление из backup на чистую с�
 |---|---|---|
 | 59 | **Двойное сканирование (§8.1):** одна ведущая копия — флаг `network.scan_enabled`/leader в settings либо стоп `lan-discovery`-скана на OP; без двойной нагрузки на сеть | pending |
 | 60 | **Локализация CDN (§8.5):** vendor-копии xterm.js/socket.io в `static/vendor/` + CSP; терминал работает без интернета | pending |
-| 61 | **Дрейф-контроль (§8.2):** `tools/sync_check.py` в репо (filelist+md5-сверка repo↔сервер), запуск по требованию/cron, отчёт о расхождениях | pending |
+| 61 | **Дрейф-контроль (§8.2):** `tools/sync_check.py` в репо (filelist+md5-сверка repo↔сервер), запуск по требованию/cron, отчёт о расхождениях | **DONE (01.10.2026)** |
 | 62 | **Регресс-пентест по чек-листу** `docs/Пентест.md` на обоих узлах (чек-лист создан 01.10 отдельно от фазы) | pending |
 | 63 | **Gap'ы §2:** выбор интерфейсов скана через UI (P6), identity устройств MAC+IP (P5), семантические версии/чейнджлог поверх git-rev (P10) | pending |
 | 64 | **Харддинг-резидуалы:** решение по reverse-proxy/TLS либо подтверждение «root by design» на очередной квартал; обсуждение non-root | pending |
@@ -2301,3 +2301,59 @@ exact=145, content_diff=0, only_remote=0.
 - **Версия 1.1 (STEP 1–12) завершена**: audit → design → IA → dashboard →
   devices → monitoring → capabilities → modules → roles → responsive →
   a11y → cleanup. Дальше — деплой 1.2 по ROADMAP §2.
+
+### 01.10.2026 — docs: комплект документации 1.1 + проприетарная лицензия — **DONE**
+
+- **`docs/API.md`**: шапка 165 → **172 роута** (пересчёт декораторов скриптом:
+  146 login / 44 admin / 3 открытых), +7 строк 1.1 (`GET /api/dashboard`,
+  `GET /capabilities`, `GET /api/capabilities`, `GET /roles`,
+  `POST /roles/<rid>/apply`, `GET /api/roles`,
+  `POST /api/roles/<rid>/apply`), `/inventory/device/<ip>` → redirect,
+  итог таблиц = 172 (заодно поправлен старый хвост «24» в system-секции).
+- **`docs/Модули.md`**: поля `module.json` (version/source/permissions/hardware),
+  новые разделы «Статусы модулей» (таблица приоритетов compute_status),
+  «Роли» (default/media/network, ALWAYS_ON, roles.json, compat-check),
+  «Возможности платформы» (reliability, TOOL_PROBES, dashboard); строки
+  роутов system/inventory/module_manager обновлены.
+- **`README.md`**: h1 «Lan-discovery 1.1», раздел «Что нового в версии 1.1»,
+  172 роута, структура репо с core 1.1 (capabilities/roles/dashboard,
+  static/style.css, ROADMAP/UI_UX_AUDIT).
+- **Счётчики**: `docs/Home.md` (165→172, строка 1.1 в «Что умеет»),
+  `docs/Архитектура.md` (172), `docs/Безопасность.md` (172 роута,
+  44 admin). Исторические числа в ROADMAP/UI_UX_AUDIT не тронуты.
+- **Лицензия**: своя **проприетарная** `LICENSE` (русская; личное
+  некоммерческое — свободно; коммерция/распространение — только по
+  письменному разрешению; гарантии: «как есть», ответственность за
+  бэкапы/системные операции — на обладателя; авто-прекращение при
+  нарушении) — установлена **во все 5 репо**: `Lan-discovery-1.1`
+  (`34e914d`, CI ✓), `Lan-discovery-ARM` (`cc0abda`), `Lan-discovery-docs`
+  (`b0c72fa`), `Lan-discovery-modules` (`5430f68`, + секция в README),
+  `Lan-discovery-demo` (`c619885`). `tools/sanitize_docs.py` теперь
+  копирует LICENSE в публичную копию docs автоматически; sanitize
+  прогнан — leaks 0.
+- Коммиты: `776d6cb` (docs) + `34e914d` (license), CI success.
+
+### 01.10.2026 — tools: PHASE 16 №61 дрейф-контроль sync_check — **DONE**
+
+- **`tools/sync_check.py`** в репо: сверка md5 «git ↔ сервер» без
+  скачивания файлов — серверный обход (код встроен, выполняется по
+  SSH как `python3 - <prefix>`) даёт `md5raw  md5norm  rel`, поэтому
+  EOL-only (CRLF↔LF) определяется сразу; сравнение с `git ls-files`.
+- Режимы: SSH (Windows — plink, пароль только из env `LAN_SSH_PASS`;
+  POSIX — ключ), `--filelist` (готовый файл, без SSH), `--include-docs`,
+  `--repo`. Exit: 0 — синхронно, 1 — расхождения, 2 — ошибка запуска.
+- **Зона деплоя**: SKIP_LOCAL (не сверяются) — docs/ (кроме
+  `--include-docs`), репозиторный инвентарь (AGENTS/ROADMAP/README/
+  LICENSE/.github) и deploy-инвентарь (`deploy/`, `deploy.py`,
+  `remote_edit.py`, `restore_server.py` и т.п. — запускаются из репо,
+  панелью не исполняются).
+- **`tests/unit/test_sync_check.py`** (+10): парсинг 3-/2-колоночного
+  filelist и ERR-строк, skip-правила, exact/EOL/content/only_* в
+  `compare()`, `local_snapshot` на git-фикстуре, CLI `--filelist`
+  (exit 0/1/2). На X96: **10 passed**.
+- Первый же прогон поймал **реальный дрейф**: `tools/sanitize_docs.py`
+  был изменён сегодня в репо без заливки на сервер (закрыт: бэкап
+  `*-backup-s61-*` + заливка), плюс `only_local=18` — deploy-инвентарь,
+  убран в SKIP.
+- Деплой на X96: `tools/sync_check.py`, `tools/sanitize_docs.py`,
+  `tests/unit/test_sync_check.py`.
