@@ -25,7 +25,7 @@ def client(monkeypatch):
     yield c
 
 
-def test_base_has_viewport(client):
+def test_base_has_viewport(client, devices_db):
     html = client.get("/").get_data(as_text=True)
     assert 'name="viewport" content="width=device-width, initial-scale=1"' in html
 
@@ -36,7 +36,7 @@ def test_login_template_has_viewport():
         assert "width=device-width" in f.read()
 
 
-def test_priority_pages_table_wrap(client):
+def test_priority_pages_table_wrap(client, devices_db):
     for path in ("/", "/history"):
         html = client.get(path).get_data(as_text=True)
         assert 'class="table-wrap"' in html, "нет table-wrap на %s" % path
@@ -59,6 +59,6 @@ def test_style_has_responsive_rules():
     assert "overflow-x: auto" in css
 
 
-def test_base_links_style_with_cache_buster(client):
+def test_base_links_style_with_cache_buster(client, devices_db):
     html = client.get("/").get_data(as_text=True)
     assert "/static/style.css?v=" in html
