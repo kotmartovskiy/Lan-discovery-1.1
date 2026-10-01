@@ -101,6 +101,27 @@ def register_routes(app, login_required, admin_required, can_edit, _cmd, _cfg, p
         """Get network test addresses"""
         return jsonify(load_network_config())
 
+    @app.route("/api/network/ifaces")
+    @admin_required
+    @login_required
+    def api_network_ifaces():
+        """Сетевые интерфейсы хоста — для выбора в форме скана (№63)."""
+        out = []
+        try:
+            raw = _cmd(["ip", "-br", "-4", "addr", "show"], timeout=5)
+            for line in raw.splitlines():
+                parts = line.split()
+                if len(parts) < 3 or parts[0] == "lo":
+                    continue
+                out.append({
+                    "name": parts[0],
+                    "state": parts[1],
+                    "ip": parts[2].split("/")[0],
+                })
+        except Exception as e:
+            return jsonify({"ifaces": [], "error": str(e)}), 503
+        return jsonify({"ifaces": out})
+
     @app.route("/api/network/config", methods=["POST"])
     @admin_required
     @login_required

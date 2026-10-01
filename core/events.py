@@ -20,6 +20,7 @@ EVENT_SEVERITY = {
     "ONLINE": "info",
     "OFFLINE": "warning",
     "MAC_CHANGED": "warning",
+    "IP_CHANGED": "info",
 }
 DEFAULT_SEVERITY = "info"
 SEVERITIES = ("info", "warning", "critical")

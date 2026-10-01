@@ -90,8 +90,10 @@ dst.close(); src.close()
 " 2>/dev/null || warn "бэкап devices.db не удался (файл отсутствует?)"
     local git_rev=""
     [[ -d "$PREFIX/.git" ]] && git_rev=$(git -C "$PREFIX" rev-parse HEAD 2>/dev/null || true)
-    printf '{"ts": "%s", "from": "%s", "git_rev": "%s"}\n' \
-        "$ts" "${FROM:-git}" "$git_rev" > "$dir/meta.json"
+    local app_ver=""
+    app_ver=$(grep -oE 'APP_VERSION *= *"[^"]+"' "$PREFIX/app.py" 2>/dev/null | head -1 | sed 's/.*"\(.*\)"/\1/' || true)
+    printf '{"ts": "%s", "version": "%s", "from": "%s", "git_rev": "%s"}\n' \
+        "$ts" "$app_ver" "${FROM:-git}" "$git_rev" > "$dir/meta.json"
     BACKUP_TS="$ts"
     log "  код+config+БД сохранены"
     rotate_backups

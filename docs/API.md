@@ -1,7 +1,7 @@
 # API — каталог роутов
 
 Сгенерировано из кода 30.09.2026 (PHASE 14), обновлено 01.10.2026
-(версия 1.1): **172 роута** —
+(версия 1.1): **173 роута** —
 146 под `login_required`, 44 под `admin_required` (21 из них
 дублирует `login_required`), **3 открытых**: `GET/POST /login`,
 `GET /logout`, `GET /api/health`. Новые в 1.1: `/api/dashboard`,
@@ -112,6 +112,7 @@
 |---|---|---|---|
 | GET | `/api/network/config` | login | Чтение/запись сетевой конфигурации |
 | POST | `/api/network/config` | admin | Чтение/запись сетевой конфигурации |
+| GET | `/api/network/ifaces` | admin | Сетевые интерфейсы хоста (форма выбора скана) |
 | GET | `/api/network/check` | login | Проверка сети (HTTP fallback) |
 | POST | `/api/network/check_host` | login | Проверить конкретный хост |
 | POST | `/api/nettools/ping` | login | ping |
@@ -242,7 +243,7 @@
 
 ---
 
-Итого таблиц: 2, 7, 30, 29, 21, 64, 2, 2, 4, 11 = 172
+Итого таблиц: 2, 7, 31, 29, 21, 64, 2, 2, 4, 11 = 173
 
 Роуты без `def`-декоратора `login_required`/`admin_required`
 помечены `открытый` — их белый список: `/login`, `/logout`,

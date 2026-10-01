@@ -657,6 +657,7 @@ def about_data():
     data["software"] = {
         "python": platform.python_version(),
         "flask": getattr(__import__("flask"), "__version__", "unknown"),
+        "version": __import__("app", fromlist=["APP_VERSION"]).APP_VERSION,
         "app": "/opt/lan-discovery/app.py",
         "app_size": _human_size(app_size),
         "database": "/opt/lan-discovery/devices.db",

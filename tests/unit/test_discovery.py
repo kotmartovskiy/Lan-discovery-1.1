@@ -124,7 +124,8 @@ def test_reconcile_new_device(monkeypatch, devices_db, no_dns):
                           "vendor": "V"}},
         now="01.02.2026 10:00:00")
     con.commit()
-    assert stats == {"new": 1, "online": 0, "offline": 0, "mac_changed": 0}
+    assert stats == {"new": 1, "online": 0, "offline": 0, "mac_changed": 0,
+                     "ip_changed": 0}
     row = _get(devices_db, "192.168.3.10")
     assert row[0] == 1 and row[4] == 1 and row[3] == 1
     ev = con.execute("SELECT event, severity FROM events").fetchall()
@@ -219,6 +220,54 @@ def test_reconcile_no_change_keeps_mac(monkeypatch, devices_db, no_dns):
     # регистр не считается сменой, но значение обновляется как есть
     assert _get(devices_db, "192.168.3.21")[1].lower() == \
         "aa:bb:cc:dd:ee:03"
+    con.close()
+
+
+def test_reconcile_mac_move_ip_changed(monkeypatch, devices_db, no_dns):
+    """Identity (P5): известный MAC на новом IP = тот же device (переезд)."""
+    monkeypatch.setattr(d, "_max_misses", lambda: 6)
+    _seed(devices_db, "192.168.3.30", mac="AA:BB:CC:DD:EE:10", name="Router")
+    con = sqlite3.connect(devices_db)
+    stats = d.reconcile(
+        con,
+        {"192.168.3.99": {"hostname": "router", "mac": "aa:bb:cc:dd:ee:10",
+                          "vendor": "V"}},
+        now="01.02.2026 10:00:00")
+    con.commit()
+    assert stats["ip_changed"] == 1 and stats["new"] == 0
+
+    # новая запись унаследовала identity, не помечена как новое устройство
+    row = _get(devices_db, "192.168.3.99")
+    assert row[0] == 1          # online
+    assert row[4] == 0          # is_new=0 — это НЕ новое устройство
+    assert row[5] == "Router"   # name переехал вместе с устройством
+
+    # прежняя запись не тронута в этом цикле (уходит в OFFLINE штатно)
+    assert _get(devices_db, "192.168.3.30") is not None
+
+    ev = con.execute(
+        "SELECT event, severity, metadata FROM events").fetchall()
+    assert len(ev) == 1
+    assert ev[0][0] == "IP_CHANGED" and ev[0][1] == "info"
+    assert '"old_ip": "192.168.3.30"' in ev[0][2]
+    con.close()
+
+
+def test_reconcile_unknown_mac_still_new(monkeypatch, devices_db, no_dns):
+    """Незнакомый MAC остаётся NEW (identity не срабатывает)."""
+    monkeypatch.setattr(d, "_max_misses", lambda: 6)
+    _seed(devices_db, "192.168.3.31", mac="AA:BB:CC:DD:EE:11")
+    con = sqlite3.connect(devices_db)
+    stats = d.reconcile(
+        con,
+        {"192.168.3.98": {"hostname": None, "mac": "AA:BB:CC:DD:EE:22",
+                          "vendor": None}},
+        now="01.02.2026 10:00:00")
+    con.commit()
+    assert stats["new"] == 1 and stats["ip_changed"] == 0
+    assert _get(devices_db, "192.168.3.98")[4] == 1  # is_new=1
+    ev = [r[0] for r in con.execute("SELECT event FROM events")]
+    assert ev == ["NEW"]
     con.close()
 
 

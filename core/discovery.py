@@ -204,12 +204,17 @@ def reconcile(con, current_devices, now=None):
 
     Смена MAC у известного устройства дополнительно логируется событием
     MAC_CHANGED (name/device_type при этом обнуляются, как раньше).
-    Возвращает статистику {new, online, offline, mac_changed}.
+    Identity (P5): MAC, уже известный на другом IP, — это то же
+    устройство: новая запись наследует name/device_type/first_seen
+    (is_new=0), событие IP_CHANGED с metadata.old_ip; прежняя запись
+    уходит в OFFLINE штатным механизмом misses.
+    Возвращает статистику {new, online, offline, mac_changed, ip_changed}.
     """
     if now is None:
         now = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
 
-    stats = {"new": 0, "online": 0, "offline": 0, "mac_changed": 0}
+    stats = {"new": 0, "online": 0, "offline": 0, "mac_changed": 0,
+             "ip_changed": 0}
 
     previous = {
         row[0]: {"online": bool(row[1]), "misses": row[2]}
@@ -269,17 +274,43 @@ def reconcile(con, current_devices, now=None):
                 add_event(con, ip, hostname, mac, "ONLINE", timestamp=now)
                 stats["online"] += 1
         else:
-            con.execute(
-                """
-                INSERT INTO devices
-                (ip, online, hostname, mac, vendor, first_seen, last_seen,
-                 is_new, appearances, misses, name)
-                VALUES (?, 1, ?, ?, ?, ?, ?, 1, 1, 0, NULL)
-                """,
-                (ip, hostname, mac, vendor, now, now),
-            )
-            add_event(con, ip, hostname, mac, "NEW", timestamp=now)
-            stats["new"] += 1
+            # identity (P5): MAC уже известен под другим IP = переезд
+            moved = None
+            if mac:
+                moved = con.execute(
+                    "SELECT ip, name, device_type, first_seen, appearances "
+                    "FROM devices WHERE lower(mac)=lower(?) AND ip<>? "
+                    "ORDER BY last_seen DESC LIMIT 1",
+                    (mac, ip),
+                ).fetchone()
+
+            if moved:
+                con.execute(
+                    """
+                    INSERT INTO devices
+                    (ip, online, hostname, mac, vendor, first_seen,
+                     last_seen, is_new, appearances, misses, name,
+                     device_type)
+                    VALUES (?, 1, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?)
+                    """,
+                    (ip, hostname, mac, vendor, moved[3] or now, now,
+                     (moved[4] or 0) + 1, moved[1], moved[2]),
+                )
+                add_event(con, ip, hostname, mac, "IP_CHANGED",
+                          metadata={"old_ip": moved[0]}, timestamp=now)
+                stats["ip_changed"] += 1
+            else:
+                con.execute(
+                    """
+                    INSERT INTO devices
+                    (ip, online, hostname, mac, vendor, first_seen, last_seen,
+                     is_new, appearances, misses, name)
+                    VALUES (?, 1, ?, ?, ?, ?, ?, 1, 1, 0, NULL)
+                    """,
+                    (ip, hostname, mac, vendor, now, now),
+                )
+                add_event(con, ip, hostname, mac, "NEW", timestamp=now)
+                stats["new"] += 1
 
     # НЕ ОБНАРУЖЕННЫЕ УСТРОЙСТВА
     for ip, state in previous.items():

@@ -94,4 +94,5 @@ docs/             документация         tools/      sanitize/demo-с�
 .github/          CI (pytest unit + py_compile)
 deploy.py         деплой на сервер: бэкап → SFTP → проверка → рестарт
 ROADMAP.md        план/журнал версий   UI_UX_AUDIT.md  аудит UI/UX (1.1)
+CHANGELOG.md      семвер-чейнджлог релизов (Keep a Changelog)
 ```

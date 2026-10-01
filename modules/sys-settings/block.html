@@ -20,6 +20,17 @@
 <span style="margin-left:12px;" class="info-label">Макс. пропусков:</span>
 <input type="number" id="cfg-max-misses" style="width:50px;" min="1" max="50">
 </div>
+
+<div class="info-row">
+<span class="info-label">Интерфейсы скана:</span>
+<span id="cfg-scan-ifaces" style="font-size:12px; color:#aaa;">загрузка…</span>
+</div>
+
+<div class="info-row">
+<span class="info-label">Фоновый скан:</span>
+<input type="checkbox" id="cfg-scan-enabled" checked>
+<span style="color:#666; font-size:11px; margin-left:4px;">(выкл — скан ведёт другая панель)</span>
+</div>
 </div>
 
 <div style="border-bottom:1px solid #333; padding-bottom:8px; margin-bottom:8px;">
@@ -92,21 +103,52 @@
         document.getElementById('cfg-subnet').value=n.subnet||'192.168.3.0/24';
         document.getElementById('cfg-scan-interval').value=n.scan_interval||30;
         document.getElementById('cfg-max-misses').value=n.max_misses||6;
+        document.getElementById('cfg-scan-enabled').checked=
+            n.scan_enabled===undefined?true:!!n.scan_enabled;
         document.getElementById('cfg-latitude').value=w.latitude||57.0;
         document.getElementById('cfg-longitude').value=w.longitude||41.0;
         document.getElementById('cfg-timezone').value=w.timezone||'Europe/Moscow';
         document.getElementById('cfg-region-name').value=w.region_name||'Иваново';
         document.getElementById('cfg-region-code').value=w.region_code||'ivanovo';
         document.getElementById('cfg-country').value=w.country||'RU';
+        var sel=Array.isArray(n.scan_ifaces)?n.scan_ifaces:[];
+        fetch('/api/network/ifaces').then(r=>r.json()).then(d=>{
+            var wrap=document.getElementById('cfg-scan-ifaces');
+            var list=(d.ifaces||[]);
+            if(!list.length){wrap.textContent='нет интерфейсов';return;}
+            wrap.innerHTML='';
+            list.forEach(function(iface,i){
+                var lab=document.createElement('label');
+                lab.style.cssText='margin-right:10px;cursor:pointer;';
+                var cb=document.createElement('input');
+                cb.type='checkbox';cb.className='cfg-scan-iface';cb.value=iface.name;
+                cb.checked=sel.indexOf(iface.name)>=0;
+                cb.style.marginRight='3px';
+                lab.appendChild(cb);
+                lab.appendChild(document.createTextNode(
+                    iface.name+(iface.ip?' ('+iface.ip+')':'')));
+                wrap.appendChild(lab);
+            });
+            // выбрано-ли-что-нибудь: пустой выбор = дефолт движка
+            var boxes=wrap.querySelectorAll('input.cfg-scan-iface');
+            if(!sel.length && boxes.length){boxes[0].checked=true;}
+        }).catch(function(){
+            document.getElementById('cfg-scan-ifaces').textContent='ошибка загрузки';
+        });
     });
 })();
 
 function saveSettings(){
+    var ifaces=[].slice.call(
+        document.querySelectorAll('input.cfg-scan-iface:checked')
+    ).map(function(cb){return cb.value;});
     var data={
         network:{
             subnet:document.getElementById('cfg-subnet').value,
             scan_interval:parseInt(document.getElementById('cfg-scan-interval').value)||30,
-            max_misses:parseInt(document.getElementById('cfg-max-misses').value)||6
+            max_misses:parseInt(document.getElementById('cfg-max-misses').value)||6,
+            scan_ifaces:ifaces.length?ifaces:undefined,
+            scan_enabled:document.getElementById('cfg-scan-enabled').checked
         },
         weather:{
             latitude:parseFloat(document.getElementById('cfg-latitude').value)||57.0,

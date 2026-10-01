@@ -492,8 +492,16 @@ def register_routes(app):
         data = request.get_json() or {}
         if not data:
             return jsonify({"error": "empty"}), 400
+
+        def _deep_update(dst, src):
+            for k, v in src.items():
+                if isinstance(v, dict) and isinstance(dst.get(k), dict):
+                    _deep_update(dst[k], v)
+                else:
+                    dst[k] = v
+
         old = load_settings()
-        old.update(data)
+        _deep_update(old, data)
         if save_settings(old):
             _settings_cache["ts"] = 0
             return jsonify({"ok": True})
