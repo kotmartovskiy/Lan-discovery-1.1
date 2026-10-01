@@ -1,7 +1,7 @@
 """Админка модулей: страница /modules, установка зависимостей, вкл/выкл.
 
 Регистрирует:
-  - context_processor: nav_items / help_sections / page (активная вкладка)
+  - context_processor: nav_items / nav_groups / help_sections / page
   - before_request:    404 для маршрутов выключенных модулей
   - GET  /modules                 — список модулей (только admin)
   - POST /modules/<mid>/install   — установка deps (apt/pip/services/dirs)
@@ -30,6 +30,7 @@ from core.module_loader import (
     help_sections,
     load_state,
     module_status,
+    nav_groups,
     nav_items,
     active_page,
     record_install_result,
@@ -93,8 +94,12 @@ def _install_manifest(m):
 def register_routes(app, login_required, admin_required, page_data):
     @app.context_processor
     def _inject_modules_context():
+        from modules.auth import get_current_user
+        u = get_current_user()
+        role = getattr(u, "role", "") if u else ""
         return {
             "nav_items": nav_items(),
+            "nav_groups": nav_groups(admin=(role == "admin")),
             "help_sections": help_sections(),
             "desktop_categories": desktop_categories(),
             "page": active_page(request.path),

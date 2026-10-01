@@ -57,16 +57,18 @@
 </svg>LAN Discovery{% if panel_name %} <span style="font-size:0.5em;font-weight:normal;opacity:0.7;">({{ panel_name }})</span>{% endif %}</h1>
 
 <div class="tabs">
-{% for it in nav_items %}
+{% for g in nav_groups %}
+<span class="nav-group">
+<span class="nav-group-label">{{ g.name }}</span>
+<span class="nav-group-items">
+{% for it in g.entries %}
 <a href="{{ it.url }}" class="{{ 'active' if page == it.page else '' }}">
 {{ it.title }}
 </a>
 {% endfor %}
-{% if current_user.role == 'admin' %}
-<a href="/modules" class="{{ 'active' if page == 'modules' else '' }}">
-Модули
-</a>
-{% endif %}
+</span>
+</span>
+{% endfor %}
 </div>
 </div>
 

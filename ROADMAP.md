@@ -1967,3 +1967,29 @@ exact=145, content_diff=0, only_remote=0.
 - Следующий шаг: STEP 3 — информационная архитектура: доменные группы
   навигации (§8 промпта), вывод `/history` из «сирот», порядок/группировка
   табов; затем STEP 4 — dashboard + `GET /api/dashboard`.
+
+### 01.10.2026 — ui: STEP 3 информационная архитектура навигации — **DONE**
+
+- **Доменные группы в шапке** (§8): `Устройства | Мониторинг | Приложения |
+  Система | Помощь` — микро-labelы над рядом ссылок (`.nav-group*` в
+  style.css, flex, wrap; блок ПОСЛЕ legacy → перекрывает `.tabs a`
+  margin). Группы и порядок — `NAV_GROUP_ORDER` в `core/module_loader.py`.
+- `CORE_NAV`: +`group` каждому пункту; **+«История» `/history`** (order 35,
+  группа «Мониторинг» — сирота из аудита получила вход); **+«Модули»**
+  (order 85, группа «Система», флаг `admin`) — ручной admin-`<a>` в
+  base.html убран (фильтрация роли в `nav_groups(admin=...)`).
+- `nav_groups(admin)` — новая функция;5 модульных `module.json` получили
+  `tab.group` (inventory→Устройства; monitoring/currencies/weather→
+  Мониторинг; torrent→Приложения). Новые модули без `group` → «Прочее»
+  в конец. Всего: admin 12 пунктов / гость 11.
+- context_processor `modules/module_manager.py` отдаёт `nav_groups`
+  (роль берётся ленивым импортом `modules.auth.get_current_user`).
+- **Инцидент при проверке**: 500 на рендере — ключ словаря `items`
+  конфликтует с методом `dict.items` в Jinja (lookup атрибута первым) →
+  переименован в `entries`; параллельно падали3 теста test_help (они
+  рендерят base). Поймано live-check'ом и pytest до коммита.
+- Проверки на X96: `check_step3.py` — **15/15 PASS** (порядок групп, 12
+  ссылок admin, активные вкладки на /, /history, /modules, CSS-селекторы),
+  pytest **76 passed**, sync **exact=161 / content_diff=0**. Бэкапы:
+  9 файлов `*-s3-20261001-131451` + пере-upload `*-s3b-20261001-131830`.
+- Следующий шаг: STEP 4 — dashboard (единый поллер + `GET /api/dashboard`).

@@ -23,14 +23,19 @@ _CORE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODULES_DIR = os.path.join(_CORE_DIR, "modules")
 STATE_PATH = "/etc/lan-discovery/modules.json"
 
-# Ядро: всегда в навигации, не выключается.
+# Ядро: всегда в навигации, не выключается. group — доменная группа (STEP 3).
 CORE_NAV = [
-    {"page": "devices", "title": "Устройства", "url": "/", "order": 10},
-    {"page": "apps", "title": "Приложения", "url": "/apps", "order": 70},
-    {"page": "system", "title": "Система", "url": "/system", "order": 80},
-    {"page": "about", "title": "О системе", "url": "/about", "order": 90},
-    {"page": "help", "title": "Справка", "url": "/help", "order": 100},
+    {"page": "devices", "title": "Устройства", "url": "/", "order": 10, "group": "Устройства"},
+    {"page": "history", "title": "История", "url": "/history", "order": 35, "group": "Мониторинг"},
+    {"page": "apps", "title": "Приложения", "url": "/apps", "order": 70, "group": "Приложения"},
+    {"page": "system", "title": "Система", "url": "/system", "order": 80, "group": "Система"},
+    {"page": "modules", "title": "Модули", "url": "/modules", "order": 85, "group": "Система", "admin": True},
+    {"page": "about", "title": "О системе", "url": "/about", "order": 90, "group": "Система"},
+    {"page": "help", "title": "Справка", "url": "/help", "order": 100, "group": "Помощь"},
 ]
+
+# Порядок доменных групп в шапке (пункты без known-группы уходят в «Прочее» в конец).
+NAV_GROUP_ORDER = ["Устройства", "Мониторинг", "Приложения", "Система", "Помощь"]
 
 # Категории рабочего стола /apps (порядок разделов) и ядровые плитки (без манифестов).
 APP_CATEGORY_ORDER = ["Утилиты", "Медиа", "Игры", "Система и сеть"]
@@ -150,9 +155,28 @@ def nav_items():
                 "title": tab["title"],
                 "url": m.get("url", "/"),
                 "order": int(tab.get("order", 500)),
+                "group": tab.get("group") or "Прочее",
                 "module": m["id"],
             })
     return sorted(items, key=lambda x: x["order"])
+
+
+def nav_groups(admin=False):
+    """Доменные группы навигации: [{name, entries}] (порядок — NAV_GROUP_ORDER).
+
+    admin=False скрывает пункты с флагом admin (например, «Модули»).
+    Ключ entries, а не items: в Jinja словарь с ключом "items" конфликтует
+    с методом dict.items (attempts lookup атрибута первым).
+    """
+    buckets = {}
+    for it in nav_items():
+        if it.get("admin") and not admin:
+            continue
+        buckets.setdefault(it.get("group") or "Прочее", []).append(it)
+    out = [{"name": name, "entries": buckets.pop(name)}
+           for name in NAV_GROUP_ORDER if buckets.get(name)]
+    out += [{"name": name, "entries": entries} for name, entries in sorted(buckets.items())]
+    return out
 
 
 def active_page(path):

@@ -7,7 +7,7 @@
   "help": true,
   "url": "/inventory",
   "prefixes": ["/inventory", "/api/inventory"],
-  "tab": {"title": "Инвентаризация", "order": 20},
+  "tab": {"title": "Инвентаризация", "order": 20, "group": "Устройства"},
   "deps": {
     "apt": ["nmap"],
     "ports": []

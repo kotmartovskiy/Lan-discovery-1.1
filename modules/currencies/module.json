@@ -7,7 +7,7 @@
   "help": true,
   "url": "/currencies",
   "prefixes": ["/currencies", "/api/currencies"],
-  "tab": {"title": "Валюты", "order": 50},
+  "tab": {"title": "Валюты", "order": 50, "group": "Мониторинг"},
   "deps": {
     "apt": [],
     "ports": []

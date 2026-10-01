@@ -7,7 +7,7 @@
   "help": true,
   "url": "/weather",
   "prefixes": ["/weather", "/api/weather"],
-  "tab": {"title": "Погода", "order": 60},
+  "tab": {"title": "Погода", "order": 60, "group": "Мониторинг"},
   "deps": {
     "apt": [],
     "ports": []

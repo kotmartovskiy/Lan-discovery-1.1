@@ -7,7 +7,7 @@
   "help": true,
   "url": "/monitoring",
   "prefixes": ["/monitoring", "/api/monitoring"],
-  "tab": {"title": "Мониторинг", "order": 30},
+  "tab": {"title": "Мониторинг", "order": 30, "group": "Мониторинг"},
   "deps": {
     "apt": ["netdata"],
     "services": ["netdata"],

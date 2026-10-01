@@ -7,7 +7,7 @@
   "help": true,
   "url": "/torrent",
   "prefixes": ["/torrent", "/api/transmission"],
-  "tab": {"title": "Торрент", "order": 40},
+  "tab": {"title": "Торрент", "order": 40, "group": "Приложения"},
   "deps": {
     "apt": ["transmission-daemon"],
     "services": ["transmission-daemon"],

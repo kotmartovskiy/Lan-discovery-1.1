@@ -605,3 +605,37 @@ button:hover {
     border-radius: 4px;
     opacity: .7;
 }
+
+/* ---------- 4. Nav groups (STEP 3 — доменные группы в шапке) ---------- */
+/* Идёт ПОСЛЕ legacy: .nav-group-items a { margin-right: 0 } перебивает
+   legacy .tabs a { margin-right: 20px } при равной специфичности. */
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px;
+}
+
+.nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.nav-group-label {
+    font-size: 10px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #666;
+}
+
+.nav-group-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 14px;
+}
+
+.nav-group-items a {
+    margin-right: 0;
+}
