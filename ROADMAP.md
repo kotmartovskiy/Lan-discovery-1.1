@@ -1890,3 +1890,25 @@ exact=145, content_diff=0, only_remote=0.
   локально `//127.0.0.1/downloads` — файлы видны. sha1 трёх файлов
   локаль==X96==OP; `/help` 200 на обоих; бэкапы
   `*.backup-smb-*` + `smb.conf.backup-*` созданы.
+
+### 01.10.2026 — chore: репозиторий 1.1 + тестовая система X96 — **DONE (старт 1.1)**
+
+- По решению владельца начата **версия 1.1** (промпт «UI/UX Redesign +
+  Capabilities/Modules/Roles»: appliance-модель Hardware →
+  Capabilities → Modules → Roles → UX, STEP 1–12, DoD в промпте).
+- Оценка объёма: STEP 1–12 ≈ **120–180 ч / 10–14 сессий**, сложность 7/10;
+  в 1.1 **не входят** (→1.2/1.3): сетевые роли (Router/Firewall/DHCP/DNS),
+  транзакционный netconf (Prepare/Apply/Verify/Commit/Rollback), recovery-AP,
+  подписи модулей. Противоречия промпт↔код зафиксированы в оценке
+  (capabilities — только достоверные; статусы модулей требуют расширения
+  module.json; topology-страниц в 1.1 нет; alerts = вьюха поверх events;
+  роли = конфиг-слой поверх modules).
+- Создан приватный **`Lan-discovery-1.1`**
+  (https://github.com/kotmartovskiy/Lan-discovery-1.1), снапшот `main`
+  `ea4da77` с полной историей; локальный `origin` → новый репо,
+  `origin-1.0` → `Lan-discovery-ARM` (заморожен, OP на 1.0).
+- **Тестовая система 1.1 — X96 Max** (`.243`); **Orange Pi не трогаем**
+  (остаётся рабочим инструментом на 1.0 — деплои 1.1 на OP запрещены).
+  AGENTS.md обновлён (репозитории + рабочее окружение).
+- Следующий шаг: STEP 1 — аудит `UI_UX_AUDIT.md` (страницы/навигация/
+  API каждой страницы/проблемы/таблица Keep|Redesign|Backend change).
