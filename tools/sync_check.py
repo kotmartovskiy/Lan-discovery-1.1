@@ -46,7 +46,8 @@ SKIP_LOCAL = ("docs/", "weather-monitor/", ".github/",
               "deploy/", "deploy.py", "deploy_restore_server.sh",
               "deploy_templates.py", "remote_edit.py",
               "restore-server.service", "restore_server.py",
-              "tools/demo_lint.py")
+              "tools/demo_lint.py",
+              "tools/sync_check_daily.cmd", "tools/setup_sync_task.ps1")
 
 # Серверный генератор filelist: 'md5raw  md5norm  relpath'.
 # BASE подставляется первым аргументом (sys.argv[1]).

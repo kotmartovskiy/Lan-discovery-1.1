@@ -51,6 +51,9 @@ def test_skipped_rules():
     assert sc.skipped("deploy.py")
     assert sc.skipped("remote_edit.py")
     assert sc.skipped("tools/demo_lint.py")
+    # №67: локальные Windows-инструменты автозапуска — не деплоятся
+    assert sc.skipped("tools/sync_check_daily.cmd")
+    assert sc.skipped("tools/setup_sync_task.ps1")
     assert not sc.skipped("modules/app.py")
     assert not sc.skipped("templates/base.html")
     assert not sc.skipped("tools/make_demo.py")
