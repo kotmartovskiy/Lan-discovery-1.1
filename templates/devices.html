@@ -11,6 +11,7 @@ OFFLINE после {{ max_misses }} пропусков
 {% endif %}
 </div>
 
+<div class="table-wrap">
 <table>
 
 <tr>
@@ -108,6 +109,7 @@ OFFLINE после {{ max_misses }} пропусков
 {% endfor %}
 
 </table>
+</div>
 
 {% if current_user.role == 'admin' %}
 <script>

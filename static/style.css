@@ -640,3 +640,35 @@ button:hover {
 .nav-group-items a {
     margin-right: 0;
 }
+
+/* ---------- 5. Responsive (STEP 10 — viewport в base.html + приоритетные страницы) ---------- */
+/* Горизонтальный скролл широких таблиц (devices/history/inventory/device). */
+.table-wrap {
+    overflow-x: auto;
+}
+
+input[type="text"] {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Карточки-гриды (modules/roles) не держат 340px на узких экранах. */
+@media (max-width: 420px) {
+    .mod-grid,
+    .role-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    /* Нижний статус-бар: длинная строка метрик скроллится, не обрезается. */
+    .system-status-bar {
+        overflow-x: auto;
+    }
+    .device {
+        max-width: 100%;
+    }
+    .device td:first-child {
+        width: auto;
+    }
+}

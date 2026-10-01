@@ -2199,5 +2199,36 @@ exact=145, content_diff=0, only_remote=0.
   (3 новых файла → в git). Бэкапы `*-backup-s9-20261001-144910`
   (roles.py/roles.html — новые, без бэкапа). Состояние X96: активная
   роль default, modules.json не менялся.
-- Следующий шаг: STEP 10 — UX-ядро (ТО, что показывать по роли:
-  блоки вкладок/приложений, пустые состояния, роли влияют на UX).
+- Следующий шаг: STEP 10 — responsive (viewport + приоритетные страницы,
+  §12 «дельта»: viewport, таблицы→scroll, мобильные гриды).
+
+### 01.10.2026 — ui: STEP 10 responsive (viewport + приоритетные страницы) — **DONE**
+
+- **`base.html`**: добавлен `<meta name="viewport" content="width=device-width,
+  initial-scale=1">` — главный пробел 1.1 (mobile был сломан: панель
+  рендерилась «весь десктоп»; login/app-шаблоны viewport уже имели).
+  Cache-buster CSS → `?v=20261001c`.
+- **`static/style.css`** — секция «5. Responsive (STEP 10)»:
+  глобальный примитив `.table-wrap { overflow-x: auto }` (горизонтальный
+  скролл широких таблиц вместо обрезки/вылезания), `input[type=text]
+  max-width:100%` (дефолт width:350px не вылезал на 320–375px), медиа
+  ≤420px — `.mod-grid`/`.role-grid` → 1 колонка (minmax(340px) держал
+  минимум 340px), медиа ≤700px — `.system-status-bar` (нижняя строка
+  метрик, nowrap) скроллится, `.device` на всю ширину (td:first-child
+  220px не съедал колонку).
+- **Приоритетные страницы — обёртки `.table-wrap`**: `devices.html`
+  (6 колонок), `history.html`, `inventory.html` (таблица портов),
+  `device.html` (порты + история). Существующие адаптивы не тронуты:
+  header wrap ≤750px, system-grid 2/1 колонки (1100/700px), nav
+  flex-wrap, help sidebar ≤900px, grid-карточки modules/roles
+  auto-fill — всё уже работало (legacy + STEP 3/8/9).
+- **`tests/unit/test_responsive.py`** (+6): viewport в рендере `/`,
+  login-шаблон, table-wrap на `/` и `/history`, responsive-классы на
+  /modules и /roles, правила style.css, cache-buster.
+- Проверки на X96: `check_step10.py` — **24/24 PASS** (viewport на
+  /, /system, /modules, /roles, /capabilities, /apps; table-wrap;
+  style.css-правила по URL с бастером; регресс STEP 4/7/9), pytest
+  **115 passed** (109+6), sync **exact=170 / content_diff=0** (1 новый
+  файл → в git). Бэкапы `*-backup-s10-*` (6 файлов).
+- Следующий шаг: STEP 11 — a11y (доступность: focus/aria/контраст
+  по семантике, SKIP-link, лейблы форм).
