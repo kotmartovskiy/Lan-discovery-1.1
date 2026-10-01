@@ -474,7 +474,7 @@ security pentest, восстановление из backup на чистую с�
 
 | # | Задача | Статус |
 |---|---|---|
-| 59 | **Двойное сканирование (§8.1):** одна ведущая копия — флаг `network.scan_enabled`/leader в settings либо стоп `lan-discovery`-скана на OP; без двойной нагрузки на сеть | pending |
+| 59 | **Двойное сканирование (§8.1):** одна ведущая копия — флаг `network.scan_enabled`/leader в settings либо стоп `lan-discovery`-скана на OP; без двойной нагрузки на сеть | **DONE (01.10.2026)** |
 | 60 | **Локализация CDN (§8.5):** vendor-копии xterm.js/socket.io в `static/vendor/` + CSP; терминал работает без интернета | pending |
 | 61 | **Дрейф-контроль (§8.2):** `tools/sync_check.py` в репо (filelist+md5-сверка repo↔сервер), запуск по требованию/cron, отчёт о расхождениях | **DONE (01.10.2026)** |
 | 62 | **Регресс-пентест по чек-листу** `docs/Пентест.md` на обоих узлах (чек-лист создан 01.10 отдельно от фазы) | pending |
@@ -2357,3 +2357,25 @@ exact=145, content_diff=0, only_remote=0.
   убран в SKIP.
 - Деплой на X96: `tools/sync_check.py`, `tools/sanitize_docs.py`,
   `tests/unit/test_sync_check.py`.
+
+### 01.10.2026 — core: PHASE 16 №59 двойное сканирование (лидер/стоп) — **DONE**
+
+- `core/discovery.py`: `_scan_enabled()` (`network.scan_enabled`, default
+  `true`, bool/строки `1/true/yes/on`) + guard в начале итерации
+  `scan_loop` (выключено → спит `scan_interval`, сеть не трогает) +
+  поле `scan_enabled` в `get_scan_status()`; `modules/system_routes.py`:
+  `last_discovery.scan_enabled` в `/api/health`. Ручной `POST /api/scan`
+  и статус при выключенном фоне работают.
+- **Топология**: лидер — X96 (1.1, default true, settings не менялся);
+  на OP (1.0) в `/etc/lan-discovery/settings.json` явно
+  `network.scan_enabled: false`.
+- Деплой: X96 (бэкапы `core/discovery.py`/`system_routes.py`
+  `*-backup-s59-*`, pytest `test_discovery.py` **16 passed**); backport
+  того же патча в клон `Lan-discovery-ARM` и на OP (бэкапы тех же файлов
+  + `settings.json` `*-backup-s59-*`, `py_compile`, restart).
+- Проверка `/api/health`: X96 `scan_enabled=true`, `scan` растёт
+  (01.10.2026 17:28:22); OP `scan_enabled=false`, `scan=null` спустя
+  40+ сек — фонового опроса нет.
+- Тесты (+2): `test_scan_enabled_flag` (bool/строки/default), обновлён
+  `test_get_scan_status_shape`. Документация: `docs/Конфигурация.md` —
+  ключ `network.scan_enabled` (строка таблицы network).
