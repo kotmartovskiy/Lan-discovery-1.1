@@ -1,9 +1,28 @@
-# Lan-discovery-ARM
+# Lan-discovery 1.1
 
 Веб-панель управления домашней сетью для одноплатных компьютеров (Orange Pi, X96 Max / Amlogic, generic Debian/ARM): обнаружение устройств, мониторинг, IPTV/радио/плеер, сетевые инструменты, файлы, заметки, бэкапы и клонирование eMMC → SD.
 
 - **Панель:** `http://<ip>:8080` (Flask, Python 3, venv)
 - **Сервис:** `systemctl status lan-discovery`, код — `/opt/lan-discovery/app.py`
+
+## Что нового в версии 1.1 (01.10.2026)
+
+Версия 1.1 — **UI/UX-редизайн + слой Hardware → Capabilities → Modules → Roles**
+(полный журнал — [ROADMAP.md](ROADMAP.md) §9, аудит — [UI_UX_AUDIT.md](UI_UX_AUDIT.md)):
+
+- **UI/UX**: единый design system (`static/style.css`), доменные группы навигации,
+  сводная панель `GET /api/dashboard` (один запрос вместо ×2), новые таблицы
+  устройств/истории, semantic-статусы мониторинга, responsive (≤700/≤420 px),
+  базовая доступность (skip-link, семантика, focus-visible, `scope="col"`).
+- **Capabilities (STEP 7)**: `GET /capabilities` + `GET /api/capabilities` —
+  hardware-снимок с `reliability`-флагами.
+- **Статусы модулей (STEP 8)**: один semantic-бейдж (`compute_status`),
+  поля `version/source/permissions/hardware` в `module.json`, apt-зависимости
+  одним dpkg-батчем.
+- **Роли (STEP 9)**: профили `default/media/network`, всегда-включённые модули,
+  compat-check при применении — `GET /roles` + `/api/roles`.
+- **Cleanup (STEP 12)**: удалены мёртвые шаблоны/CSS, возвращены кнопки бэкапов,
+  справка API → `docs/API.md`.
 
 ## Документация
 
@@ -17,7 +36,7 @@
 | [Восстановление](docs/Восстановление.md) | `recovery.sh`: restore кода/конфига/БД из бэкапов |
 | [Архитектура](docs/Архитектура.md) | Структура кода, core/, данные, lifecycle-скрипты, тесты |
 | [Модули](docs/Модули.md) | Ответственность модулей и роутов |
-| [API](docs/API.md) | Каталог всех 165 роутов: метод/путь/доступ |
+| [API](docs/API.md) | Каталог всех 172 роутов: метод/путь/доступ |
 | [Конфигурация](docs/Конфигурация.md) | settings.json, переопределения, события/retention |
 | [Безопасность](docs/Безопасность.md) | Роли, CSRF, секреты, периметр, ограничения |
 | [IPTV](docs/IPTV.md) | Плейлисты, таймер 04:15, диагностика |
@@ -53,10 +72,13 @@ sudo ./recovery.sh --dry-run
 ```
 app.py            точка входа: Flask/CSRF, регистрация модулей, фон, main
 core/             hardware (платформа/температура/диски), discovery (скан),
-                  events (журнал+retention), module_loader, module_catalog
+                  events (журнал+retention), module_loader, module_catalog,
+                  capabilities (1.1: hardware-снимок), roles (1.1: профили
+                  модулей), dashboard (1.1: агрегат для шапки)
 modules/          роуты и логика (auth, devices, system, network, media,
                   weather, monitoring, inventory, core) + модули-компоненты
 templates/        Jinja2-шаблоны (base.html — каркас панели)
+static/           design system style.css (1.1)
 games/, static/   игры и статика
 tests/            pytest: unit (без сети) + live (маркер live)
 install.sh        чистая установка     update.sh   обновление с откатом
@@ -64,4 +86,5 @@ recovery.sh       restore из бэкапов   deploy/     systemd-юниты �
 docs/             документация         tools/      sanitize/demo-скрипты
 .github/          CI (pytest unit + py_compile)
 deploy.py         деплой на сервер: бэкап → SFTP → проверка → рестарт
+ROADMAP.md        план/журнал версий   UI_UX_AUDIT.md  аудит UI/UX (1.1)
 ```

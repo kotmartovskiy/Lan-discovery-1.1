@@ -1,9 +1,12 @@
 # API — каталог роутов
 
-Сгенерировано из кода 30.09.2026 (PHASE 14), обновлено 01.10.2026: **165 роутов** —
-140 под `login_required`, 40 под `admin_required` (20 с них
-дублируют `login_required`), **3 открытых**: `GET/POST /login`,
-`GET /logout`, `GET /api/health`.
+Сгенерировано из кода 30.09.2026 (PHASE 14), обновлено 01.10.2026
+(версия 1.1): **172 роута** —
+146 под `login_required`, 44 под `admin_required` (21 из них
+дублирует `login_required`), **3 открытых**: `GET/POST /login`,
+`GET /logout`, `GET /api/health`. Новые в 1.1: `/api/dashboard`,
+`/capabilities`, `/api/capabilities`, `/roles` + `/api/roles` (см.
+секции ниже).
 
 Колонка **Доступ**: `login` — любая роль (admin/editor/guest),
 `admin` — только администратор, `открытый` — без сессии.
@@ -69,7 +72,7 @@
 | POST | `/api/filemanager/copy` | admin | Копировать |
 | POST | `/api/filemanager/move` | admin | Переместить |
 
-## Система, сервисы и бэкапы (`modules/system_routes.py`) — 26
+## Система, сервисы и бэкапы (`modules/system_routes.py`) — 29
 
 | Метод | Путь | Доступ | Описание |
 |---|---|---|---|
@@ -78,6 +81,7 @@
 | POST | `/api/samba/guest` | admin | Включение/выключение гостевого доступа Samba (бэкап + testparm + reload) |
 | GET | `/api/status` | login | Статус системы (CPU/RAM/сеть, JSON) |
 | GET | `/api/system/health` | login | Health c деталями (platform/thermal/storage) |
+| GET | `/api/dashboard` | login | Агрегат для поллера шапки: система + health + устройства + события + alerts (1.1, один запрос вместо ×2) |
 | GET | `/api/health` | открытый | Короткий health-check (открытый эндпоинт) |
 | GET | `/system` | login | Раздел «Система» |
 | POST | `/system/backup` | admin | Полный бэкап (код+настройки+БД) |
@@ -99,6 +103,8 @@
 | GET | `/api/clone/status` | login | Прогресс клонирования |
 | GET | `/apps/disks` | login | Диски (страница) |
 | GET | `/api/disks` | login | Список дисков (JSON) |
+| GET | `/capabilities` | login | Страница «Возможности»: hardware-снимок платформы (1.1, STEP 7) |
+| GET | `/api/capabilities` | login | Возможности платформы: CPU/RAM/диски/сеть/аппаратура + reliability (1.1, JSON) |
 
 ## Сеть и инструменты (`modules/network_routes.py`) — 21
 
@@ -215,24 +221,28 @@
 |---|---|---|---|
 | GET | `/inventory` | login | Инвентаризация (страница) |
 | POST | `/inventory/scan` | login | Скан для инвентаризации |
-| GET | `/inventory/device/<ip>` | login | Карточка инвентаризации |
+| GET | `/inventory/device/<ip>` | login | Redirect → `/device/<ip>` (мертвая заглушка удалена в 1.1) |
 | GET | `/api/inventory/<ip>` | login | Данные инвентаризации (JSON) |
 
-## Менеджер модулей (`modules/module_manager.py`) — 7
+## Менеджер модулей (`modules/module_manager.py`) — 11
 
 | Метод | Путь | Доступ | Описание |
 |---|---|---|---|
-| GET | `/modules` | admin | Админка модулей |
+| GET | `/modules` | admin | Админка модулей (единый semantic-бейдж статуса, версия/source/permissions/hardware из module.json — 1.1) |
 | POST | `/modules/catalog/refresh` | admin | Обновить каталог из GitHub |
 | POST | `/modules/<mid>/catalog/install` | admin | Установить модуль из каталога |
 | POST | `/modules/<mid>/catalog/update` | admin | Обновить модуль |
 | POST | `/modules/<mid>/catalog/remove` | admin | Удалить модуль из каталога |
 | POST | `/modules/<mid>/toggle` | admin | Вкл/выкл модуль |
 | POST | `/modules/<mid>/install` | admin | Установить зависимости модуля |
+| GET | `/roles` | admin | Страница «Роли»: профили default/media/network + compat-check (1.1, STEP 9) |
+| POST | `/roles/<rid>/apply` | admin | Применить профиль: вкл/выкл модулей, пропуск несовместимых |
+| GET | `/api/roles` | login | Профили + статусы модулей для роли (JSON, 1.1) |
+| POST | `/api/roles/<rid>/apply` | admin | Применить профиль (JSON-вариант) |
 
 ---
 
-Итого таблиц: 2, 7, 30, 24, 21, 64, 2, 2, 4, 7
+Итого таблиц: 2, 7, 30, 29, 21, 64, 2, 2, 4, 11 = 172
 
 Роуты без `def`-декоратора `login_required`/`admin_required`
 помечены `открытый` — их белый список: `/login`, `/logout`,
