@@ -1938,3 +1938,32 @@ exact=145, content_diff=0, only_remote=0.
 - Следующий шаг: STEP 2 — design system (`static/style.css` как источник
   истины: токены, примитивы, semantic states, demo/unavailable) + уборка
   инлайн-CSS в `base.html`; деплой только на X96.
+
+### 01.10.2026 — ui: STEP 2 design system — **DONE**
+
+- `static/style.css` (442 → 607 строк) стал источником истины для страниц
+  base.html: 1) **design tokens** `:root` (цвета поверхностей/текста/
+  семантики, радиусы, значения кнопок), 2) **primitives** (`.btn` +
+  primary/danger/ghost/sm, `.status-warn/-critical/-unknown`, `.na`,
+  `.empty-state`, `.spinner`, `.modal/.toast`) — все имена свободны
+  (`class="btn"` не использовался ни в одном шаблоне), 3) **legacy-блок** —
+  466 строк, вырезанных из inline `<style>` base.html без изменений.
+- `base.html` (2124 → 1656 строк): inline `<style>` →
+  `<link rel="stylesheet" href="/static/style.css?v=20261001">` (cache-bust);
+  порядок каскада сохранён — primitives ПЕРЕД legacy (при равной
+  специфичности побеждает legacy = визуальный паритет), собственные `<style>`
+  страниц (в body) перекрывают файл, как перекрывали base-инлайн; Jinja-head
+  чист (единственный block `content` — в body).
+- Фикс бага: в `.system-status` была **висячая `}`** (старая строка 121) —
+  правила `font-size/color/white-space/width` терялись браузером; блок
+  склеен. **Видимое изменение (ручная проверка):** текст нижнего
+  статус-бара 16px → 14px, цвет `#b8c4d1` (авторский замысел).
+- Фикс: убран дубль `<body>` (старые строки 504/506, P-2 из аудита).
+- Проверки на X96: `check_step2.py` — **15/15 PASS** (логин → ссылка на `/`
+  и `/system`, head без `<style>`, один `<body>`, `:root`/primitives,
+  баланс скобок 115/115, фикс `.system-status`), pytest **76 passed**,
+  sync **exact=161 / content_diff=0 / only_remote=0**. Бэкапы на сервере:
+  `base.html.backup-20261001-125933`, `style.css.backup-20261001-125933`.
+- Следующий шаг: STEP 3 — информационная архитектура: доменные группы
+  навигации (§8 промпта), вывод `/history` из «сирот», порядок/группировка
+  табов; затем STEP 4 — dashboard + `GET /api/dashboard`.
