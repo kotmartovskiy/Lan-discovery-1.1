@@ -7,7 +7,7 @@
 Сканирование каждые {{ interval }} сек. ·
 OFFLINE после {{ max_misses }} пропусков
 {% if current_user.role == 'admin' %}
-· <button id="scanNowBtn" onclick="scanNow()" style="background:#1b5e20;color:#fff;border:1px solid #2e7d32;border-radius:4px;padding:3px 10px;cursor:pointer;">🔍 Сканировать</button>
+· <button id="scanNowBtn" class="btn btn-primary btn-sm" onclick="scanNow()">🔍 Сканировать</button>
 {% endif %}
 </div>
 
@@ -16,16 +16,12 @@ OFFLINE после {{ max_misses }} пропусков
 <tr>
 <th>Статус</th>
 <th>Тип</th>
-<th>Имя</th>
+<th>Устройство</th>
 {% if current_user.role != 'guest' %}
-<th>IP</th>
-<th>Hostname</th>
-<th>MAC</th>
+<th>IP / Hostname</th>
 {% endif %}
-<th>Производитель</th>
-<th>Последнее обнаружение</th>
-<th>Пропуски</th>
-<th>Появлений</th>
+<th>Сеть</th>
+<th>Активность</th>
 </tr>
 
 {% for d in devices %}
@@ -51,7 +47,7 @@ OFFLINE после {{ max_misses }} пропусков
 </td>
 
 <td>
-{% if d[11] == 'computer' %}💻{% elif d[11] == 'mobile' %}📱{% elif d[11] == 'iot' %}🏠{% elif d[11] == 'other' %}❓{% endif %}
+{% if d[11] == 'computer' %}💻{% elif d[11] == 'mobile' %}📱{% elif d[11] == 'iot' %}🏠{% elif d[11] == 'other' %}❓{% else %}<span class="na">—</span>{% endif %}
 </td>
 
 <td>
@@ -82,31 +78,29 @@ OFFLINE после {{ max_misses }} пропусков
 <a href="/device/{{ d[0] }}" class="device-link">
 {{ d[0] }}
 </a>
-</td>
-
-<td>
-{{ d[3] or '-' }}
-</td>
-
-<td>
-{{ d[4] or '-' }}
-</td>
+{% if d[3] %}
+<div class="small">{{ d[3] }}</div>
 {% endif %}
+</td>
+
+<td>
+{% if d[4] %}
+<code>{{ d[4] }}</code>
+{% else %}
+<span class="na">—</span>
+{% endif %}
+<div class="small">{{ d[5] or '—' }}</div>
+</td>
+{% else %}
 
 <td>
 {{ d[5] or '-' }}
 </td>
+{% endif %}
 
 <td>
-{{ d[7] or '-' }}
-</td>
-
-<td>
-{{ d[8] }}
-</td>
-
-<td>
-{{ d[9] }}
+{{ d[7] or '—' }}
+<div class="small">пропусков: {{ d[8] }} · появлений: {{ d[9] }}</div>
 </td>
 
 </tr>

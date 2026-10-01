@@ -6,7 +6,8 @@
 <a class="back" href="/">← Все устройства</a>
 
 <h2>
-{{ device[2] or device[0] }}
+{{ device[2] or device[3] or device[0] }}
+<span class="small">{{ device[0] }}</span>
 </h2>
 
 <form method="post" action="/device/{{ device[0] }}/name">
@@ -26,71 +27,134 @@ placeholder="Название устройства"
 <option value="other"{% if device[11] == 'other' %} selected{% endif %}>❓ Прочее</option>
 </select>
 
-<button type="submit">
+<button type="submit" class="btn btn-primary btn-sm">
 Сохранить
 </button>
 
 </form>
 
-<table>
+<div class="device-block">
 
-<tr>
-<td>Статус</td>
+<h3>Устройство</h3>
 
-<td>
-
+<div class="info-row">
+<span class="info-label">Статус:</span>
 {% if device[1] %}
 <span class="online">● ONLINE</span>
 {% else %}
 <span class="offline">● OFFLINE</span>
 {% endif %}
+</div>
 
-</td>
-</tr>
+<div class="info-row">
+<span class="info-label">Hostname:</span>
+{% if device[3] %}{{ device[3] }}{% else %}<span class="na">—</span>{% endif %}
+</div>
 
+<div class="info-row">
+<span class="info-label">MAC:</span>
+{% if device[4] %}<code>{{ device[4] }}</code>{% else %}<span class="na">—</span>{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Производитель:</span>
+{% if device[5] %}{{ device[5] }}{% else %}<span class="na">—</span>{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Тип:</span>
+{% if device[11] == 'computer' %}💻 Компьютер{% elif device[11] == 'mobile' %}📱 Мобильное устройство{% elif device[11] == 'iot' %}🏠 Устройство IoT{% elif device[11] == 'other' %}❓ Прочее{% else %}<span class="na">—</span>{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Первое обнаружение:</span>
+{% if device[6] %}{{ device[6] }}{% else %}<span class="na">—</span>{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Последнее обнаружение:</span>
+{% if device[7] %}{{ device[7] }}{% else %}<span class="na">—</span>{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Статистика:</span>
+пропусков: {{ device[8] }} · появлений: {{ device[9] }}
+</div>
+
+</div>
+
+<div class="device-block">
+
+<h3>Оборудование и сервисы</h3>
+
+{% if inventory and inventory.get('last_scan') %}
+
+{% if inventory.get('os_info') %}
+<div class="info-row">
+<span class="info-label">ОС:</span>
+{{ inventory.get('os_info') }}
+</div>
+{% endif %}
+
+{% if inventory.get('model') %}
+<div class="info-row">
+<span class="info-label">Модель:</span>
+{{ inventory.get('model') }}
+</div>
+{% endif %}
+
+{% if inventory.get('cpu_model') %}
+<div class="info-row">
+<span class="info-label">Процессор:</span>
+{{ inventory.get('cpu_model') }}{% if inventory.get('cpu_cores') %}, {{ inventory.get('cpu_cores') }} ядер{% endif %}
+</div>
+{% endif %}
+
+{% if inventory.get('ram_total') %}
+<div class="info-row">
+<span class="info-label">Память:</span>
+{{ inventory.get('ram_total') }}
+</div>
+{% endif %}
+
+{% set ports = inventory.get('open_ports') or [] %}
+{% set open = ports | selectattr('state', 'equalto', 'open') | list %}
+{% if open %}
+<table>
 <tr>
-<td>IP</td>
-<td>{{ device[0] }}</td>
+<th>Порт</th>
+<th>Протокол</th>
+<th>Сервис</th>
 </tr>
-
+{% for p in open %}
 <tr>
-<td>Hostname</td>
-<td>{{ device[3] or '-' }}</td>
+<td><code>{{ p.get('port') }}</code></td>
+<td>{{ p.get('proto') or 'tcp' }}</td>
+<td>{{ p.get('service') or '—' }}</td>
 </tr>
-
-<tr>
-<td>MAC</td>
-<td>{{ device[4] or '-' }}</td>
-</tr>
-
-<tr>
-<td>Производитель</td>
-<td>{{ device[5] or '-' }}</td>
-</tr>
-
-<tr>
-<td>Первое обнаружение</td>
-<td>{{ device[6] or '-' }}</td>
-</tr>
-
-<tr>
-<td>Последнее обнаружение</td>
-<td>{{ device[7] or '-' }}</td>
-</tr>
-
-<tr>
-<td>Пропуски</td>
-<td>{{ device[8] }}</td>
-</tr>
-
-<tr>
-<td>Появлений</td>
-<td>{{ device[9] }}</td>
-</tr>
-
+{% endfor %}
 </table>
+{% else %}
+<div class="empty-state">Открытых портов не обнаружено</div>
+{% endif %}
+
+<div class="small">Инвентаризация от: {{ inventory.get('last_scan') }} · <a href="/inventory">вся инвентаризация</a></div>
+
+{% else %}
+
+<div class="empty-state">
+Нет данных инвентаризации — запустите скан на <a href="/inventory">странице инвентаризации</a>
+</div>
+
+{% endif %}
+
+</div>
+
+<div class="device-block">
 
 <h3>История устройства</h3>
+
+{% if events %}
 
 <table>
 
@@ -115,6 +179,14 @@ placeholder="Название устройства"
 
 <span class="offline">● OFFLINE</span>
 
+{% elif e[2] == 'critical' %}
+
+<span class="status-critical">● {{ e[1] }}</span>
+
+{% elif e[2] == 'warning' %}
+
+<span class="status-warn">● {{ e[1] }}</span>
+
 {% else %}
 
 <span class="new">● {{ e[1] }}</span>
@@ -128,6 +200,14 @@ placeholder="Название устройства"
 {% endfor %}
 
 </table>
+
+{% else %}
+
+<div class="empty-state">Событий нет</div>
+
+{% endif %}
+
+</div>
 
 </div>
 {% endblock %}

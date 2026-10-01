@@ -347,7 +347,8 @@ def register_routes(app):
                     d[7],
                     d[8],
                     d[9],
-                    d[10]
+                    d[10],
+                    d[11]
                 )
             )
 
@@ -430,7 +431,8 @@ def register_routes(app):
                 """
                 SELECT
                     timestamp,
-                    event
+                    event,
+                    severity
 
                 FROM events
 
@@ -445,12 +447,19 @@ def register_routes(app):
         finally:
             con.close()
 
+        try:
+            from modules.inventory import get_inventory
+            inventory = get_inventory(ip) or {}
+        except Exception:
+            inventory = {}
+
         from app import page_data
         data = page_data()
 
         return render_template("device.html",
             device=device,
             events=events,
+            inventory=inventory,
             **data
         )
 

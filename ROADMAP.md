@@ -2022,3 +2022,34 @@ exact=145, content_diff=0, only_remote=0.
   привязки порта (для следующих проверок sleep ≥5с).
 - Следующий шаг: STEP 5 — devices list/detail (6 ключевых колонок,
   semantic states, drawer устройства).
+
+### 01.10.2026 — ui: STEP 5 devices list/detail — **DONE**
+
+- **`templates/devices.html` — 6 ключевых колонок** вместо 10: Статус · Тип ·
+  Устройство (имя+ссылка+NEW) · IP/Hostname (одна колонка) · Сеть (MAC+вендор)
+  · Активность (last_seen + пропуски/появлений). Все данные сохранены
+  (keep-list), гостевые ограничения без изменений (без IP/Hostname/MAC;
+  в «Сети» для гостя только вендор); кнопка скана переведена с inline-стиля
+  на `.btn .btn-primary .btn-sm`; пустые значения → `.na` вместо голого `-`.
+- **Fix**: `devices_routes.index` передавал в шаблон 11 полей, а `d[11]`
+  (device_type) отсутствовал — колонка «Тип» была всегда пустой; в кортеж
+  добавлен `d[11]` (9 устройств на X96 с типом — иконки рендерятся).
+- **`templates/device.html` — три уровня** (вместо плоской таблицы):
+  1) **Устройство** — semantic-статус, hostname/MAC/вендор/тип/первое/
+  последнее/статистика через `.info-row`/`.info-label`, пустые → `.na`;
+  2) **Оборудование и сервисы** (НОВОЕ) — `modules.inventory.get_inventory(ip)`:
+  ОС/модель/CPU/память (info-rows), таблица открытых портов (порт/протокол/
+  сервис из nmap `-O -sV`), «Инвентаризация от» + ссылка `/inventory`;
+  без данных → `.empty-state` с ссылкой на инвентаризацию;
+  3) **История** — события + severity (`critical`→`.status-critical`,
+  `warning`→`.status-warn`), пусто → `.empty-state`.
+- **Backend (минимум)**: `device(ip)` — `severity` в SELECT событий +
+  `get_inventory(ip) or {}` в контекст (try/except, ошибки не роняют
+  страницу); переименование/тип/dismiss-new/сортировка не тронуты.
+- Проверки на X96: `check_step5.py` — **32/32 PASS** (6 новых колонок +
+  отсутствие 7 старых, `.btn` без inline, .na на устройстве 192.168.3.7,
+  3 уровня detail, регресс /api/status, /api/dashboard, /inventory),
+  pytest **81 passed**, sync **exact=163 / content_diff=0 / only_remote=0**.
+  Бэкапы `*-backup-s5-20261001-134753`.
+- Следующий шаг: STEP 6 — monitoring/утилиты (семантические статусы
+  services-страницы, единый язык состояний).
