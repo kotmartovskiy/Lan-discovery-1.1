@@ -12,7 +12,15 @@
     help        — true: рендерить modules/<id>/help.md в конце «Справки»
     deps        — {"apt": [...], "pip": [...], "services": [...], "dirs": [...],
                    "ports": [...]} — ставится кнопкой «Установить зависимости»
+    version     — версия модуля (STEP 8; старые манифесты без поля → «Unknown»)
+    source      — происхождение (например URL репозитория, "builtin")
+    permissions — ["admin", "network", ...] — что требует модуль
+    hardware    — {"arch": [...], "tools": [...], "storage": [...]} —
+                  аппаратные требования против core/capabilities (STEP 8)
 Состояние (installed/enabled/last_install) хранится в /etc/lan-discovery/modules.json.
+Вычисляемые статусы (STEP 8): см. compute_status() — error / incompatible /
+requires-hardware / requires-dependency / disabled / active / available /
+unknown.
 """
 import glob
 import json
@@ -143,6 +151,130 @@ def record_install_result(mid, result):
     entry["last"] = result
     state[mid] = entry
     save_state(state)
+
+
+# ==================== STEP 8: вычисляемые статусы модулей ====================
+
+MODULE_STATUSES = (
+    "error", "incompatible", "requires-hardware", "requires-dependency",
+    "disabled", "active", "available", "unknown",
+)
+
+_pkg_cache = {"installed": None, "ts": 0}
+
+
+def _missing_apt_packages(pkgs):
+    """Отсутствующие apt-пакеты одним dpkg-query (кэш 60 с).
+
+    Не смогли проверить (нет dpkg/timeout) → [] — не считаем зависимость
+    отсутствующей (ничего не угадываем).
+    """
+    pkgs = sorted(set(pkgs or []))
+    if not pkgs:
+        return []
+    now = time.time()
+    if _pkg_cache["installed"] is None or now - _pkg_cache["ts"] >= 60:
+        installed = set()
+        try:
+            import subprocess
+            r = subprocess.run(
+                ["dpkg-query", "-W", "-f", "${Package} ${Status}\n"] + pkgs,
+                capture_output=True, text=True, timeout=15,
+            )
+            for line in (r.stdout or "").splitlines():
+                parts = line.rsplit(" ", 3)
+                if len(parts) == 4 and parts[1] == "install" and parts[2] == "ok":
+                    installed.add(parts[0])
+        except Exception:
+            return []
+        _pkg_cache["installed"] = installed
+        _pkg_cache["ts"] = now
+    return [p for p in pkgs if p not in _pkg_cache["installed"]]
+
+
+def status_context():
+    """Контекст для compute_status: архитектура + capabilities (кэш 30 с)."""
+    from core import capabilities
+    caps = capabilities.collect()
+    return {"arch": (caps.get("board") or {}).get("arch"), "caps": caps}
+
+
+def compute_status(m, entry, ctx, missing_pkgs=None):
+    """Вычисляемый статус модуля (STEP 8). Чистая функция (тестируется).
+
+    Приоритет: incompatible → requires-hardware → requires-dependency →
+    error → disabled → active → available; исключение/битый манифест →
+    unknown. missing_pkgs — множество отсутствующих apt-пакетов (общий
+    dpkg-batch из modules_with_status).
+    """
+    try:
+        if not isinstance(m, dict) or not m.get("id"):
+            return "unknown"
+        hw = m.get("hardware") or {}
+        if not isinstance(hw, dict):
+            hw = {}
+
+        arch_list = hw.get("arch") or []
+        if arch_list and ctx.get("arch") not in arch_list:
+            return "incompatible"
+
+        caps = ctx.get("caps") or {}
+        tools = caps.get("tools") or {}
+        for t in hw.get("tools") or []:
+            c = tools.get(t)
+            if not c or c.get("state") != "present":
+                return "requires-hardware"
+        storage = caps.get("storage") or {}
+        for s in hw.get("storage") or []:
+            c = storage.get(s)
+            if not c or c.get("state") != "present":
+                return "requires-hardware"
+
+        deps = m.get("deps") or {}
+        if missing_pkgs:
+            my_pkgs = deps.get("apt") or []
+            if any(p in missing_pkgs for p in my_pkgs):
+                return "requires-dependency"
+        for d in deps.get("dirs") or []:
+            if not os.path.isdir(d):
+                return "requires-dependency"
+
+        last = (entry or {}).get("last")
+        if isinstance(last, dict) and last.get("ok") is False:
+            return "error"
+
+        builtin = bool(m.get("builtin"))
+        installed = bool((entry or {}).get("installed", builtin))
+        enabled = bool((entry or {}).get("enabled", builtin))
+        if not installed:
+            return "available"
+        if not enabled:
+            return "disabled"
+        return "active"
+    except Exception:
+        return "unknown"
+
+
+def modules_with_status():
+    """Все модули + вычисляемый статус (для /modules): одним dpkg-batch."""
+    state = load_state()
+    mods = discover_modules()
+    all_pkgs = []
+    for m in mods:
+        all_pkgs += ((m.get("deps") or {}).get("apt") or [])
+    missing = set(_missing_apt_packages(all_pkgs))
+    ctx = status_context()
+    rows = []
+    for m in mods:
+        entry = state.get(m["id"]) or {}
+        rows.append({
+            "m": m,
+            "installed": bool(entry.get("installed", bool(m.get("builtin")))),
+            "enabled": bool(entry.get("enabled", bool(m.get("builtin")))),
+            "last": entry.get("last"),
+            "status": compute_status(m, entry, ctx, missing),
+        })
+    return rows
 
 
 def nav_items():

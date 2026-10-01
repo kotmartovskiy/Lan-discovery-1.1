@@ -2119,3 +2119,43 @@ exact=145, content_diff=0, only_remote=0.
   «status-ok + (na|unknown)».
 - Следующий шаг: STEP 8 — modules v1 (расширение module.json: version,
   source, ports, permissions, hardware, services + вычисляемые статусы).
+
+### 01.10.2026 — core: STEP 8 modules v1 (схема + вычисляемые статусы) — **DONE**
+
+- **Схема `module.json` расширена** (docstring module_loader обновлён):
+  новые поля `version`, `source`, `permissions`, `hardware`
+  (`{"arch": [...], "tools": [...], "storage": [...]}`); `ports`/`services`
+  уже были в `deps` — дублей не заводим. Старые манифесты без полей
+  работают как раньше, `version` в UI → **«Unknown»** (33 builtin —
+  версии не ведутся, честный Unknown).
+- **Вычисляемые статусы** (`core/module_loader.py`):
+  `compute_status(m, entry, ctx, missing_pkgs)` — чистая функция,
+  приоритет **incompatible** (hardware.arch против
+  capabilities.board.arch) → **requires-hardware** (tools/storage из
+  `core/capabilities`: не present) → **requires-dependency** (отсутствующие
+  apt-пакеты — один `dpkg-query`-batch на все модули, кэш 60 с; не
+  смогли проверить → не считаем отсутствующей + `deps.dirs` по
+  `os.path.isdir`) → **error** (last.ok == False) → **disabled** →
+  **active** → **available**; исключение/битый манифест → **unknown**
+  (8 статусов из 9 промптовых; «installed» — подмножество
+  active/disabled в нашей модели enabled/installed). `services` из deps
+  НЕ проверяются (systemctl-per-unit дорого; решено отложить).
+- **`modules_with_status()`** — сборка строк для /modules одним
+  dpkg-batch + `status_context()` (arch+capabilities, кэш 30 с);
+  `modules_page` использует её (state/last сохранены).
+- **UI `modules.html`**: три старых бейджа (не установлен/включен/
+  выключен) → один вычисляемый semantic-бейдж (badge-on/off/none +
+  новый `.badge-warn` на токенах для требований); version-бейдж
+  (vX / **Unknown**); hardware-требования и permissions бейджами в
+  `mod-deps`; `source` мелким под описанием. Каталог/toggle/install/лог
+  не тронуты.
+- **`tests/unit/test_module_status.py`** (+10): все ветки приоритета,
+  priority-тест (incompatible > error), shape `modules_with_status`
+  (статусы ⊂ MODULE_STATUSES), рендер /modules (бейджи + Unknown).
+- Проверки на X96: `check_step8.py` — **15/15 PASS** (бейджи, убран
+  старый «включен», badge-warn, Unknown, toggle-кнопки/лог, регресс
+  `/`, `/system`, STEP 4/7-страницы и API, nav), pytest **97 passed**
+  (87+10), sync **exact=166 / content_diff=0** (1 новый файл → в git).
+  Бэкапы `*-backup-s8-20261001-143600`.
+- Следующий шаг: STEP 9 — roles-слой (конфиг-профили поверх modules,
+  `GET/POST /api/roles*`, проверка hardware-требований).

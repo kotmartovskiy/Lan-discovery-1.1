@@ -30,6 +30,7 @@ from core.module_loader import (
     help_sections,
     load_state,
     module_status,
+    modules_with_status,
     nav_groups,
     nav_items,
     active_page,
@@ -120,16 +121,7 @@ def register_routes(app, login_required, admin_required, page_data):
     @app.route("/modules")
     @admin_required
     def modules_page():
-        state = load_state()
-        mods = []
-        for m in discover_modules():
-            installed, enabled = module_status(m["id"])
-            mods.append({
-                "m": m,
-                "installed": installed,
-                "enabled": enabled,
-                "last": (state.get(m["id"]) or {}).get("last"),
-            })
+        mods = modules_with_status()
 
         catalog, catalog_error = None, None
         try:

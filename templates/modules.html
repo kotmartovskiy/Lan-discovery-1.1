@@ -14,6 +14,7 @@
 .badge-type { background:#0e2233; color:#8ab4f8; border:1px solid #1f4b6e; margin-left:0; margin-right:auto; }
 .badge-on { background:#1b3a1b; color:#7cb342; border:1px solid #2e5d2e; }
 .badge-off { background:#3a1b1b; color:#e57373; border:1px solid #5d2e2e; }
+.badge-warn { background:rgba(255,184,77,0.12); color:var(--warn); border:1px solid rgba(255,184,77,0.4); }
 .badge-none { background:#333; color:#aaa; border:1px solid #555; }
 .mod-desc { color:#bbb; font-size:13px; margin:6px 0 8px; }
 .mod-deps { font-size:12px; margin-bottom:8px; }
@@ -98,19 +99,32 @@
     {% elif mtype == 'block' %}<span class="badge badge-type">блок → {{ it.m.block.slot if it.m.block else '?' }}</span>
     {% elif mtype == 'app' %}<span class="badge badge-type">приложение</span>
     {% else %}<span class="badge badge-type">ядро</span>{% endif %}
-    {% if not it.installed %}<span class="badge badge-none">не установлен</span>
-    {% elif it.enabled %}<span class="badge badge-on">включен</span>
-    {% else %}<span class="badge badge-off">выключен</span>{% endif %}
+    {% if it.status == 'active' %}<span class="badge badge-on">● активен</span>
+    {% elif it.status == 'disabled' %}<span class="badge badge-off">выключен</span>
+    {% elif it.status == 'available' %}<span class="badge badge-none">доступен</span>
+    {% elif it.status == 'requires-dependency' %}<span class="badge badge-warn">требует зависимости</span>
+    {% elif it.status == 'requires-hardware' %}<span class="badge badge-warn">нет требуемого железа</span>
+    {% elif it.status == 'incompatible' %}<span class="badge badge-off">несовместим</span>
+    {% elif it.status == 'error' %}<span class="badge badge-off">ошибка установки</span>
+    {% else %}<span class="badge badge-none">неизвестно</span>{% endif %}
+    {% if it.m.version %}<span class="badge badge-none">v{{ it.m.version }}</span>
+    {% else %}<span class="badge badge-none" title="Манифест без поля version (STEP 8)">Unknown</span>{% endif %}
   </div>
   <p class="mod-desc">{{ it.m.description }}</p>
+  {% if it.m.source %}<p class="mod-note" style="font-size:12px; margin:-4px 0 6px;">source: {{ it.m.source }}</p>{% endif %}
   {% set deps = it.m.deps if it.m.deps else {} %}
-  {% if (deps.get('apt') or deps.get('pip') or deps.get('services') or deps.get('dirs')) %}
+  {% set hw = it.m.hardware if it.m.hardware else {} %}
+  {% if (deps.get('apt') or deps.get('pip') or deps.get('services') or deps.get('dirs')) or (hw.get('arch') or hw.get('tools') or hw.get('storage')) or it.m.permissions %}
   <div class="mod-deps">
     {% for p in deps.get('apt') or [] %}<span>apt: {{ p }}</span>{% endfor %}
     {% for p in deps.get('pip') or [] %}<span>pip: {{ p }}</span>{% endfor %}
     {% for p in deps.get('services') or [] %}<span>svc: {{ p }}</span>{% endfor %}
     {% for p in deps.get('dirs') or [] %}<span>dir: {{ p }}</span>{% endfor %}
     {% for p in deps.get('ports') or [] %}<span>port: {{ p }}</span>{% endfor %}
+    {% for p in hw.get('arch') or [] %}<span>hw arch: {{ p }}</span>{% endfor %}
+    {% for p in hw.get('tools') or [] %}<span>hw tool: {{ p }}</span>{% endfor %}
+    {% for p in hw.get('storage') or [] %}<span>hw storage: {{ p }}</span>{% endfor %}
+    {% for p in it.m.permissions or [] %}<span>perm: {{ p }}</span>{% endfor %}
   </div>
   {% endif %}
   {% if it.last %}
