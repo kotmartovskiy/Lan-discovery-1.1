@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Возможности системы</h2>
+
+<div class="info">
+Только проверенные данные ·
+<span class="small">reliability: measured — измерено · detected — обнаружено · unverified — не подтверждено</span> ·
+<a href="/api/capabilities">/api/capabilities</a> (JSON) ·
+проверено: {{ capabilities.checked_at }}
+</div>
+
+<div class="device-block">
+
+<h3>Плата</h3>
+
+<div class="info-row">
+<span class="info-label">Модель:</span>
+{% if capabilities.board.reliability == 'measured' %}
+<span class="status-ok">{{ capabilities.board.model }}</span>
+{% else %}
+<span class="na">{{ capabilities.board.model or '—' }} (не подтверждено)</span>
+{% endif %}
+</div>
+
+<div class="info-row">
+<span class="info-label">Архитектура:</span>
+{{ capabilities.board.arch }} · {{ capabilities.board.system }}
+</div>
+
+</div>
+
+<div class="device-block">
+
+<h3>Накопители</h3>
+
+{% for label, key in [('eMMC', 'emmc'), ('SD-карта', 'sd'), ('HDD/SSD', 'hdd')] %}
+{% set c = capabilities.storage[key] %}
+<div class="info-row">
+<span class="info-label">{{ label }}:</span>
+{% if c.state == 'present' %}
+<span class="status-ok">● {{ c.value or 'обнаружено' }}</span>
+{% elif c.state == 'absent' %}
+<span class="na">— не обнаружено</span>
+{% else %}
+<span class="status-unknown">неизвестно</span>
+{% endif %}
+</div>
+{% endfor %}
+
+</div>
+
+<div class="device-block">
+
+<h3>Терморегуляция</h3>
+
+{% set t = capabilities.thermal %}
+<div class="info-row">
+<span class="info-label">Температура CPU:</span>
+{% if t.state == 'present' %}
+<span class="status-ok">{{ t.value }} °C</span>
+{% elif t.state == 'absent' %}
+<span class="na">— термозона не обнаружена</span>
+{% else %}
+<span class="status-unknown">неизвестно</span>
+{% endif %}
+</div>
+
+</div>
+
+<div class="device-block">
+
+<h3>Внешние инструменты</h3>
+
+<table>
+
+<tr>
+<th>Инструмент</th>
+<th>Состояние</th>
+</tr>
+
+{% for name, c in capabilities.tools.items() %}
+<tr>
+<td><code>{{ name }}</code></td>
+<td>
+{% if c.state == 'present' %}
+<span class="status-ok">● установлен</span>
+{% elif c.state == 'absent' %}
+<span class="na">— нет</span>
+{% else %}
+<span class="status-unknown">неизвестно</span>
+{% endif %}
+</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+
+{% endblock %}

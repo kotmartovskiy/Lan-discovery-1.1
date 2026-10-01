@@ -271,10 +271,8 @@ def _security_headers(resp):
 
 # ==================== P1-11: барьер отсутствующих подсистем ====================
 
-CAPABILITY_PROBES = (
-    "nmap", "ping", "tracepath", "host", "iw",
-    "bluetoothctl", "smartctl", "ffmpeg", "mpv", "lsblk",
-)
+# Единый источник пробов — core/capabilities.py (STEP 7).
+from core.capabilities import TOOL_PROBES as CAPABILITY_PROBES
 
 
 def probe_capabilities():

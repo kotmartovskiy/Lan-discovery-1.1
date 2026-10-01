@@ -2084,3 +2084,38 @@ exact=145, content_diff=0, only_remote=0.
   условно.
 - Следующий шаг: STEP 7 — capabilities (core/capabilities.py, достоверные
   данные).
+
+### 01.10.2026 — core: STEP 7 capabilities (достоверные + reliability) — **DONE**
+
+- **`core/capabilities.py`** (новый, read-only, без зависимостей от app —
+  как hardware.py): `collect()` (кэш 30 с) → `board` (модель из
+  /proc/device-tree/model = **measured**; fallback hostname = **unverified**),
+  `storage` (emmc/sd/hdd из `core.hardware` — present+detected /
+  absent+detected / unknown+unverified при ошибке), `thermal` (зона+temp:
+  measured при чтении, absent если зон нет, unknown если зона нечитаема),
+  `tools` (10 бинарей PATH, кэш 300 с), `checked_at`. Формат записи:
+  `{state: present|absent|unknown, reliability: measured|detected|unverified,
+  value?}` — **unknown всегда ⇒ unverified** (ничего не угадывается).
+- **`TOOL_PROBES`** — единый источник пробов: `app.py` теперь импортирует
+  (`as CAPABILITY_PROBES`), дублирующий кортеж удалён; `/api/health`
+  (bool-формат P1-11) не изменён.
+- **`GET /api/capabilities`** + **страница `GET /capabilities`**
+  (`modules/system_routes.py`, login_required): уровни Плата / Накопители /
+  Терморегуляция / Внешние инструменты; semantic-состояния
+  (status-ok / .na / status-unknown) + объяснение reliability + ссылка на
+  JSON.
+- **Навигация**: `CORE_NAV` += «Возможности» `/capabilities` (group
+  Система, order 82 — сразу после «Система»).
+- **`tests/unit/test_capabilities.py`** (+6): shape/reliability-валидация,
+  unknown⇒unverified, probe_tools покрытие, `_cap`, API-shape, рендер
+  страницы, `app.CAPABILITY_PROBES is TOOL_PROBES` (единый источник).
+- Проверки на X96: `check_step7.py` — **26/26 PASS** (API-shape,
+  валидность 10 tools + storage/thermal, страница/4 уровня/semantic,
+  nav-ссылка, регресс `/`, `/system`, `/api/dashboard`, `/api/health`),
+  pytest **87 passed** (81+6), sync **exact=163 / content_diff=0**
+  (3 новых файла → в git). Бэкапы `*-backup-s7-20261001-141819`.
+- Примечание: semantic-ветки данныхозависимы — на X96 `status-unknown`
+  не проявился (нет unknown-состояний), чек/тест смягчены на
+  «status-ok + (na|unknown)».
+- Следующий шаг: STEP 8 — modules v1 (расширение module.json: version,
+  source, ports, permissions, hardware, services + вычисляемые статусы).

@@ -2381,3 +2381,17 @@ def register_routes(app):
             return {"ok": True, "lsblk": lsblk, "df": df, "smart": smart}
         except Exception as e:
             return {"ok": False, "error": str(e)}
+
+    @app.route("/api/capabilities")
+    @login_required
+    def api_capabilities():
+        from core.capabilities import collect
+        return jsonify(collect())
+
+    @app.route("/capabilities")
+    @login_required
+    def capabilities_page():
+        from core.capabilities import collect
+        page = page_data()
+        page["capabilities"] = collect()
+        return render_template("capabilities.html", **page)
