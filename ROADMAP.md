@@ -62,7 +62,7 @@ security pentest, восстановление из backup на чистую с�
 | **Security: сейф паролей** | ~~«шифрование» = base64 + HMAC, который игнорируется при несовпадении; чтение доступно guest~~ **закрыта (P0-4, 30.09)**: Fernet-шифрование + миграция старых записей, чтение/запись через `can_edit` (guest закрыт), ключ в `secret.key` | настоящее шифрование (Fernet/AES-GCM) | пароли в открытом виде (+base64) | **P0** (закрыта) |
 | **Security: авторизация** | ~~`enabled` не проверяется в `login_required`; SHA-256-фолбэк; нет session TTL; смена пароля без мин. длины~~ **закрыта (P0-5, 30.09)**: `enabled` + TTL сессии (12ч), min-8 символов, lazy re-hash SHA-256 → bcrypt при первом входе, rate-limit логина (5 попыток/300с на IP) | отключённый юзер = 401, только bcrypt, TTL сессии | отключённый пользователь остаётся в системе | **P0** (закрыта) |
 | **Security: CSRF во вкладках** | ~~`base_app.html` **без csrf-meta** в репозитории → 11 шаблонов `/apps/*` POST без токена~~ **закрыта (P0-6, 30.09)**: csrf-meta + fetch-обёртки закоммичены из X96 в git (`base_app.html` + 11 шаблонов), проверено на обеих панелях | csrf-meta + fetch-wrapper в обеих базовых шаблонаках | POST-запросы из вкладок падают/незащищены | **P0** (закрыта) |
-| **Security: заголовки/HOST** | ~~нет X-Frame-Options/CSP/X-Content-Type; `SESSION_COOKIE_*` не настроены~~ **закрыта (P1-10, 30.09)**: `_security_headers` (nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy same-origin), cookie `HttpOnly`+`SameSite=Lax` (без Secure — LAN HTTP); CSP не введён (CDN xterm/socket.io — residual); dev-Werkzeug `allow_unsafe_werkzeug=True` остаётся — осознанный threat model «root by design» (PHASE 8, docs/Безопасность.md) | заголовки, cookie-флаги, (опц.) reverse-proxy | clickjacking/доп. экспозиция | **P1** (закрыта) |
+| **Security: заголовки/HOST** | ~~нет X-Frame-Options/CSP/X-Content-Type; `SESSION_COOKIE_*` не настроены~~ **закрыта (P1-10, 30.09)**: `_security_headers` (nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy same-origin), cookie `HttpOnly`+`SameSite=Lax` (без Secure — LAN HTTP); CSP добавлен позже (№60, 01.10 — vendor CDN локально); dev-Werkzeug `allow_unsafe_werkzeug=True` остаётся — осознанный threat model «root by design» (PHASE 8, docs/Безопасность.md) | заголовки, cookie-флаги, (опц.) reverse-proxy | clickjacking/доп. экспозиция | **P1** (закрыта) |
 | **Security: секреты в git** | ~~`AGENTS.md`, `docs/*`, `templates/help.html` — root/1234, рабочие IP; скрипты с `password='1234'`; `sanitize_docs.py` чистит только `docs/`~~ **закрыта (P1-10, 30.09)**: help.html вычищен, 10 скриптов → env-переменные (`LAN_SSH_*`, `LAN_PANEL_PASS`), `make_demo.py` scrub + `demo_lint.py` (контент и имена файлов), публичный demo перегенерирован (leaks: 0); `sanitize_docs.py` дополнен P14 (wiki-regex, `admin/1234`); `AGENTS.md` с кредами — осознанно приватный ops-файл | чистка всех отслеживаемых файлов | утечка реквизитов в публичные репо (docs/demo) | **P1** (закрыта) |
 | **Stability: изоляция сбоев** | ~~большинство роутов в `try/except`, но: DDL в `get_db()` на **каждый запрос**; утечки `con.close()` при исключениях (нет `finally`); падение импорта модуля валит всё приложение~~ **закрыта (P1-7, 30.09)**: схема БД — однократный init/ensure (user_version, индексы), `finally`-close коннектов, guard'ы импортов модулей; остаток: context manager не везде, физический io/SMART не опрашивается (осознанно) | схема один раз при старте; context manager; тест «SMART/Wi-Fi/nmap нет» | часы/диски/сеть отсутствуют → 500 в отдельных роутах (не фатально), но нет системного барьера | **P1** (закрыта) |
 | **Stability: фоновые задачи** | ~~`start_scan_thread()` без guard от повторного запуска; `/inventory/scan` и bluetooth-scan без lock → параллельные прогоны; дубли функций (`app.py` ↔ `core_routes.py`), **мёртвый код** `init_background_tasks`~~ **закрыта (P1-8, 30.09)**: guard-флаги у scan/inventory/bt-задач, `init_background_tasks` и дубли core↔app удалены, единый источник в `core/` | lock/flag на каждую задачу, один источник истины | race: параллельные nmap/сканы, лишняя нагрузка | **P1** (закрыта) |
@@ -477,7 +477,7 @@ security pentest, восстановление из backup на чистую с�
 | 59 | **Двойное сканирование (§8.1):** одна ведущая копия — флаг `network.scan_enabled`/leader в settings либо стоп `lan-discovery`-скана на OP; без двойной нагрузки на сеть | **DONE (01.10.2026)** |
 | 60 | **Локализация CDN (§8.5):** vendor-копии xterm.js/socket.io в `static/vendor/` + CSP; терминал работает без интернета | **DONE (01.10.2026)** |
 | 61 | **Дрейф-контроль (§8.2):** `tools/sync_check.py` в репо (filelist+md5-сверка repo↔сервер), запуск по требованию/cron, отчёт о расхождениях | **DONE (01.10.2026)** |
-| 62 | **Регресс-пентест по чек-листу** `docs/Пентест.md` на обоих узлах (чек-лист создан 01.10 отдельно от фазы) | pending |
+| 62 | **Регресс-пентест по чек-листу** `docs/Пентест.md` на обоих узлах (чек-лист создан 01.10 отдельно от фазы) | **DONE (01.10.2026)** |
 | 63 | **Gap'ы §2:** выбор интерфейсов скана через UI (P6), identity устройств MAC+IP (P5), семантические версии/чейнджлог поверх git-rev (P10) | pending |
 | 64 | **Харддинг-резидуалы:** решение по reverse-proxy/TLS либо подтверждение «root by design» на очередной квартал; обсуждение non-root | pending |
 | 65 | **§8 residual'ы:** проверить, что UI-блоки eMMC/clone/hdd корректно прячутся на X96 (boot с SD, без HDD) по всей панели, не только модулями | pending |
@@ -486,16 +486,31 @@ security pentest, восстановление из backup на чистую с�
 
 ## 8. Остаточные риски
 
-1. **Двойное сканирование:** обе платформы активны и сканируют одну подсеть каждые 30 с
-   (см. AGENTS.md — «остановить на OP при необходимости»). Решение: определить, какая
-   копия основная, вторую — остановить либо вынести скан в «только одна».
+1. ~~**Двойное сканирование**~~ — **закрыто (№59, 01.10)**: лидер X96,
+   на OP `network.scan_enabled: false`, фоновый опрос только одной
+   копией (проверено live: X96 `scan` растёт, OP `null`).
 2. **Дрейф кода:** правки на серверах без коммита (и наоборот) уже случились (§5);
    текущий регламент (ручной) не гарантирует синхронизацию.
-3. **Werkzeug dev-сервер под root на 0.0.0.0** — терпимо только в закрытой LAN до P1.
+   *Частично закрыто (№61): `tools/sync_check.py` — сверка repo ↔ X96
+   по требованию; дрейф по документации ловится, запуск пока ручной.*
+3. **Werkzeug dev-сервер под root на 0.0.0.0** — терпимо только в закрытой LAN до P1;
+   связанные находки №62: заголовок `Server: Werkzeug/3.x Python/3.x`
+   отдаёт точные версии ПО.
 4. **X96 без HDD, boot с SD** — тестовый режим: эММС/диск-функции (clone/backup-emmc)
    на нём неприменимы, UI-блоки должны корректно прятаться (частично решено модулями).
-5. **Внешние CDN** (xterm.js, socket.io) — терминал не работает без интернета;
-   local-first-принцип нарушается для этой функции.
+5. ~~**Внешние CDN** (xterm.js, socket.io)~~ — **закрыто (№60, 01.10)**:
+   vendor-копии в `static/vendor/`, CSP без внешних CDN, терминал
+   работает без интернета.
+6. **Legacy SHA-256 у `user`/`guest` в users.json** (находка №62):
+   хеши перейдут в bcrypt лениво при первом входе (P0-5); пароли этих
+   юзеров неизвестны инструменту — вручную не перехешированы.
+7. **WAN-проброс не проверяется** (находка №62): X96 без firewall
+   (`NO_UFW`), панели слушают `0.0.0.0:8080`; отсутствие проброса
+   8080/8081/9091 в WAN зависит от роутера и не подтверждалось извне
+   (нет WAN-доступа); OP — ufw default deny incoming.
+8. **SSRF в IPTV** (находка №62): `POST /system/iptv/add` принимает URL
+   без валидации схемы (`file://`, localhost, внутренние адреса —
+   принимаются, плейлист скачивается сервером) — принято по LAN-модели.
 
 ---
 
@@ -2407,3 +2422,34 @@ exact=145, content_diff=0, only_remote=0.
   сделано (hardening)».
 - Деплой X96 (бэкапы `app.py`, `terminal.html` `*-backup-s60-*`,
   8 файлов, py_compile, restart).
+
+### 01.10.2026 — tools: PHASE 16 №62 регресс-пентест (оба узла) — **DONE**
+
+- **`docs/Пентест.md` заполнен** по прогону 01.10 на X96 (1.1) и
+  Orange Pi (1.0): все разделы 1–8, результаты совпали; SSH-часть
+  (периметр/секреты/systemd/таймеры/логи), HTTP-часть (curl-сессии
+  c csrf, временные юзеры `pt62guest`/`pt62user` с bcrypt и удалением
+  из бэкапа, python-socketio для connect-guard).
+- **Находка и фикс: guest `GET /api/settings` → 200** (чек-лист
+  требует отказ): `@login_required @admin_required` на
+  `api_settings_get` (порядок: аноним → 302, guest → 403); UI этот
+  роут не читает (grep по шаблонам пуст); backport в 1.0 и на OP.
+  Unit `test_guest_cannot_read_settings` (guest 403 / admin 200),
+  live-чек на обоих узлах → 403.
+- **Находка и фикс: `restore-server` enabled и слушал 8081 на обоих
+  узлах** — `systemctl disable --now` (аварийный `start` работает).
+- **Подтверждено live**: rate-limit 5/300с (верная пароля в окне
+  блокировки отклоняется, рестарт снимает), enabled=false теряет
+  сессию, min-8 пароля (400/200), трейверсал filemanager → 400,
+  `_valid_host` отклоняет 6 shell-payload, XSS в имени устройства
+  экранируется (`&lt;img`), SocketIO: аноним connect refused / admin OK,
+  заголовки+CSP, health-кэш 30с, ноль Traceback/секретов в журнале,
+  таймеры weather/backup отработали, юнит hardening как PHASE 8.
+- **Residual'ы §8** (п.6–8): legacy SHA-256 у `user`/`guest`, заголовок
+  `Server` с версиями Werkzeug/Python, WAN-проброс не проверяется
+  (X96 без ufw, слушаем 0.0.0.0), SSRF в IPTV-add (схема URL не
+  валидируется). П.1/п.5 §8 закрыты (№59/№60).
+- Тесты: unit **139 passed** (X96), live **15 passed** (до правок
+  чек-листа; CSP-чек включён). Бэкапы: `core_routes.py`
+  `*-backup-s62-*` (оба узла), users.json `*-backup-s62-*` (юзеры
+  восстановлены, device name восстановлен).

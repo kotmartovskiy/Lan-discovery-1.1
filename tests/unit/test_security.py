@@ -116,3 +116,26 @@ def test_anonymous_cannot_read_settings(client):
 def test_mutating_post_without_csrf_is_rejected(csrf_client):
     r = csrf_client.post("/api/settings", json={"web": {}})
     assert r.status_code == 400
+
+
+def test_guest_cannot_read_settings(client, monkeypatch):
+    """PHASE 16 №62 (находка): guest → 403 на GET /api/settings."""
+    import time as _time
+
+    from modules import auth
+    monkeypatch.setattr(
+        auth, "load_users",
+        lambda: {"guest": {"password_hash": "x", "role": "guest",
+                           "enabled": True},
+                 "admin": {"password_hash": "x", "role": "admin",
+                           "enabled": True}})
+    with client.session_transaction() as s:
+        s["user"] = "guest"
+        s["login_ts"] = _time.time()
+    r = client.get("/api/settings")
+    assert r.status_code == 403
+    with client.session_transaction() as s:
+        s["user"] = "admin"
+        s["login_ts"] = _time.time()
+    r = client.get("/api/settings")
+    assert r.status_code == 200
