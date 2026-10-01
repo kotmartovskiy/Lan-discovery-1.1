@@ -3,6 +3,10 @@
 {% block content %}
 <h2>Мониторинг устройств</h2>
 
+{% macro lvl(v, warn=60, crit=80) -%}
+{{ 'status-critical' if (v or 0) >= crit else ('status-warn' if (v or 0) >= warn else 'status-ok') }}
+{%- endmacro %}
+
 <style>
 .accordion { margin-bottom: 8px; }
 .accordion-header {
@@ -37,9 +41,9 @@
     font-size: 12px;
     font-weight: 600;
 }
-.badge-online { background: rgba(101,212,110,0.15); color: #65d46e; }
-.badge-offline { background: rgba(212,101,101,0.15); color: #d46565; }
-.badge-netdata { background: rgba(138,180,248,0.15); color: #8ab4f8; }
+.badge-online { background: rgba(101,212,110,0.15); color: var(--ok); }
+.badge-offline { background: rgba(212,101,101,0.15); color: var(--critical); }
+.badge-netdata { background: rgba(138,180,248,0.15); color: var(--link); }
 .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
 .metric-card {
     background: #111;
@@ -51,9 +55,9 @@
 .metric-value { font-size: 20px; font-weight: 600; }
 .metric-bar { height: 4px; background: #333; border-radius: 2px; margin-top: 6px; }
 .metric-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
-.bar-ok { background: #65d46e; }
-.bar-warn { background: #ffb84d; }
-.bar-crit { background: #ff6666; }
+.bar-ok { background: var(--ok); }
+.bar-warn { background: var(--warn); }
+.bar-crit { background: var(--critical); }
 .detail-table { width: 100%; margin-top: 12px; }
 .detail-table td { padding: 4px 8px; border-bottom: 1px solid #222; }
 .detail-table td:first-child { color: #888; width: 140px; }
@@ -74,12 +78,12 @@
             {{ 'ONLINE' if host.netdata else 'OFFLINE' }}
         </span>
         {% if host.cpu_percent is not none %}
-        <span style="color:#{{ '65d46e' if (host.cpu_percent or 0) < 60 else ('ffb84d' if (host.cpu_percent or 0) < 80 else 'ff6666') }}">
+        <span class="{{ lvl(host.cpu_percent) }}">
             CPU {{ host.cpu_percent }}%
         </span>
         {% endif %}
         {% if host.ram_percent is not none %}
-        <span style="color:#{{ '65d46e' if (host.ram_percent or 0) < 60 else ('ffb84d' if (host.ram_percent or 0) < 80 else 'ff6666') }}">
+        <span class="{{ lvl(host.ram_percent) }}">
             RAM {{ host.ram_percent }}%
         </span>
         {% endif %}
@@ -114,10 +118,10 @@
             {% if current_user.role != 'guest' %}
             <a class="netdata-link" href="http://{{ host.ip }}:19999" target="_blank">Открыть &#8599;</a>
             {% else %}
-            <span style="color:#8ab4f8;">Доступен</span>
+            <span class="status-ok">Доступен</span>
             {% endif %}
             {% else %}
-            <span style="color:#666;">Недоступен</span>
+            <span class="na">Недоступен</span>
             {% endif %}
         </div>
     </div>
@@ -127,7 +131,7 @@
     <div class="metric-grid">
         <div class="metric-card">
             <div class="metric-label">CPU загрузка</div>
-            <div class="metric-value" style="color:#{{ '65d46e' if (host.cpu_percent or 0) < 60 else ('ffb84d' if (host.cpu_percent or 0) < 80 else 'ff6666') }}">
+            <div class="metric-value {{ lvl(host.cpu_percent) }}">
                 {{ host.cpu_percent or 0 }}%
             </div>
             <div class="metric-bar"><div class="metric-bar-fill {{ 'bar-ok' if (host.cpu_percent or 0) < 60 else ('bar-warn' if (host.cpu_percent or 0) < 80 else 'bar-crit') }}" style="width:{{ host.cpu_percent or 0 }}%"></div></div>
@@ -135,7 +139,7 @@
 
         <div class="metric-card">
             <div class="metric-label">RAM использование</div>
-            <div class="metric-value" style="color:#{{ '65d46e' if (host.ram_percent or 0) < 60 else ('ffb84d' if (host.ram_percent or 0) < 80 else 'ff6666') }}">
+            <div class="metric-value {{ lvl(host.ram_percent) }}">
                 {{ host.ram_percent or 0 }}%
             </div>
             <div class="metric-bar"><div class="metric-bar-fill {{ 'bar-ok' if (host.ram_percent or 0) < 60 else ('bar-warn' if (host.ram_percent or 0) < 80 else 'bar-crit') }}" style="width:{{ host.ram_percent or 0 }}%"></div></div>
@@ -206,7 +210,7 @@
 
     {% else %}
 
-    <div style="padding:20px; text-align:center; color:#666;">
+    <div class="empty-state">
         Netdata агент не установлен или порт 19999 закрыт.<br>
         <span style="font-size:13px;">Установите Netdata на этом устройстве для сбора данных.</span>
     </div>
@@ -226,16 +230,16 @@
         <strong>{{ board_title }} (сервер)</strong>
         <span class="badge badge-netdata">Netdata</span>
         <span class="badge badge-online">LOCAL</span>
-        <span style="color:#{{ '65d46e' if netdata_overview.cpu.busy_percent < 60 else ('ffb84d' if netdata_overview.cpu.busy_percent < 80 else 'ff6666') }}">
+        <span class="{{ lvl(netdata_overview.cpu.busy_percent) }}">
             CPU {{ netdata_overview.cpu.busy_percent }}%
         </span>
         {% if netdata_overview.ram %}
-        <span style="color:#{{ '65d46e' if netdata_overview.ram.percent < 60 else ('ffb84d' if netdata_overview.ram.percent < 80 else 'ff6666') }}">
+        <span class="{{ lvl(netdata_overview.ram.percent) }}">
             RAM {{ netdata_overview.ram.percent }}%
         </span>
         {% endif %}
         {% if netdata_overview.temperature %}
-        <span style="color:#{{ '65d46e' if netdata_overview.temperature < 60 else ('ffb84d' if netdata_overview.temperature < 75 else 'ff6666') }}">
+        <span class="{{ lvl(netdata_overview.temperature, 60, 75) }}">
             {{ netdata_overview.temperature }}&#176;C
         </span>
         {% endif %}
@@ -248,7 +252,7 @@
     <div class="metric-grid">
         <div class="metric-card">
             <div class="metric-label">CPU загрузка</div>
-            <div class="metric-value" style="color:#{{ '65d46e' if netdata_overview.cpu.busy_percent < 60 else ('ffb84d' if netdata_overview.cpu.busy_percent < 80 else 'ff6666') }}">
+            <div class="metric-value {{ lvl(netdata_overview.cpu.busy_percent) }}">
                 {{ netdata_overview.cpu.busy_percent }}%
             </div>
             <div class="metric-bar"><div class="metric-bar-fill {{ 'bar-ok' if netdata_overview.cpu.busy_percent < 60 else ('bar-warn' if netdata_overview.cpu.busy_percent < 80 else 'bar-crit') }}" style="width:{{ netdata_overview.cpu.busy_percent }}%"></div></div>
@@ -256,7 +260,7 @@
 
         <div class="metric-card">
             <div class="metric-label">RAM</div>
-            <div class="metric-value" style="color:#{{ '65d46e' if netdata_overview.ram.percent < 60 else ('ffb84d' if netdata_overview.ram.percent < 80 else 'ff6666') }}">
+            <div class="metric-value {{ lvl(netdata_overview.ram.percent) }}">
                 {{ netdata_overview.ram.percent }}%
             </div>
             <div class="metric-bar"><div class="metric-bar-fill {{ 'bar-ok' if netdata_overview.ram.percent < 60 else ('bar-warn' if netdata_overview.ram.percent < 80 else 'bar-crit') }}" style="width:{{ netdata_overview.ram.percent }}%"></div></div>
@@ -265,7 +269,7 @@
         {% if netdata_overview.temperature %}
         <div class="metric-card">
             <div class="metric-label">Температура CPU</div>
-            <div class="metric-value" style="color:#{{ '65d46e' if netdata_overview.temperature < 60 else ('ffb84d' if netdata_overview.temperature < 75 else 'ff6666') }}">
+            <div class="metric-value {{ lvl(netdata_overview.temperature, 60, 75) }}">
                 {{ netdata_overview.temperature }}&#176;C
             </div>
         </div>

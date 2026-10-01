@@ -2053,3 +2053,34 @@ exact=145, content_diff=0, only_remote=0.
   Бэкапы `*-backup-s5-20261001-134753`.
 - Следующий шаг: STEP 6 — monitoring/утилиты (семантические статусы
   services-страницы, единый язык состояний).
+
+### 01.10.2026 — ui: STEP 6 monitoring — semantic states, единый язык — **DONE**
+
+- **`monitoring.html`**: 12 hex-тернарников порогов (`color:#65d46e/#ffb84d/
+  #ff6666`, 60/80%, температура 60/75) → Jinja-макрос `lvl(v, warn, crit)`
+  → классы `.status-ok/.status-warn/.status-critical`; «Недоступен» (нет
+  netdata) → **`.na` (unknown-состояние, P-10 закрыт)**; «Доступен» →
+  `.status-ok`; пустая секция Netdata → `.empty-state`; локальные
+  `.bar-ok/warn/crit`, `.badge-*` — hex → `var(--ok/--warn/--critical/--link)`.
+  Декоративные стили секций (h4, фоны аккордеона) не тронуты.
+- **`history.html`**: severity inline-hex (`#ef5350/#f59e0b/#9aa0a6`) →
+  `.status-critical/.status-warn/.status-info` (новый примитив).
+- **`inventory.html`**: online-IP `style="color:#65d46e"` → `.status-ok`;
+  бейдж NETDATA hex → `var(--ok)`.
+- **`static/style.css`**: добавлен `.status-info { color: var(--info) }`
+  (примитив semantic states); `.status-ok`/`.status-error` переведены с
+  хардкода hex на `var(--ok)/var(--error)` (единый источник цветов).
+- **`base.html`**: 5 JS-индикаторов (ping «доступен/недоступен» ×3,
+  `renderHealth` OK/проблемы) hex/`#f85149` → `var(--ok)/var(--critical)`;
+  cache-buster CSS `?v=20261001b` (браузерный кеш старого style.css).
+- Проверки на X96: `check_step6.py` — **23/23 PASS** (нет hex-тернарников,
+  классы lvl/`.na`/empty-state в рендере, history на классах, inventory
+  status-ok, CSS-примитивы + cache-buster, регресс `/`, `/system` blocks,
+  `/api/dashboard`); pytest **81 passed**, sync **exact=163 / content_diff=0**.
+  Бэкапы 5 файлов `*-backup-s6-20261001-140215`.
+- Остаток на polish: inline-hex в app-страницах (`dlna.html` JS-ошибки,
+  `base_app.html` палитра) — не пороги состояний, вне скоупа STEP 6;
+  в `events` нет severity=critical (info/warning) — ветка покрыта тестом
+  условно.
+- Следующий шаг: STEP 7 — capabilities (core/capabilities.py, достоверные
+  данные).

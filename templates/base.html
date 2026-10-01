@@ -31,7 +31,7 @@
 <title>LAN Discovery{% if panel_name %} ({{ panel_name }}){% endif %}</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 5 C55 5, 60 8, 62 12 L58 18 C56 14, 53 12, 50 12 C47 12, 44 14, 42 18 L38 12 C40 8, 45 5, 50 5Z' fill='%237cb342'/%3E%3Cpath d='M58 8 C62 5, 68 4, 72 6 L66 14 C63 12, 60 11, 58 12Z' fill='%239ccc65'/%3E%3Cpath d='M50 15 C68 15, 85 32, 85 50 C85 68, 68 85, 50 85 C32 85, 15 68, 15 50 C15 32, 32 15, 50 15Z' fill='%23ffa726'/%3E%3Cpath d='M50 15 C68 15, 85 32, 85 50 C85 68, 68 85, 50 85 C32 85, 15 68, 15 50 C15 32, 32 15, 50 15Z' fill='none' stroke='%23f57c00' stroke-width='2'/%3E%3Cpath d='M50 22 C64 22, 78 36, 78 50 C78 64, 64 78, 50 78 C36 78, 22 64, 22 50 C22 36, 36 22, 50 22Z' fill='%23fff9c4'/%3E%3Cpath d='M50 30 L50 70' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L30 55' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L70 55' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L35 42' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L65 42' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L40 65' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M50 30 L60 65' stroke='%23ffcc02' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='30' r='3' fill='%23ffcc02'/%3E%3C/svg%3E">
 
-<link rel="stylesheet" href="/static/style.css?v=20261001">
+<link rel="stylesheet" href="/static/style.css?v=20261001b">
 
 </head>
 
@@ -436,15 +436,15 @@ function checkNetHost(num) {
     .then(d => {
         if (d.online) {
             result.textContent = "✅ " + host + " — доступен";
-            result.style.color = "#65d46e";
+            result.style.color = "var(--ok)";
         } else {
             result.textContent = "❌ " + host + " — недоступен";
-            result.style.color = "#ff6666";
+            result.style.color = "var(--critical)";
         }
     })
     .catch(err => {
         result.textContent = "❌ Ошибка: " + err;
-        result.style.color = "#ff6666";
+        result.style.color = "var(--critical)";
     });
 }
 
@@ -1576,11 +1576,11 @@ function renderHealth(d) {
         var w = document.getElementById('health-widget');
         var det = document.getElementById('health-detail');
         if (d.ok) {
-            w.style.color = '#65d46e';
+            w.style.color = 'var(--ok)';
             w.innerHTML = '● Система OK';
             det.innerHTML = '<div style="padding:4px 0;font-size:13px;color:#bbb;">Все проверки пройдены</div><div style="font-size:11px;color:#484f58;margin-top:6px;">Проверено: ' + d.checked_at + '</div>';
         } else {
-            w.style.color = '#f85149';
+            w.style.color = 'var(--critical)';
             w.innerHTML = '● Проблемы (' + d.warnings.length + ')';
             var detHtml = '';
             d.warnings.forEach(function(x){

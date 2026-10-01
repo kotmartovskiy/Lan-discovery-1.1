@@ -38,12 +38,12 @@ function toggleAccordion(header) {
 <span class="badge">{% if inv.device_type == 'computer' %}💻 Компьютер{% elif inv.device_type == 'mobile' %}📱 Мобильное{% elif inv.device_type == 'iot' %}🏠 IoT{% elif inv.device_type == 'other' %}❓ Прочее{% else %}{{ inv.device_type }}{% endif %}</span>
 {% endif %}
 {% if inv.netdata_host %}
-<span class="badge" style="background:#65d46e;color:#000;">NETDATA</span>
+<span class="badge" style="background:var(--ok);color:#000;">NETDATA</span>
 {% endif %}
 </div>
 
 <div class="info-row">
-<span class="info-label">IP:</span> <strong{% if inv.online %} style="color:#65d46e"{% endif %}>{{ inv.ip }}</strong>{% if inv.device_name %} (<strong>{% if inv.has_web %}<a href="{{ inv.web_scheme | default('http') }}://{{ inv.web_ip | default(inv.ip) }}{{ ':' ~ inv.web_port if inv.web_port and inv.web_port not in ('80', '443') else '' }}" target="_blank" style="color:#6ba3d6; text-decoration:none;">{{ inv.device_name }}</a>{% else %}{{ inv.device_name }}{% endif %}</strong>){% endif %}
+<span class="info-label">IP:</span> <strong{% if inv.online %} class="status-ok"{% endif %}>{{ inv.ip }}</strong>{% if inv.device_name %} (<strong>{% if inv.has_web %}<a href="{{ inv.web_scheme | default('http') }}://{{ inv.web_ip | default(inv.ip) }}{{ ':' ~ inv.web_port if inv.web_port and inv.web_port not in ('80', '443') else '' }}" target="_blank" style="color:#6ba3d6; text-decoration:none;">{{ inv.device_name }}</a>{% else %}{{ inv.device_name }}{% endif %}</strong>){% endif %}
 </div>
 
 {% if inv.hostname %}

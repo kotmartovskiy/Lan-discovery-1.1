@@ -45,11 +45,11 @@
 
 <td>
 {% if e[5] == 'critical' %}
-<span style="color:#ef5350;">critical</span>
+<span class="status-critical">critical</span>
 {% elif e[5] == 'warning' %}
-<span style="color:#f59e0b;">warning</span>
+<span class="status-warn">warning</span>
 {% else %}
-<span style="color:#9aa0a6;">{{ e[5] or 'info' }}</span>
+<span class="status-info">{{ e[5] or 'info' }}</span>
 {% endif %}
 </td>
 

@@ -78,6 +78,7 @@
 
 .status-warn { color: var(--warn); font-weight: bold; }
 .status-critical { color: var(--critical); font-weight: bold; }
+.status-info { color: var(--info); font-weight: bold; }
 .status-unknown { color: var(--unknown); font-weight: normal; }
 .na, .unavailable { color: var(--unknown); font-style: italic; }
 
@@ -441,12 +442,12 @@ th {
 }
 
 .status-ok {
-    color: #65d46e;
+    color: var(--ok);
     font-weight: bold;
 }
 
 .status-error {
-    color: #ff6666;
+    color: var(--error);
     font-weight: bold;
 }
 
