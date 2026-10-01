@@ -47,6 +47,10 @@
    # без SSH: --filelist <файл> (генератор — /tmp/filelist_host.py на боксе)
    # deploy-инвентарь и docs по умолчанию не сверяются (см. SKIP_LOCAL в скрипте)
    ```
+   Автозапуск (№67): ежедневная Windows-задача `LanDiscovery-SyncCheck`
+   в 09:30 (регистрация: `tools\setup_sync_task.ps1`; лог:
+   `%LOCALAPPDATA%\lan-discovery\sync_check.log`; SSH-пароль хранится
+   только в `%LOCALAPPDATA%\lan-discovery\ssh_pass.txt`, в git не идёт).
 
 ## Рабочее окружение
 - **ТЕСТОВАЯ СИСТЕМА версии 1.1 — X96 Max** (`192.168.3.243:8080`, hostname `armbian`):
