@@ -71,7 +71,8 @@ def add(p, rel):
         out.append("ERR-" + str(e) + "  -  " + rel)
 
 for rel in ["app.py", "requirements.txt", "requirements-dev.txt",
-            "pytest.ini", "install.sh", "update.sh", "recovery.sh"]:
+            "pytest.ini", "install.sh", "update.sh", "recovery.sh",
+            "CHANGELOG.md"]:
     p = os.path.join(BASE, rel)
     if os.path.isfile(p):
         add(p, rel)
