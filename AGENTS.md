@@ -17,7 +17,8 @@
 **Любые дополнения и изменения кода, шаблонов и документации нужно коммитить и пушить на GitHub — иначе репозиторий отстаёт от работающей системы.**
 
 Репозитории:
-- **`Lan-discovery-1.1`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-1.1 — **ОСНОВНОЙ репозиторий (версия 1.1: UI/UX, capabilities/modules/roles)**. Код, `docs/`, `README.md`, `AGENTS.md`, `ROADMAP.md`, `UI_UX_AUDIT.md`. Ветка `main`, локальный `origin` указывает сюда; коммит/пуш — сюда (`git push origin main`).
+- **`Lan-discovery-1.1`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-1.1 — **ОСНОВНОЙ репозиторий ЭТОЙ копии (версия 1.1: UI/UX, capabilities/modules/roles)**. Код, `docs/`, `README.md`, `AGENTS.md`, `ROADMAP.md`, `UI_UX_AUDIT.md`. Ветка `main`, локальный `origin` указывает сюда; коммит/пуш — сюда (`git push origin main`).
+- **`Lan-discovery-2.0`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-2.0 — **версия 2.0 (Universal Modular Appliance Platform) в параллельной разработке с 01.10.2026**. Своя рабочая копия `C:\Users\Lenovo\Documents\Lan-discovery-2.0` (свой `origin` там; в ней же remote `upstream-11` → этот репо для cherry-pick). **2.0 НЕ деплоим на X96/Orange Pi** (боевые на 1.1); правки 2.0 в этой копии не делаются — только в клоне 2.0.
 - **`Lan-discovery-ARM`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-ARM — **версия 1.0, ЗАМОРОЖЕНА** (Orange Pi работает на этой версии; локальный remote `origin-1.0`). Пушить только горячие фиксы 1.0 по отдельному указанию.
 - **`Lan-discovery-docs`** (публичный) — https://github.com/kotmartovskiy/Lan-discovery-docs — очищенная от рабочих IP/паролей копия `docs/`.
 - **`Lan-discovery-modules`** (публичный) — https://github.com/kotmartovskiy/Lan-discovery-modules — каталог модулей для вкладки «Модули» (`index.json` + `<id>/` с `module.json`); панель ставит/обновляет модули из этой ветки (настройка `modules_catalog` в `/etc/lan-discovery/settings.json`).
