@@ -2,9 +2,14 @@
 
 Читает <repo>/docs/*.md, вычищает чувствительные данные (рабочие IP,
 пароли, системные пользователи), ссылки на wiki приватного репозитория
-меняет на относительные, пишет результат в temp-каталог docs-public
+меняет на относительные, перезаписывает результат в temp-каталог docs-public
 (плюс README.md = Home.md, плюс LICENSE без изменений). Затем:
 git init + push в публичный репозиторий.
+
+Каталог НЕ очищается целиком: docs/ репо 1.1 — подмножество docs/ репо 2.0,
+полная регенерация публичного набора (с удалением лишнего, включая подпапку
+2.0/) делается sanitize_docs.py из репо Lan-discovery-2.0, а этот скрипт
+только перезаписывает файлы 1.1, не трогая чужие.
 
 Проверка: regex по 192.168.3.*, 1234, kot:kot, /wiki/ — должно быть 0.
 """
@@ -17,13 +22,8 @@ SRC = REPO / "docs"
 DST = pathlib.Path(r"C:\Users\Lenovo\AppData\Local\Temp\opencode\docs-public")
 
 DST.mkdir(parents=True, exist_ok=True)
-for p in DST.iterdir():
-    if p.name == ".git":          # remote/ветка сохраняются для push
-        continue
-    if p.is_dir():
-        shutil.rmtree(p)
-    else:
-        p.unlink()
+# каталог не чистим: чужие файлы (набор 2.0 из репо Lan-discovery-2.0)
+# должны пережить прогон — иначе публичный репозиторий теряет подмножество 2.0
 
 # Проприетарная лицензия проекта — копируется дословно
 shutil.copy(REPO / "LICENSE", DST / "LICENSE")
