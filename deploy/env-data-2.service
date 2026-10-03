@@ -1,0 +1,6 @@
+[Unit]
+Description=Environment data (UV, air quality, radiation) into devices.db (2.0)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/env_data_2.py

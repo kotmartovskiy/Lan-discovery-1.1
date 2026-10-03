@@ -1,0 +1,9 @@
+[Unit]
+Description=Environment data every 4 hours (2.0)
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=4h
+
+[Install]
+WantedBy=timers.target
