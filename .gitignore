@@ -14,6 +14,7 @@ app_copy.py
 app_remote.py
 system_full.html
 check_*.py
+check_*.sh
 count_*.py
 debug*.py
 deep_debug.py
