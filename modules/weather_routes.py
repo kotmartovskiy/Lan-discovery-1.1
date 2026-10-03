@@ -316,13 +316,63 @@ def mchs_alerts():
                         continue
                 except Exception:
                     pass
-
             active_rows.append(row)
 
         return active_rows
 
     except Exception:
         return []
+
+
+def weather_alert_status():
+    """Свежий прогон информера meteoinfo (для шапки блока предупреждений).
+
+    alert=NULL («оповещения не требуется») — валидное состояние: блок
+    показывается со статусом «активных предупреждений нет».
+    """
+    try:
+        settings = load_settings()
+        weather = settings.get("weather", {})
+        region = weather.get("region_name", "Иваново")
+
+        cutoff = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M")
+
+        con = sqlite3.connect(DB, timeout=5)
+        row = con.execute(
+            """SELECT fetched_at, region, source_window FROM weather_alerts
+               WHERE region LIKE ? AND substr(fetched_at, 1, 16) >= ?
+               ORDER BY fetched_at DESC LIMIT 1""",
+            (f"%{region}%", cutoff),
+        ).fetchone()
+        con.close()
+        return row
+
+    except Exception:
+        return None
+
+
+def mchs_alert_status():
+    """Свежий прогон МЧС-фетчера (для шапки блока экстренных предупреждений)."""
+    try:
+        settings = load_settings()
+        weather = settings.get("weather", {})
+        if weather.get("region_code", "ivanovo") != "ivanovo":
+            return None
+
+        cutoff = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M")
+
+        con = sqlite3.connect(DB, timeout=5)
+        row = con.execute(
+            "SELECT fetched_at FROM mchs_alerts "
+            "WHERE id = 1 AND substr(fetched_at, 1, 16) >= ?",
+            (cutoff,),
+        ).fetchone()
+        con.close()
+        return row
+
+    except Exception:
+        return None
+
 
 def weather_forecast():
     try:
@@ -408,6 +458,8 @@ def register_routes(app):
         data["weather_daily"] = daily
         data["weather_alerts"] = alerts
         data["mchs_alerts"] = mchs
+        data["weather_alert_status"] = weather_alert_status()
+        data["mchs_alert_status"] = mchs_alert_status()
         data["weather_forecast"] = forecast
         data["env_data"] = load_env_data()
 
