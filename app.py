@@ -411,6 +411,11 @@ register_network_routes(app, login_required, admin_required, can_edit, _cmd, _cf
 from modules.media_routes import register_routes as register_media_routes
 register_media_routes(app, login_required, admin_required, can_edit, _cmd, service_state, page_data)
 
+# ==================== Motion (детекция движения) ====================
+
+from modules.motion_routes import register_routes as register_motion_routes
+register_motion_routes(app, login_required, admin_required)
+
 # ==================== Monitor ====================
 
 from modules.monitoring_routes import register_routes as register_monitoring_routes
