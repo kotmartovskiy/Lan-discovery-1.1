@@ -257,13 +257,17 @@ def _ensure_extra_tables(con):
             next_epoch INTEGER NOT NULL,
             status TEXT DEFAULT 'pending',
             last_error TEXT,
-            sent_epoch INTEGER
+            sent_epoch INTEGER,
+            caption TEXT
         )
     """)
     con.execute(
         "CREATE INDEX IF NOT EXISTS idx_motion_queue_status "
         "ON motion_queue(status, next_epoch)"
     )
+    _mq_cols = {r[1] for r in con.execute("PRAGMA table_info(motion_queue)")}
+    if "caption" not in _mq_cols:
+        con.execute("ALTER TABLE motion_queue ADD COLUMN caption TEXT")
 
 
 def _retention_days():
