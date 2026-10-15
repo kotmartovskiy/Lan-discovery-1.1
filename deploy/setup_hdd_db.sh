@@ -3,20 +3,23 @@
 # на SD/eMMC: пишет только devices.db — её и уводим на диск).
 #
 # Использование (на устройстве, от root, при СМОНТИРОВАННОМ HDD в /srv):
-#   bash deploy/setup_hdd_db.sh
+#   bash deploy/setup_hdd_db.sh                          # v1.x (lan-discovery)
+#   APP_DIR=/opt/lan-discovery-2.0 SERVICE=lan-discovery-2 \
+#     bash deploy/setup_hdd_db.sh                        # v2.0
 #
 # Что делает:
 #   1. бэкап drop-in юнита
-#   2. останавливает lan-discovery
+#   2. останавливает $SERVICE
 #   3. копирует devices.db в /srv/lan-discovery/ (с проверкой md5)
-#   4. заменяет файл симлинком /opt/lan-discovery/devices.db -> /srv/...
+#   4. заменяет файл симлинком $APP_DIR/devices.db -> /srv/...
 #   5. пишет drop-in hdd.conf: Requires=srv.mount (без диска панель не
 #      стартует — БД никогда не создастся на корне)
 #   6. запускает сервис и проверяет
 set -e
 TS=$(date +%Y%m%d-%H%M%S)
 APP_DIR="${APP_DIR:-/opt/lan-discovery}"
-DROPIN_DIR=/etc/systemd/system/lan-discovery.service.d
+SERVICE="${SERVICE:-lan-discovery}"
+DROPIN_DIR="/etc/systemd/system/${SERVICE}.service.d"
 
 if ! grep -q ' on /srv ' <(mount); then
   echo "ОШИБКА: HDD не смонтирован в /srv — переносить некуда. ABORT"
@@ -27,7 +30,7 @@ mkdir -p "$DROPIN_DIR"
 if [ -f "$DROPIN_DIR/hdd.conf" ]; then
   cp "$DROPIN_DIR/hdd.conf" "$DROPIN_DIR/hdd.conf.backup-$TS"
 fi
-systemctl stop lan-discovery
+systemctl stop "$SERVICE"
 
 mkdir -p /srv/lan-discovery
 if [ -f "$APP_DIR/devices.db" ] && [ ! -L "$APP_DIR/devices.db" ]; then
@@ -54,8 +57,8 @@ After=srv.mount
 EOF
 
 systemctl daemon-reload
-systemctl start lan-discovery
+systemctl start "$SERVICE"
 sleep 2
-systemctl is-active lan-discovery
+systemctl is-active "$SERVICE"
 ls -la "$APP_DIR/devices.db"
 echo "DONE: БД на HDD, зависимость Requires=srv.mount"
