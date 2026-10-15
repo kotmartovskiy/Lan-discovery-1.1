@@ -678,6 +678,14 @@
 </div>
 </div>
 
+<!-- OpenWebRX (веб-интерфейс с порта 8073) -->
+<div class="app-overlay app-openwebrx" id="app-openwebrx">
+<div class="app-window" style="width:94vw;max-width:1500px;height:88vh;">
+<div class="app-header"><h3>📻 OpenWebRX (RTL-SDR)</h3><button class="app-close" onclick="closeApp('openwebrx')">&times;</button></div>
+<iframe src="http://{{ request.host.split(':')[0] }}:8073/" style="width:100%;height:calc(88vh - 44px);border:none;border-radius:0 0 12px 12px;"></iframe>
+</div>
+</div>
+
 <!-- ADS-B / dump1090 (статика отдаётся панелью) -->
 <div class="app-overlay app-dump1090" id="app-dump1090">
 <div class="app-window" style="width:94vw;max-width:1500px;height:88vh;">

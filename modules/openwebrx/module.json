@@ -1,0 +1,14 @@
+{
+  "id": "openwebrx",
+  "name": "OpenWebRX (RTL-SDR)",
+  "description": "Веб-приёмник SDR: спектр и приём от FM до 1.7 ГГц по USB-свистку; веб-интерфейс встроен с порта 8073",
+  "builtin": true,
+  "type": "app",
+  "help": true,
+  "app": {"title": "OpenWebRX", "icon": "📻", "category": "Медиа", "order": 42},
+  "deps": {
+    "apt": [],
+    "services": ["openwebrx"],
+    "ports": [8073]
+  }
+}

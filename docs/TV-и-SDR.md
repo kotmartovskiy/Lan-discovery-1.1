@@ -90,6 +90,24 @@ systemctl enable --now rtl_tcp                # удаленный RTL-серв�
 
 `rtl_433` — консольный, запуск по требованию.
 
+### OpenWebRX+ (веб-приёмник)
+
+Веб-приёмник SDR развёрнут и встроен в панель (плитка 📻 OpenWebRX,
+порт 8073, iframe со страницы «Приложения»):
+
+- сборки из исходников: `csdr`, `pycsdr` (git), `owrx_connector` 0.7.0-dev
+  (старый deb 0.6.2 удалён, в книжном репо пакета нет), venv:
+  `/opt/openwebrx-venv`;
+- источник (`rtl_connector`) стартует лениво при первом открытии страницы
+  (WS-клиент) — без зрителей процесса нет, это норма;
+- профили свистка (весь R820T 24–1766 МГц, УКВ/FM, авиа AM, ДВМ, 2m,
+  УКВ 400–470, 70cm, GSM, ADS-B 1090, ISM 433, 23cm) —
+  `/var/lib/openwebrx/settings.json`; band plan (вехи частот) —
+  `/etc/openwebrx/bands.json` (полный набор + расширение до 1766 МГц);
+- учётные записи — те же, что в панели: `user`/`user`, `guest`/`guest`
+  (`/var/lib/openwebrx/users.json`, pbkdf2-sha256);
+- сервис: `systemctl status openwebrx`, исходники: `/usr/src/openwebrx`.
+
 ## LTE-failover (фаза 5)
 
 Сервис `lan-failover.service` (`/usr/local/sbin/lan_failover.sh`)
@@ -124,6 +142,7 @@ systemctl restart lan-failover
 | 📺 TVheadend | напрямую `:9981` (своя авторизация) | `tvheadend` |
 | 📈 Netdata | напрямую `:19999` | `netdata` |
 | ✈️ ADS-B | `/dump1090/` — статику отдаёт панель (роут в `core_routes`), JSON из `/run/dump1090-mutability/` | `dump1090` |
+| 📻 OpenWebRX | напрямую `:8073` (вход — учётки панели `user`/`guest`) | `openwebrx` |
 
 Выключенный модуль `dump1090` → `/dump1090/*` отвечает 404; зависимости
 (apt/сервисы) ставятся кнопкой «Установить зависимости».
@@ -136,5 +155,4 @@ systemctl restart lan-failover
 - браузер для Kodi (`System.Exec`) не установлен — нет кандидата в apt
   (`firefox`, `chromium-browser` — `Candidate: (none)`), RetroArch 1.14
   установлен;
-- встраивание чужих веб-интерфейсов в панель — отдельным этапом после
-  согласования дизайна.
+
