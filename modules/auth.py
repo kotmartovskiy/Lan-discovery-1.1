@@ -60,6 +60,44 @@ def save_users(data):
         return False
 
 
+OWRX_USERS_PATH = "/var/lib/openwebrx/users.json"
+
+
+def sync_owrx_password(username, password):
+    """Зеркалирует пароль панели в owrx users.json (pbkdf2-sha256).
+
+    Best-effort: owrx может не быть установлен — тихо выходим.
+    owrx перечитывает users.json на каждый запрос, рестарт не нужен.
+    """
+    try:
+        if not os.path.isfile(OWRX_USERS_PATH):
+            return False
+        with open(OWRX_USERS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, list):
+            return False
+        salt = os.urandom(32)
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000)
+        updated = False
+        for u in data:
+            if isinstance(u, dict) and u.get("user") == username:
+                u["password"] = {
+                    "encoding": "hash",
+                    "value": dk.hex(),
+                    "algorithm": "sha256",
+                    "salt": salt.hex(),
+                }
+                u["must_change_password"] = False
+                updated = True
+        if not updated:
+            return False
+        with open(OWRX_USERS_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+        return True
+    except Exception:
+        return False
+
+
 def get_current_user():
     from flask import session
     from types import SimpleNamespace

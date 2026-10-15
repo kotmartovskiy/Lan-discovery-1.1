@@ -557,6 +557,11 @@ def register_routes(app):
             return jsonify({"error": "password too short (min 8)"}), 400
         users[username]["password_hash"] = _hash(pw)
         save_users(users)
+        try:
+            from modules.auth import sync_owrx_password
+            sync_owrx_password(username, pw)
+        except Exception:
+            pass
         return jsonify({"ok": True})
 
     @app.route("/api/users/<username>/toggle", methods=["POST"])

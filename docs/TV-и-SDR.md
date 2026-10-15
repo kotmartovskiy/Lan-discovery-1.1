@@ -105,7 +105,10 @@ systemctl enable --now rtl_tcp                # удаленный RTL-серв�
   `/var/lib/openwebrx/settings.json`; band plan (вехи частот) —
   `/etc/openwebrx/bands.json` (полный набор + расширение до 1766 МГц);
 - учётные записи — те же, что в панели: `user`/`user`, `guest`/`guest`
-  (`/var/lib/openwebrx/users.json`, pbkdf2-sha256);
+  (`/var/lib/openwebrx/users.json`, pbkdf2-sha256); смена пароля в панели
+  («Пользователи» на странице настроек) автоматически зеркалируется в
+  owrx (`modules/auth.py::sync_owrx_password`, best-effort, рестарт owrx
+  не нужен);
 - сервис: `systemctl status openwebrx`, исходники: `/usr/src/openwebrx`.
 
 ## LTE-failover (фаза 5)
