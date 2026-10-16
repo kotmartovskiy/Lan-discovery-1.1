@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<favorites>
+  <favorite name="📶 Wi-Fi" thumb="special://home/addons/plugin.program.wifi-settings/icon.png">RunAddon(plugin.program.wifi-settings)</favorite>
+  <favorite name="📻 SDR Радио" thumb="special://home/addons/plugin.program.sdr-radio/icon.png">RunAddon(plugin.program.sdr-radio)</favorite>
+</favorites>

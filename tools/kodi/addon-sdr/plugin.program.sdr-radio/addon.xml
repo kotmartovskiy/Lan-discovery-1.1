@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="plugin.program.sdr-radio" name="SDR Радио" version="1.0.0" provider-name="lan-discovery">
+  <requires>
+    <import addon="xbmc.python" version="3.0.0"/>
+  </requires>
+  <extension point="xbmc.python.pluginsource" library="default.py">
+    <provides>executable</provides>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="ru">Эфирное радио через RTL-SDR свисток</summary>
+    <description lang="ru">Прослушивание FM/AM/УКВ радио через USB-свисток RTL-SDR (rtl_fm + mp3-стрим)</description>
+    <platform>linux</platform>
+    <assets>
+      <icon>icon.png</icon>
+    </assets>
+  </extension>
+</addon>

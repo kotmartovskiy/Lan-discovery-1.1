@@ -1,0 +1,18 @@
+[Unit]
+Description=Kodi media center (standalone, GBM)
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kot
+Group=kot
+SupplementaryGroups=video audio input render netdev
+Environment=HOME=/home/kot
+ExecStart=/usr/bin/kodi-standalone
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=graphical.target

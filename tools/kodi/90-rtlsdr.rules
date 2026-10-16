@@ -1,0 +1,2 @@
+# RTL-SDR (Realtek RTL2832U) — доступ без root (номер 90 > 60-librtlsdr0.rules, last-wins)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", MODE="0666"

@@ -1,0 +1,1 @@
+kot ALL=(root) NOPASSWD: /usr/bin/nmcli
