@@ -82,6 +82,10 @@ fi
 
 echo "== RetroArch =="
 install -m 755 "$HERE/retro-games.sh" /usr/local/bin/retro-games.sh
+# retroarch от kot должен открывать DRM: те же группы, что у kodi.service
+for g in video render audio input; do
+  getent group "$g" >/dev/null && usermod -aG "$g" "$KODI_USER"
+done
 install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/roms"
 install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.config/retroarch"
 if [ ! -f "$KODI_HOME/.config/retroarch/retroarch.cfg" ]; then

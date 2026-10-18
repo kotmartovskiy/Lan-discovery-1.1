@@ -88,13 +88,15 @@ addonID LIKE 'plugin.program.%';"` + рестарт kodi.
 
 `Избранное → 🎮 Ретроигры`: список систем (NES Nestopia, SNES Snes9x,
 Game Boy Gambatte, GBA mGBA, Genesis Plus GX, PlayStation Beetle PSX) +
-«RetroArch: главное меню». Выбор → `retro-games.sh` останавливает kodi
-(экран на пару секунд гаснет), запускает RetroArch fullscreen с ядром,
-после выхода из RetroArch возвращает kodi (оба — GBM, DRM-конкуренция
-исключена; стоп/старт сервиса — через `sudo -n systemctl`, права в
-sudoers). ROM'ы складывать в `/home/kot/roms` (в самом RetroArch —
-Load Content → /home/kot/roms). Ядра ставит install.sh (libretro-*).
-Пульт/клавиатура работают в RetroArch напрямую (udev).
+«RetroArch: главное меню». **Как играть**: положи ROM-файлы в
+`/home/kot/roms` (.nes/.sfc/.gb/.gba/.md/.bin/.cue/.chd...), затем
+Избранное → Ретроигры → система → kodi гаснет на пару секунд, запускается
+RetroArch fullscreen (ядро + первый найденный ROM этой системы; без ROM —
+открывается меню RetroArch, там Load Content). Выход из RetroArch
+возвращает kodi. Всё через `retro-games.sh` (стоп/старт kodi —
+`sudo -n systemctl`, права в sudoers; DRM — группы video/render у kot,
+driver=gl). Ядра ставит install.sh (libretro-*). Пульт/клавиатура
+работают в RetroArch напрямую (udev).
 
 ## ТВ (tvheadend)
 
