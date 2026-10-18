@@ -1,10 +1,11 @@
 #!/bin/sh
-# Kodi-набор lan-discovery: автозапуск Kodi + Wi-Fi-аддон + SDR-радио.
-# Полностью повторяем на аналогичном устройстве Armbian/Debian:
+# Kodi-набор lan-discovery: автозапуск Kodi + Wi-Fi + SDR-радио + ретроигры + ТВ (PVR).
+# Полностью повторяем на аналогичном устройстве Armbian/Debian (arm64):
 #   sh install.sh [--user <юзер>] [--no-enable]
 #
-# Ставит (если нет): kodi, ffmpeg, rtl-sdr, python3.
-# Конфиги: kodi.service, sudoers nmcli, udev rtl-sdr, addons, favorites.
+# Ставит (если нет): kodi, ffmpeg, rtl-sdr, python3, retroarch + libretro-ядра.
+# Конфиги: kodi.service, hdmi-watch, sudoers nmcli, udev rtl-sdr, addons,
+# PVR tvheadend (127.0.0.1:9981), web-управление на 8085, favorites.
 set -e
 
 KODI_USER=kot
@@ -25,7 +26,9 @@ KODI_HOME=$(getent passwd "$KODI_USER" | cut -d: -f6)
 
 echo "== apt (только недостающее) =="
 MISSING=""
-for p in kodi ffmpeg rtl-sdr python3; do
+for p in kodi ffmpeg rtl-sdr python3 retroarch \
+         libretro-nestopia libretro-snes9x libretro-gambatte \
+         libretro-mgba libretro-genesisplusgx libretro-beetle-psx; do
   dpkg -s "$p" >/dev/null 2>&1 || MISSING="$MISSING $p"
 done
 if [ -n "$MISSING" ]; then
@@ -60,12 +63,51 @@ install -m 440 "$HERE/sudoers-lan-bridge" /etc/sudoers.d/lan-bridge
 echo "== аддоны Kodi =="
 install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.kodi/addons"
 rm -rf "$KODI_HOME/.kodi/addons/plugin.program.wifi-settings" \
-       "$KODI_HOME/.kodi/addons/plugin.program.sdr-radio"
+       "$KODI_HOME/.kodi/addons/plugin.program.sdr-radio" \
+       "$KODI_HOME/.kodi/addons/plugin.program.retro-games"
 cp -r "$HERE/addon-wifi/plugin.program.wifi-settings" "$KODI_HOME/.kodi/addons/"
 cp -r "$HERE/addon-sdr/plugin.program.sdr-radio" "$KODI_HOME/.kodi/addons/"
+cp -r "$HERE/addon-retro/plugin.program.retro-games" "$KODI_HOME/.kodi/addons/"
 python3 "$HERE/make_icons.py" \
   "$KODI_HOME/.kodi/addons/plugin.program.wifi-settings/icon.png" \
-  "$KODI_HOME/.kodi/addons/plugin.program.sdr-radio/icon.png"
+  "$KODI_HOME/.kodi/addons/plugin.program.sdr-radio/icon.png" \
+  "$KODI_HOME/.kodi/addons/plugin.program.retro-games/icon.png"
+chown -R "$KODI_USER:$KODI_USER" "$KODI_HOME/.kodi/addons"
+
+echo "== RetroArch =="
+install -m 755 "$HERE/retro-games.sh" /usr/local/bin/retro-games.sh
+install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/roms"
+install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.config/retroarch"
+if [ ! -f "$KODI_HOME/.config/retroarch/retroarch.cfg" ]; then
+  install -o "$KODI_USER" -g "$KODI_USER" -m 644 "$HERE/retroarch.cfg" \
+    "$KODI_HOME/.config/retroarch/retroarch.cfg"
+fi
+
+echo "== PVR tvheadend =="
+install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.kodi/userdata/addon_data/pvr.hts"
+install -o "$KODI_USER" -g "$KODI_USER" -m 644 "$HERE/pvr-hts-settings.xml" \
+  "$KODI_HOME/.kodi/userdata/addon_data/pvr.hts/instance-settings-1.xml"
+rm -f "$KODI_HOME/.kodi/userdata/addon_data/pvr.hts/settings.xml"
+if [ ! -f "$KODI_HOME/.kodi/userdata/advancedsettings.xml" ]; then
+  install -o "$KODI_USER" -g "$KODI_USER" -m 644 "$HERE/advancedsettings.xml" \
+    "$KODI_HOME/.kodi/userdata/advancedsettings.xml"
+fi
+if [ ! -f "$KODI_HOME/.kodi/userdata/settings.xml" ]; then
+  install -o "$KODI_USER" -g "$KODI_USER" -m 644 "$HERE/settings-webserver.xml" \
+    "$KODI_HOME/.kodi/userdata/settings.xml"
+fi
+install -m 755 "$HERE/enable-pvr.sh" /usr/local/bin/enable-pvr.sh
+install -m 755 "$HERE/tvh-access.sh" /usr/local/bin/tvh-access.sh
+if command -v tvheadend >/dev/null 2>&1; then
+  sh "$HERE/tvh-access.sh"
+else
+  echo "tvheadend не установлен — пункт ТВ в kodi будет без каналов"
+fi
+if ls "$KODI_HOME"/.kodi/userdata/Database/Addons*.db >/dev/null 2>&1; then
+  sh "$HERE/enable-pvr.sh" || true
+else
+  echo "ПЕРВЫЙ ЗАПУСК: после старта kodi выполните: sh $HERE/enable-pvr.sh"
+fi
 
 echo "== избранное (ярлыки в главном меню) =="
 install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.kodi/userdata"
@@ -86,4 +128,4 @@ echo
 echo "Готово. Kodi-юзер: $KODI_USER ($KODI_HOME)"
 echo "Автозапуск: $(systemctl is-enabled kodi.service 2>/dev/null || echo 'выключен (--no-enable)')"
 echo "Запуск сейчас: systemctl start kodi  |  остановка: systemctl stop kodi"
-echo "В Kodi: Избранное -> 📶 Wi-Fi / 📻 SDR Радио (или Программы)"
+echo "В Kodi: главное меню -> Избранное (📶 Wi-Fi, 📻 SDR/FM, 🎮 Ретроигры, 📺 ТВ)"

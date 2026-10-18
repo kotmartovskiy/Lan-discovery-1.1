@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<!-- Веб-управление Kodi (JSON-RPC) на 8085 (8080 занят панелью lan-discovery) -->
+<advancedsettings>
+  <services>
+    <esallinterfaces>true</esallinterfaces>
+    <webserver>true</webserver>
+    <webport>8085</webport>
+  </services>
+</advancedsettings>

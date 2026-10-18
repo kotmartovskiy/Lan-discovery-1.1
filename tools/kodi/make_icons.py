@@ -63,11 +63,44 @@ def sdr_icon(size=256):
     return px
 
 
+def retro_icon(size=256):
+    bg = (16, 28, 16)
+    body = (200, 200, 205)
+    dark = (40, 40, 45)
+    accent = (230, 80, 60)
+    px = [[bg for _ in range(size)] for _ in range(size)]
+    x0, x1 = int(size * 0.12), int(size * 0.88)
+    y0, y1 = int(size * 0.32), int(size * 0.62)
+    for y in range(size):
+        for x in range(size):
+            if x0 <= x < x1 and y0 <= y < y1:
+                px[y][x] = body
+            if x0 - 14 <= x < x0 and int(size * 0.42) <= y < y1 + 14:
+                px[y][x] = body
+    cx, cy = int(size * 0.24), (y0 + y1) // 2
+    for y in range(cy - 7, cy + 8):
+        for x in range(cx - 22, cx + 23):
+            if y < cy - 3 or y > cy + 3:
+                px[y][x] = dark
+    for y in range(cy - 22, cy + 23):
+        for x in range(cx - 7, cx + 8):
+            if x < cx - 3 or x > cx + 3:
+                px[y][x] = dark
+    for (bx, by) in ((int(size * 0.62), int(size * 0.42)), (int(size * 0.74), int(size * 0.42)),
+                     (int(size * 0.68), int(size * 0.34)), (int(size * 0.68), int(size * 0.50))):
+        for y in range(by - 10, by + 11):
+            for x in range(bx - 10, bx + 11):
+                if (x - bx) ** 2 + (y - by) ** 2 <= 100:
+                    px[y][x] = accent
+    return px
+
+
 def main():
-    if len(sys.argv) != 3:
-        sys.exit("usage: make_icons.py <wifi.png> <sdr.png>")
+    if len(sys.argv) != 4:
+        sys.exit("usage: make_icons.py <wifi.png> <sdr.png> <retro.png>")
     write_png(sys.argv[1], 256, 256, wifi_icon())
     write_png(sys.argv[2], 256, 256, sdr_icon())
+    write_png(sys.argv[3], 256, 256, retro_icon())
     print("icons ok")
 
 

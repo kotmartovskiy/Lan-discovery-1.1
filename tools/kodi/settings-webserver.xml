@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- Глобальные настройки Kodi: веб-управление (JSON-RPC) на 8085 (8080 занят панелью) -->
+<settings version="2">
+  <setting id="services.esallinterfaces" value="true" />
+  <setting id="services.webserver" value="true" />
+  <setting id="services.webserverport" value="8085" />
+  <setting id="services.webserverauthentication" value="1" />
+  <setting id="services.webserverusername" value="kodi" />
+  <setting id="services.webserverpassword" value="kodi" />
+</settings>

@@ -1,0 +1,12 @@
+<settings version="2">
+    <setting id="kodi_addon_instance_name">tvheadend</setting>
+    <setting id="kodi_addon_instance_enabled" default="true">true</setting>
+    <setting id="host" default="true">127.0.0.1</setting>
+    <setting id="https" default="true">false</setting>
+    <setting id="http_port" default="true">9981</setting>
+    <setting id="htsp_port" default="true">9982</setting>
+    <setting id="user" default="true">kodi</setting>
+    <setting id="pass" default="true">kodi</setting>
+    <setting id="connect_timeout" default="true">10</setting>
+    <setting id="response_timeout" default="true">5</setting>
+</settings>
