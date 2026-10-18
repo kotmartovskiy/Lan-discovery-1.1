@@ -24,7 +24,7 @@ rtl-sdr, python3, retroarch + libretro-ядра) и полностью восп�
 | стример | `/usr/local/bin/sdr_radio.py` | `rtl_fm → ffmpeg (aac/adts) → http://:8344/stream` |
 | udev | `90-rtlsdr.rules` | доступ к свистку `0666` (номер 90 перебивает `60-librtlsdr0.rules` пакета) |
 | группа | `plugdev` | юзер Kodi получает доступ к USB-свистку (страховка) |
-| sudo | `sudoers-lan-bridge` | `kot` без пароля: `nmcli` (Wi-Fi) и `systemctl` (стоп/старт kodi из RetroArch) |
+| sudo | `sudoers-lan-bridge` | `kot` без пароля: `nmcli` (Wi-Fi), `systemctl` (стоп/старт kodi из RetroArch), `cgroup-escape` (отвязка от cgroup kodi.service) |
 | аддон Wi-Fi | `addon-wifi/plugin.program.wifi-settings` | список сетей NM, ввод пароля, подключение/отключение |
 | аддон SDR | `addon-sdr/plugin.program.sdr-radio` | меню частот/модуляций, запуск стрима, воспроизведение в Kodi |
 | аддон ретро | `addon-retro/plugin.program.retro-games` | выбор системы (NES/SNES/GB/GBA/Genesis/PSX) → RetroArch |
@@ -94,9 +94,19 @@ Game Boy Gambatte, GBA mGBA, Genesis Plus GX, PlayStation Beetle PSX) +
 RetroArch fullscreen (ядро + первый найденный ROM этой системы; без ROM —
 открывается меню RetroArch, там Load Content). Выход из RetroArch
 возвращает kodi. Всё через `retro-games.sh` (стоп/старт kodi —
-`sudo -n systemctl`, права в sudoers; DRM — группы video/render у kot,
-driver=gl). Ядра ставит install.sh (libretro-*). Пульт/клавиатура
+`sudo -n systemctl`; **скрипт и retroarch отвязываются от cgroup
+kodi.service через `cgroup-escape`** — иначе `KillMode=control-group`
+уничтожает их при stop и kodi не возвращается; DRM — группы video/render
+у kot, driver=gl). Ядра ставит install.sh (libretro-*). Пульт/клавиатура
 работают в RetroArch напрямую (udev).
+
+**Возврат в kodi без клавиатуры (если RetroArch завис/чёрный экран):**
+1. Кнопка «Назад»/Exit/ESC на пульте — выход из RetroArch, скрипт сам
+   запускает kodi (проверено: trap EXIT).
+2. **Выдернуть и воткнуть HDMI-кабель** — hdmi-watch убивает retroarch
+   (`pkill -u kot -x retroarch`) и перезапускает kodi.
+3. Кнопка питания (перезагрузка) — крайний случай, kodi.service enabled,
+   поднимется сам.
 
 ## ТВ (tvheadend)
 

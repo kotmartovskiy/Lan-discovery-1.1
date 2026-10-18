@@ -56,6 +56,9 @@ udevadm trigger --subsystem-match=usb || true
 echo "== группа plugdev =="
 id -nG "$KODI_USER" | grep -qw plugdev || usermod -aG plugdev "$KODI_USER"
 
+echo "== cgroup-escape (retro-games.sh не умирает при stop kodi) =="
+install -m 755 "$HERE/cgroup-escape" /usr/local/bin/cgroup-escape
+
 echo "== sudoers nmcli =="
 visudo -cf "$HERE/sudoers-lan-bridge" >/dev/null
 install -m 440 "$HERE/sudoers-lan-bridge" /etc/sudoers.d/lan-bridge

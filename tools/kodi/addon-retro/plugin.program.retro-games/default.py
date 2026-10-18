@@ -50,23 +50,22 @@ def main():
         return
 
     rom = find_rom(exts)
-    if rom:
-        subprocess.Popen(["/bin/sh", LAUNCHER, core, rom],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                         start_new_session=True)
-        xbmcgui.Dialog().notification(
-            "Ретроигры", "Запуск: %s — kodi вернётся после выхода" % os.path.basename(rom),
-            xbmcgui.NOTIFICATION_INFO, 5000)
-    else:
-        subprocess.Popen(["/bin/sh", LAUNCHER, ""],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                         start_new_session=True)
+    if not rom:
+        # диалог ДО остановки kodi — иначе kodi убивает скрипт при shutdown
         xbmcgui.Dialog().ok(
             "Ретроигры",
             "В папке %s нет файлов %s (ROM для %s).\n\n"
             "Скопируй ROM-файлы в эту папку и запусти снова.\n"
             "Сейчас откроется меню RetroArch — там можно Load Content вручную."
             % (ROMS, "/".join(exts), name))
+    subprocess.Popen(["/bin/sh", LAUNCHER, core if rom else "", rom or ""],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True)
+    xbmcgui.Dialog().notification(
+        "Ретроигры",
+        "Запуск RetroArch — kodi вернётся после выхода"
+        + (": %s" % os.path.basename(rom) if rom else ""),
+        xbmcgui.NOTIFICATION_INFO, 5000)
 
 
 if __name__ == "__main__":

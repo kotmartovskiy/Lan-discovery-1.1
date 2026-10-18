@@ -1,0 +1,9 @@
+#!/bin/sh
+# Отвязывает процесс от cgroup юнита (иначе systemctl stop kodi убивает
+# retro-games.sh вместе с retroarch, и start kodi никогда не выполняется).
+# Вызывается только из sudoers (NOPASSWD), pid — только число.
+pid="$1"
+case "$pid" in
+  ''|*[!0-9]*) echo "usage: cgroup-escape <pid>" >&2; exit 1 ;;
+esac
+echo "$pid" > /sys/fs/cgroup/cgroup.procs
