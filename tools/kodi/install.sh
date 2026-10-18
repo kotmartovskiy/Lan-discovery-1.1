@@ -83,6 +83,15 @@ if [ ! -f "$KODI_HOME/.config/retroarch/retroarch.cfg" ]; then
     "$KODI_HOME/.config/retroarch/retroarch.cfg"
 fi
 
+echo "== избранное (ярлыки в главном меню) =="
+install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.kodi/userdata"
+if [ -f "$KODI_HOME/.kodi/userdata/favourites.xml" ]; then
+  cp "$KODI_HOME/.kodi/userdata/favourites.xml" "$KODI_HOME/.kodi/userdata/favourites.xml.bak-$(date +%s)"
+fi
+rm -f "$KODI_HOME/.kodi/userdata/favorites.xml"
+install -o "$KODI_USER" -g "$KODI_USER" -m 644 "$HERE/favourites.xml" \
+  "$KODI_HOME/.kodi/userdata/favourites.xml"
+
 echo "== PVR tvheadend =="
 install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.kodi/userdata/addon_data/pvr.hts"
 install -o "$KODI_USER" -g "$KODI_USER" -m 644 "$HERE/pvr-hts-settings.xml" \
@@ -108,15 +117,6 @@ if ls "$KODI_HOME"/.kodi/userdata/Database/Addons*.db >/dev/null 2>&1; then
 else
   echo "ПЕРВЫЙ ЗАПУСК: после старта kodi выполните: sh $HERE/enable-pvr.sh"
 fi
-
-echo "== избранное (ярлыки в главном меню) =="
-install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.kodi/userdata"
-if [ -f "$KODI_HOME/.kodi/userdata/favourites.xml" ]; then
-  cp "$KODI_HOME/.kodi/userdata/favourites.xml" "$KODI_HOME/.kodi/userdata/favourites.xml.bak-$(date +%s)"
-fi
-rm -f "$KODI_HOME/.kodi/userdata/favorites.xml"
-install -o "$KODI_USER" -g "$KODI_USER" -m 644 "$HERE/favourites.xml" \
-  "$KODI_HOME/.kodi/userdata/favourites.xml"
 
 echo "== systemd kodi =="
 install -m 644 "$HERE/kodi.service" /etc/systemd/system/kodi.service
