@@ -24,7 +24,7 @@ rtl-sdr, python3, retroarch + libretro-ядра) и полностью восп�
 | стример | `/usr/local/bin/sdr_radio.py` | `rtl_fm → ffmpeg (aac/adts) → http://:8344/stream` |
 | udev | `90-rtlsdr.rules` | доступ к свистку `0666` (номер 90 перебивает `60-librtlsdr0.rules` пакета) |
 | группа | `plugdev` | юзер Kodi получает доступ к USB-свистку (страховка) |
-| sudo | `sudoers-lan-bridge` | `kot` может вызывать `nmcli` без пароля |
+| sudo | `sudoers-lan-bridge` | `kot` без пароля: `nmcli` (Wi-Fi) и `systemctl` (стоп/старт kodi из RetroArch) |
 | аддон Wi-Fi | `addon-wifi/plugin.program.wifi-settings` | список сетей NM, ввод пароля, подключение/отключение |
 | аддон SDR | `addon-sdr/plugin.program.sdr-radio` | меню частот/модуляций, запуск стрима, воспроизведение в Kodi |
 | аддон ретро | `addon-retro/plugin.program.retro-games` | выбор системы (NES/SNES/GB/GBA/Genesis/PSX) → RetroArch |
@@ -88,11 +88,13 @@ addonID LIKE 'plugin.program.%';"` + рестарт kodi.
 
 `Избранное → 🎮 Ретроигры`: список систем (NES Nestopia, SNES Snes9x,
 Game Boy Gambatte, GBA mGBA, Genesis Plus GX, PlayStation Beetle PSX) +
-«RetroArch: главное меню». Выбор → `retro-games.sh` останавливает kodi,
-запускает RetroArch fullscreen с ядром, после выхода возвращает kodi
-(оба — GBM, DRM-конкуренция исключена). ROM'ы складывать в
-`/home/kot/roms` (в самом RetroArch — Load Content). Ядра ставит
-install.sh (libretro-*).
+«RetroArch: главное меню». Выбор → `retro-games.sh` останавливает kodi
+(экран на пару секунд гаснет), запускает RetroArch fullscreen с ядром,
+после выхода из RetroArch возвращает kodi (оба — GBM, DRM-конкуренция
+исключена; стоп/старт сервиса — через `sudo -n systemctl`, права в
+sudoers). ROM'ы складывать в `/home/kot/roms` (в самом RetroArch —
+Load Content → /home/kot/roms). Ядра ставит install.sh (libretro-*).
+Пульт/клавиатура работают в RetroArch напрямую (udev).
 
 ## ТВ (tvheadend)
 

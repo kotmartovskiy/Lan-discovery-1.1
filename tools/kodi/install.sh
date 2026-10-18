@@ -73,6 +73,12 @@ python3 "$HERE/make_icons.py" \
   "$KODI_HOME/.kodi/addons/plugin.program.sdr-radio/icon.png" \
   "$KODI_HOME/.kodi/addons/plugin.program.retro-games/icon.png"
 chown -R "$KODI_USER:$KODI_USER" "$KODI_HOME/.kodi/addons"
+# иконка для ярлыка «ТВ» (pvr.hts — системный аддон, иконка из /usr/share)
+if [ -f /usr/share/kodi/addons/pvr.hts/icon.png ]; then
+  install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.kodi/addons/pvr.hts"
+  install -o "$KODI_USER" -g "$KODI_USER" -m 644 /usr/share/kodi/addons/pvr.hts/icon.png \
+    "$KODI_HOME/.kodi/addons/pvr.hts/icon.png"
+fi
 
 echo "== RetroArch =="
 install -m 755 "$HERE/retro-games.sh" /usr/local/bin/retro-games.sh
