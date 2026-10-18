@@ -111,11 +111,12 @@ fi
 
 echo "== избранное (ярлыки в главном меню) =="
 install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.kodi/userdata"
-if [ -f "$KODI_HOME/.kodi/userdata/favorites.xml" ]; then
-  cp "$KODI_HOME/.kodi/userdata/favorites.xml" "$KODI_HOME/.kodi/userdata/favorites.xml.bak-$(date +%s)"
+if [ -f "$KODI_HOME/.kodi/userdata/favourites.xml" ]; then
+  cp "$KODI_HOME/.kodi/userdata/favourites.xml" "$KODI_HOME/.kodi/userdata/favourites.xml.bak-$(date +%s)"
 fi
-install -o "$KODI_USER" -g "$KODI_USER" -m 644 "$HERE/favorites.xml" \
-  "$KODI_HOME/.kodi/userdata/favorites.xml"
+rm -f "$KODI_HOME/.kodi/userdata/favorites.xml"
+install -o "$KODI_USER" -g "$KODI_USER" -m 644 "$HERE/favourites.xml" \
+  "$KODI_HOME/.kodi/userdata/favourites.xml"
 
 echo "== systemd kodi =="
 install -m 644 "$HERE/kodi.service" /etc/systemd/system/kodi.service

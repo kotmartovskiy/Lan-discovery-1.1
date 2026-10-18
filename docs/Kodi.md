@@ -33,7 +33,7 @@ rtl-sdr, python3, retroarch + libretro-ядра) и полностью восп�
 | PVR включение | `enable-pvr.sh` | `UPDATE installed SET enabled=1` в Addons*.db (после 1-го старта kodi) |
 | tvheadend-доступ | `tvh-access.sh` | юзер kodi в tvheadend: `accesscontrol/` + `passwd/` (пароль kodi) |
 | web-управление | `advancedsettings.xml`, `settings-webserver.xml` | JSON-RPC TCP 9090 / HTTP 8085 (8080 занят панелью) |
-| ярлыки | `favorites.xml` | 📶 Wi-Fi, 📻 SDR/FM, 🎮 Ретроигры, 📺 ТВ в «Избранном» |
+| ярлыки | `favourites.xml` | 📶 Wi-Fi, 📻 SDR/FM, 🎮 Ретроигры, 📺 ТВ в «Избранном» (kodi читает только `favourites.xml`, не `favorites.xml`) |
 
 Ключ: `--user <юзер>` (по умолчанию `kot`), `--no-enable` — без автозапуска.
 
