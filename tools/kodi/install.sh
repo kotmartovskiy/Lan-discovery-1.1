@@ -38,6 +38,12 @@ fi
 echo "== стример =="
 install -m 755 "$HERE/sdr_radio.py" /usr/local/bin/sdr_radio.py
 
+echo "== hdmi-watch (автоперезапуск kodi при появлении дисплея) =="
+install -m 755 "$HERE/hdmi-watch.sh" /usr/local/bin/hdmi-watch.sh
+install -m 644 "$HERE/hdmi-watch.service" /etc/systemd/system/hdmi-watch.service
+systemctl daemon-reload
+systemctl enable --now hdmi-watch.service
+
 echo "== udev rtl-sdr =="
 rm -f /etc/udev/rules.d/20-rtlsdr.rules
 install -m 644 "$HERE/90-rtlsdr.rules" /etc/udev/rules.d/90-rtlsdr.rules

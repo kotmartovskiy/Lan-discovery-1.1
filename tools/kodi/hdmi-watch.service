@@ -1,0 +1,12 @@
+[Unit]
+Description=HDMI hotplug watcher: restart kodi when display appears
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hdmi-watch.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
