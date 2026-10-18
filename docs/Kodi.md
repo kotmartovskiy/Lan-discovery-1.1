@@ -70,6 +70,20 @@ Kodi 20 читает из `userdata/favourites.xml` дочерние теги **
 → `total: 0` при существующем файле = не тот тег. После правки файла —
 `systemctl restart kodi` (читается только при старте).
 
+### Ловушка 2: аддоны «не открываются», ошибка в логе
+
+Kodi при первом старте помечает посторонние аддоны `enabled=0` в
+`userdata/Database/Addons33.db` — `RunAddon` отвечает «unknown add-on id».
+Лечится `enable-pvr.sh` (он включает и `pvr.hts`, и все `plugin.program.*`)
+или вручную: `sqlite3 Addons33.db "UPDATE installed SET enabled=1 WHERE
+addonID LIKE 'plugin.program.%';"` + рестарт kodi.
+
+### Ловушка 3: кракозябры в именах ярлыков
+
+`favourites.xml` обязан начинаться с `<?xml version="1.0" encoding="UTF-8"?>`:
+без этой декларации kodi (TinyXML) интерпретирует файл как латиницу и
+эмодзи/кириллица превращаются в «ðŸ…» прямо на экране.
+
 ## Ретроигры
 
 `Избранное → 🎮 Ретроигры`: список систем (NES Nestopia, SNES Snes9x,
