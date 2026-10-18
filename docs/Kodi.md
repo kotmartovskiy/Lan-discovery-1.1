@@ -33,7 +33,7 @@ rtl-sdr, python3, retroarch + libretro-ядра) и полностью восп�
 | PVR включение | `enable-pvr.sh` | `UPDATE installed SET enabled=1` в Addons*.db (после 1-го старта kodi) |
 | tvheadend-доступ | `tvh-access.sh` | юзер kodi в tvheadend: `accesscontrol/` + `passwd/` (пароль kodi) |
 | web-управление | `advancedsettings.xml`, `settings-webserver.xml` | JSON-RPC TCP 9090 / HTTP 8085 (8080 занят панелью) |
-| ярлыки | `favourites.xml` | 📶 Wi-Fi, 📻 SDR/FM, 🎮 Ретроигры, 📺 ТВ в «Избранном» (kodi читает только `favourites.xml`, не `favorites.xml`) |
+| ярлыки | `favourites.xml` | 📶 Wi-Fi, 📻 SDR/FM, 🎮 Ретроигры, 📺 ТВ в «Избранном» (kodi читает только `favourites.xml`, не `favorites.xml`; тег элемента — `<favourite>`, британское, `<favorite>` молча игнорируется!) |
 
 Ключ: `--user <юзер>` (по умолчанию `kot`), `--no-enable` — без автозапуска.
 
@@ -42,6 +42,33 @@ rtl-sdr, python3, retroarch + libretro-ядра) и полностью восп�
 В главном меню Estuary открой **«Избранное»** — там четыре ярлыка:
 📶 Wi-Fi, 📻 SDR Радио (FM/AM), 🎮 Ретроигры, 📺 ТВ (tvheadend).
 Те же аддоны видны в разделе «Программы» → «Установленные дополнения».
+
+## Диагностика: JSON-RPC TCP
+
+На X96 работает **JSON-RPC поверх TCP на порту 9090** (HTTP-веб-сервер
+kodi на 8085 почему-то не поднимается — TCP не зависит от него).
+Протокол прост: отправляй «голый» JSON (заголовков нет!), получай ответ:
+
+```python
+import socket, json
+s = socket.create_connection(("127.0.0.1", 9090), timeout=5)
+s.sendall(b'{"jsonrpc": "2.0", "method": "Favourites.GetFavourites", "id": 1}')
+print(s.recv(65536).decode())
+# -> {"id":1,"jsonrpc":"2.0","result":{"favourites":[{"title":"📶 Wi-Fi",...}],"limits":{...,"total":4}}}
+```
+
+Полезные методы: `JSONRPC.Ping` → `pong`; `Favourites.GetFavourites` →
+список ярлыков; `Favourites.AddFavourite` (params: title, type=window,
+window=home); `GUI.ActivateWindow`; `Application.Quit`.
+
+### Ловушка: пустое «Избранное» при файле на месте
+
+Kodi 20 читает из `userdata/favourites.xml` дочерние теги **`<favourite>`**
+(британское, две «u»). Если в файле написано `<favorite>` (американское),
+`LoadFromFile` молча находит 0 элементов — без единой строки в логе, UI
+показывает «Список избранного пуст». Проверка: `Favourites.GetFavourites`
+→ `total: 0` при существующем файле = не тот тег. После правки файла —
+`systemctl restart kodi` (читается только при старте).
 
 ## Ретроигры
 

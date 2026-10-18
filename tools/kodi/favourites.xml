@@ -1,7 +1,6 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <favourites>
-  <favorite name="📶 Wi-Fi" thumb="special://home/addons/plugin.program.wifi-settings/icon.png">RunAddon(plugin.program.wifi-settings)</favorite>
-  <favorite name="📻 SDR Радио (FM/AM)" thumb="special://home/addons/plugin.program.sdr-radio/icon.png">RunAddon(plugin.program.sdr-radio)</favorite>
-  <favorite name="🎮 Ретроигры" thumb="special://home/addons/plugin.program.retro-games/icon.png">RunAddon(plugin.program.retro-games)</favorite>
-  <favorite name="📺 ТВ (tvheadend)" thumb="special://home/addons/pvr.hts/icon.png">ActivateWindow(TVChannels)</favorite>
+	<favourite name="📶 Wi-Fi" thumb="special://home/addons/plugin.program.wifi-settings/icon.png">RunAddon(plugin.program.wifi-settings)</favourite>
+	<favourite name="📻 SDR Радио (FM/AM)" thumb="special://home/addons/plugin.program.sdr-radio/icon.png">RunAddon(plugin.program.sdr-radio)</favourite>
+	<favourite name="🎮 Ретроигры" thumb="special://home/addons/plugin.program.retro-games/icon.png">RunAddon(plugin.program.retro-games)</favourite>
+	<favourite name="📺 ТВ (tvheadend)" thumb="special://home/addons/pvr.hts/icon.png">ActivateWindow(TVChannels)</favourite>
 </favourites>
