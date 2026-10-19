@@ -4,4 +4,5 @@
 	<favourite name="📻 SDR Радио (FM/AM)" thumb="special://home/addons/plugin.program.sdr-radio/icon.png">RunAddon(plugin.program.sdr-radio)</favourite>
 	<favourite name="🎮 Ретроигры" thumb="special://home/addons/plugin.program.retro-games/icon.png">RunAddon(plugin.program.retro-games)</favourite>
 	<favourite name="📺 ТВ (tvheadend)" thumb="special://home/addons/pvr.hts/icon.png">ActivateWindow(TVChannels)</favourite>
+	<favourite name="🖥 Рабочий стол (LXDE)">System.Exec(/usr/local/bin/lxde.sh)</favourite>
 </favourites>

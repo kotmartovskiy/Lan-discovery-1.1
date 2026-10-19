@@ -1,9 +1,11 @@
 #!/bin/sh
-# Kodi-набор lan-discovery: автозапуск Kodi + Wi-Fi + SDR-радио + ретроигры + ТВ (PVR).
+# Kodi-набор lan-discovery: автозапуск Kodi + Wi-Fi + SDR-радио + ретроигры + ТВ (PVR)
+# + рабочий стол LXDE + adb + mc.
 # Полностью повторяем на аналогичном устройстве Armbian/Debian (arm64):
 #   sh install.sh [--user <юзер>] [--no-enable]
 #
-# Ставит (если нет): kodi, ffmpeg, rtl-sdr, python3, retroarch + libretro-ядра.
+# Ставит (если нет): kodi, ffmpeg, rtl-sdr, python3, retroarch + libretro-ядра,
+# adb, mc, lxde-core + X (xserver-xorg-legacy, xinit).
 # Конфиги: kodi.service, hdmi-watch, sudoers nmcli, udev rtl-sdr, addons,
 # PVR tvheadend (127.0.0.1:9981), web-управление на 8085, favorites.
 set -e
@@ -28,7 +30,9 @@ echo "== apt (только недостающее) =="
 MISSING=""
 for p in kodi ffmpeg rtl-sdr python3 retroarch \
          libretro-nestopia libretro-snes9x libretro-gambatte \
-         libretro-mgba libretro-genesisplusgx libretro-beetle-psx; do
+         libretro-mgba libretro-genesisplusgx libretro-beetle-psx \
+         adb mc lxde-core xserver-xorg xserver-xorg-legacy xinit \
+         x11-xserver-utils xterm; do
   dpkg -s "$p" >/dev/null 2>&1 || MISSING="$MISSING $p"
 done
 if [ -n "$MISSING" ]; then
@@ -96,6 +100,13 @@ if [ ! -f "$KODI_HOME/.config/retroarch/retroarch.cfg" ]; then
     "$KODI_HOME/.config/retroarch/retroarch.cfg"
 fi
 
+echo "== рабочий стол LXDE (adb/mc уже в apt) =="
+install -m 755 "$HERE/lxde.sh" /usr/local/bin/lxde.sh
+install -m 644 "$HERE/xwrapper.config" /etc/X11/Xwrapper.config
+# XDG_RUNTIME_DIR kot (без локального logind-сеанса /run/user/1000 не создаётся)
+echo "d /run/user/1000 0700 $KODI_USER $KODI_USER -" > /etc/tmpfiles.d/kot-runtime.conf
+systemd-tmpfiles --create || true
+
 echo "== избранное (ярлыки в главном меню) =="
 install -d -o "$KODI_USER" -g "$KODI_USER" "$KODI_HOME/.kodi/userdata"
 if [ -f "$KODI_HOME/.kodi/userdata/favourites.xml" ]; then
@@ -142,4 +153,4 @@ echo
 echo "Готово. Kodi-юзер: $KODI_USER ($KODI_HOME)"
 echo "Автозапуск: $(systemctl is-enabled kodi.service 2>/dev/null || echo 'выключен (--no-enable)')"
 echo "Запуск сейчас: systemctl start kodi  |  остановка: systemctl stop kodi"
-echo "В Kodi: главное меню -> Избранное (📶 Wi-Fi, 📻 SDR/FM, 🎮 Ретроигры, 📺 ТВ)"
+echo "В Kodi: главное меню -> Избранное (📶 Wi-Fi, 📻 SDR/FM, 🎮 Ретроигры, 📺 ТВ, 🖥 LXDE)"

@@ -108,6 +108,26 @@ kodi.service через `cgroup-escape`** — иначе `KillMode=control-group
 3. Кнопка питания (перезагрузка) — крайний случай, kodi.service enabled,
    поднимется сам.
 
+## Рабочий стол LXDE (+ adb, mc)
+
+`Избранное → 🖥 Рабочий стол (LXDE)` (или `sh /usr/local/bin/lxde.sh` из
+SSH) останавливает kodi и поднимает X11 + LXDE (openbox, lxpanel,
+pcmanfm, lxterminal) с ускорением glamor на Mali-G31/Panfrost. **Выход**:
+панель → Logout — kodi возвращается сам (cgroup-escape + trap EXIT, как
+в retro-games.sh). X и kodi не работают одновременно (оба на DRM) —
+та же схема стоп/старт. Страховки те же: Exit…, выдернуть-воткнуть
+HDMI, power.
+
+В LXDE: `mc` (Midnight Commander — F1..F9), `adb` (клиент для Android:
+`adb devices` — USB-устройства сюда; X96 сам по себе не является
+Android-устройством), браузер/терминал — с панели.
+
+Тонкости (уже в install.sh): пакеты `lxde-core xserver-xorg
+xserver-xorg-legacy xinit xterm adb mc`; `/etc/X11/Xwrapper.config`
+с ключом **`needs_root_rights=yes`** (не `root_rights` — wrap падает с
+«Invalid key»), иначе Xorg не открывает `/dev/tty0`; `/run/user/1000`
+создаётся через `tmpfiles.d` (kot без локального logind-сеанса).
+
 ## ТВ (tvheadend)
 
 `Избранное → 📺 ТВ` открывает PVR-интерфейс tvheadend (pvr.hts
