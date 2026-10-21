@@ -17,9 +17,9 @@
 **Любые дополнения и изменения кода, шаблонов и документации нужно коммитить и пушить на GitHub — иначе репозиторий отстаёт от работающей системы.**
 
 Репозитории:
-- **`Lan-discovery-1.1`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-1.1 — **ОСНОВНОЙ репозиторий ЭТОЙ копии (версия 1.1: UI/UX, capabilities/modules/roles)**. Код, `docs/`, `README.md`, `AGENTS.md`, `ROADMAP.md`, `UI_UX_AUDIT.md`. Ветка `main`, локальный `origin` указывает сюда; коммит/пуш — сюда (`git push origin main`).
+- **`Lan-discovery-1.1`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-1.1 — **версия 1.1, ЗАМОРОЖЕНА с 21.10.2026** (X96 переведён на 2.0, 1.1 с него удалена). ЭТА копия (`Default Project`) — только горячие фиксы 1.1 по отдельному указанию. **Основная работа — в клоне 2.0: `C:\Users\Lenovo\Documents\Lan-discovery-2.0` (см. его `AGENTS.md`).**
 - **`Lan-discovery-2.0`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-2.0 — **версия 2.0 (Universal Modular Appliance Platform) в параллельной разработке с 01.10.2026**. Своя рабочая копия `C:\Users\Lenovo\Documents\Lan-discovery-2.0` (свой `origin` там; в ней же remote `upstream-11` → этот репо для cherry-pick). **2.0 НЕ деплоим на X96/Orange Pi** (боевые на 1.1); правки 2.0 в этой копии не делаются — только в клоне 2.0.
-- **`Lan-discovery-ARM`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-ARM — **версия 1.0, ЗАМОРОЖЕНА** (Orange Pi работает на этой версии; локальный remote `origin-1.0`). Пушить только горячие фиксы 1.0 по отдельному указанию.
+- **`Lan-discovery-ARM`** (приватный) — https://github.com/kotmartovskiy/Lan-discovery-ARM — **версия 1.0, ЗАМОРОЖЕНА** (21.10.2026 Orange Pi переведена на 2.0, 1.0 удалена; локальный remote `origin-1.0` в `Default Project`). Пушить только горячие фиксы 1.0 по отдельному указанию.
 - **`Lan-discovery-docs`** (публичный) — https://github.com/kotmartovskiy/Lan-discovery-docs — очищенная от рабочих IP/паролей копия `docs/`.
 - **`Lan-discovery-modules`** (публичный) — https://github.com/kotmartovskiy/Lan-discovery-modules — каталог модулей для вкладки «Модули» (`index.json` + `<id>/` с `module.json`); панель ставит/обновляет модули из этой ветки (настройка `modules_catalog` в `/etc/lan-discovery/settings.json`).
 - **`Lan-discovery-demo`** (публичный) — https://github.com/kotmartovskiy/Lan-discovery-demo — **статичный демо-слепок панели** для показа извне, сайт: https://kotmartovskiy.github.io/Lan-discovery-demo/ (GitHub Pages, ветка `main`, корень). Генератор `tools/make_demo.py`, проверка `tools/demo_lint.py`.
@@ -59,18 +59,17 @@
    только в `%LOCALAPPDATA%\lan-discovery\ssh_pass.txt`, в git не идёт).
 
 ## Рабочее окружение
-- **ТЕСТОВАЯ СИСТЕМА версии 1.1 — X96 Max** (`192.168.3.243:8080`, hostname `armbian`):
-  на неё деплоим всё новое из `Lan-discovery-1.1`, здесь проверяем этапы.
-- **Orange Pi (`192.168.3.235`) — рабочий инструмент на версии 1.0**:
-  **изменения 1.1 на OP НЕ деплоим**, она остаётся на текущей версии (`Lan-discovery-ARM`).
-- **Web panel: `http://192.168.3.243:8080`** (X96 Max / Armbian, hostname `armbian`)
-  — lan-discovery **переехал сюда** 28.09.2026 (venv: `/opt/lan-discovery/venv`,
-  systemd `lan-discovery` enabled, данные `devices.db` перенесены)
-- X96 Max: IP `192.168.3.243`, SSH root/1234 (hostkey `SHA256:TpeCxMP+...`)
-- Orange Pi: `192.168.3.234` (LAN) **не отвечает** (кабель/интерфейс отвал),
-  доступен через WiFi AP `192.168.3.235` (hostkey `SHA256:fwnWkNuM+...`);
-  сервис `lan-discovery` на OP ещё активен — при необходимости остановить
-  (`systemctl disable --now lan-discovery`), чтобы не сканировали сеть дважды
+- **С 21.10.2026 обе боевые системы работают на версии 2.0**
+  (`/opt/lan-discovery`, порт 8080): X96 Max и Orange Pi переведены на 2.0,
+  версии 1.1/1.0 удалены (бэкапы на боксах). **Деплой 1.1 (из этой копии)
+  НЕ делается** — правки вносятся в клон 2.0 `C:\Users\Lenovo\Documents\Lan-discovery-2.0`.
+- **X96 Max — боевая 2.0** (`192.168.3.243:8080`, hostname `armbian`):
+  SSH root/1234; бэкап 1.1 при переезде — `/root/backup-1.1-remove-20261021-140415/`.
+- **Orange Pi — боевая 2.0** (`192.168.3.234` (LAN) / `192.168.3.235` (WiFi AP)):
+  SSH root/1234; БД на HDD (симлинк `/srv/lan-discovery/devices.db`);
+  бэкап 1.0 — `/root/backup-1.0-remove-20261021-142820/`; если SSH-баннер
+  на `.235` пустой — работать через `.234`.
+- **Web panel: `http://192.168.3.243:8080`** (X96) / **`http://192.168.3.234:8080`** (OP)
 - Thinkpad T480: IP `192.168.3.236` (WiFi) / `192.168.3.239` (LAN)
 - Flask app: `/opt/lan-discovery/app.py` (на боксе — внутри venv)
 - Systemd service: `lan-discovery`
